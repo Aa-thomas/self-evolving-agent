@@ -1,6 +1,10 @@
 import json
+import typer
+import subprocess
 
 
+## JSON TESTS
+## =============================================================================
 def test_readjson():
     with open("scripts/jsonfile.json", "r") as file:
         result = json.load(file)
@@ -38,5 +42,73 @@ def test_validatekeys():
 
     assert result["name"] == expected_name
 
-    
 
+## =============================================================================
+## CLI TESTS
+## =============================================================================
+app = typer.Typer()
+
+
+@app.command()
+def hello():
+    print("hello")
+
+
+@app.command()
+def goodbye():
+    print("goodbye")
+
+
+@app.command()
+def print_json() -> None:
+    name = typer.prompt("What is your name?")
+    age = typer.prompt("What is your age?")
+
+    json = {"name": name, "age": age}
+
+    print(json)
+
+
+@app.command()
+def run(command: str) -> None:
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+    data = {
+        "command": command,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "exit_code": result.returncode,
+    }
+
+    print(data)
+
+
+@app.command()
+def timeout(command: str, timeout: int = 3) -> None:
+    try:
+        result = subprocess.run(
+            command.split(), capture_output=True, text=True, timeout=timeout
+        )
+
+        data = {
+            "command": command,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode,
+            "timed_out": False,
+        }
+
+    except subprocess.TimeoutExpired as err:
+        data = {
+            "command": command,
+            "stdout": err.stdout,
+            "stderr": err.stderr,
+            "exit_code": None,
+            "timed_out": True,
+        }
+
+        print(data)
+
+
+if __name__ == "__main__":
+    app()
