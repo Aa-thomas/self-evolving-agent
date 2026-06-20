@@ -46,7 +46,7 @@ app = typer.Typer()
 
 
 @app.command()
-def ask(prompt: str) -> None:
+def model_call(prompt: str) -> None:
     start_time = time.perf_counter()
 
     response = client.chat.completions.create(
