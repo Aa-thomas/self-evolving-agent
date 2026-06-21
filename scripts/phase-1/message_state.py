@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 import os
 
 
+## =============================================================================
+## Setup
+## =============================================================================
 load_dotenv()
 
 client = OpenAI(
@@ -15,6 +18,9 @@ app = typer.Typer()
 
 
 @app.command()
+## =============================================================================
+## Application
+## =============================================================================
 def message_state(messages: list, new_message: str) -> None:
     # messages must be objects that follow this form
     user_message = {"role": "user", "content": new_message}
