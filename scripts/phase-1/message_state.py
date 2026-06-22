@@ -19,25 +19,34 @@ client = OpenAI(
 
 app = typer.Typer()
 
+messages = []
 
-@app.command()
+
 ## =============================================================================
 ## Application
 ## =============================================================================
-def message_state(messages: list, new_message: str) -> None:
+@app.command()
+def message_state(new_message: str) -> None:
     # messages must be objects that follow this form
     user_message = {"role": "user", "content": new_message}
 
     # append mutates the messages array in place. it does not return the array. it returns None
     messages.append(user_message)
-    prompt = messages
 
+    # capture llm response
     response = client.chat.completions.create(
         model="cohere/north-mini-code:free",
-        messages=prompt,
+        messages=messages,
     )
 
-    print(response)
+    assistant_content = response.choices[0].message.content
+
+    assistant_message = {"role": "assistant", "content": assistant_content}
+
+    # append llm response
+    messages.append(assistant_message)
+
+    print(messages)
 
 
 ## =============================================================================
