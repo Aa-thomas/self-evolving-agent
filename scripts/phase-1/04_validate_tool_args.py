@@ -34,6 +34,13 @@ class ToolRequest(BaseModel):
     args: dict[str, Any]
 
 
+# Tool Spec
+@dataclass
+class ToolSpec:
+    name: str
+    args_schema: type[BaseModel]
+
+
 # Specific Tool Schemas
 class ReadFileArgs(BaseModel):
     path: str
@@ -59,6 +66,14 @@ class Result:
     error: str | None = None
     error_code: str | None = None
 
+
+# Tool Registry
+tool_registry = {
+    "read_file": ToolSpec(name="read_file", args_schema=ReadFileArgs),
+    "write_file": ToolSpec(name="write_file", args_schema=WriteFileArgs),
+    "list_files": ToolSpec(name="list_files", args_schema=ListFilesArgs),
+    "submit": ToolSpec(name="submit", args_schema=SubmitArgs),
+}
 
 ## =============================================================================
 ## Helper Functions
