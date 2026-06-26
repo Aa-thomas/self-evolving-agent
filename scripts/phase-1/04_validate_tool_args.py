@@ -75,14 +75,60 @@ tool_registry = {
     "submit": ToolSpec(name="submit", args_schema=SubmitArgs),
 }
 
+
 ## =============================================================================
 ## Helper Functions
 ## =============================================================================
+def parse_json(raw_text: str) -> Result:
+    try:
+        data = json.loads(raw_text)
+        return Result(ok=True, value=data)
+    except json.JSONDecodeError as error:
+        return Result(ok=False, error=str(error), error_code="INVALID_JSON")
+
+
+def validate_tool_request(data: Any) -> Result:
+    try:
+        tool_request = ToolRequest.model_validate(data)
+        return Result(ok=True, value=tool_request)
+    except ValidationError as error:
+        return Result(
+            ok=False, error=str(error), error_code="INVALID_TOOL_REQUEST_SHAPE"
+        )
+
+
+def validate_tool_exists(tool_request: ToolRequest) -> Result:
+    if tool_request.tool not in tool_registry:
+        return Result(
+            ok=False,
+            error=f"Unknown tool: {tool_request.tool}",
+            error_code="UNKNOWN_TOOL",
+        )
+
+    return Result(ok=True, value=tool_request)
 
 
 ## =============================================================================
 ## Application
 ## =============================================================================
+@app.command()
+def parse_tool_request(raw_text: str):
+    json_result = parse_json(raw_text)
+
+    if not json_result.ok:
+        return json_result
+
+    validation_result = validate_tool_request(json_result.value)
+
+    if not validation_result.ok:
+        return validation_result
+
+    tool_exists = validate_tool_exists(validation_result.value)
+
+    if tool_exists.ok:
+        print("parse_tool_request: success ")
+    else:
+        print("parse_tool_request: fail")
 
 
 # =============================================================================
