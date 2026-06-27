@@ -15,5 +15,8 @@ I misunderstood the difference between valid JSON and a valid tool request. Vali
 What test now proves it:
 Tests now prove that valid JSON parses successfully, malformed JSON returns a structured INVALID_JSON rejection, valid tool-request objects pass Pydantic validation, and invalid shapes such as missing tool, missing args, non-dict args, or non-object JSON return INVALID_TOOL_REQUEST_SHAPE.
 
-## Validate Tool Args
-
+## Validate Tool args
+-create a list of valid tools
+- create a function that checks if the requested tool is in the list of valid tools
+- validate the schema of that tool
+- return OK or return structured error/ rejection reason
