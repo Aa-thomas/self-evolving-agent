@@ -116,6 +116,61 @@ def read_file(path: str, sandbox_root: Path) -> Result:
     return Ok(value=content)
 
 
+def write_file(path: str, content: str, sandbox_root: Path) -> Result:
+    # Validate the path is inside sandbox.
+    path_result = validate_path(path, sandbox_root)
+
+    if isinstance(path_result, Err):
+        return path_result
+
+    safe_path = path_result.value
+
+    # Validate content is not too large.
+    MAX_CONTENT_BYTES = 100_000
+
+    content_size = len(content.encode("utf-8"))
+
+    if content_size > MAX_CONTENT_BYTES:
+        return Err(
+            error_code="CONTENT_TOO_LARGE",
+            error="Content is too large to write.",
+        )
+
+    # Reject writing to an existing directory.
+    if safe_path.exists() and safe_path.is_dir():
+        return Err(
+            error_code="IS_DIRECTORY",
+            error="Cannot write file content to a directory.",
+        )
+
+    # Validate parent folder exists.
+    parent = safe_path.parent
+
+    if not parent.exists():
+        return Err(
+            error_code="NOT_A_DIRECTORY",
+            error="Parent directory does not exist.",
+        )
+
+    # Validate parent is actually a directory.
+    if not parent.is_dir():
+        return Err(
+            error_code="NOT_A_DIRECTORY",
+            error="Parent path is not a directory.",
+        )
+
+    # If all validators pass, write the file.
+    try:
+        safe_path.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        return Err(
+            error_code="WRITE_ERROR",
+            error=str(exc),
+        )
+
+    return Ok(value=str(safe_path))
+
+
 ### =============================================================================
 ## Program Init
 ## =============================================================================
