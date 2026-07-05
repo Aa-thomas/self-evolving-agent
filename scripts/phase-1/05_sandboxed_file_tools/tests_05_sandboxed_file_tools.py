@@ -95,6 +95,15 @@ def test_read_absolute_path_rejected(sandbox_root):
     assert_rejected(result, "FORBIDDEN_PATH")
 
 
+def test_read_oversized_file_rejected(sandbox_root):
+    target = sandbox_root / "big.txt"
+    target.write_text("x" * 100_001, encoding="utf-8")
+
+    result = read_file("big.txt", sandbox_root)
+
+    assert_rejected(result, "CONTENT_TOO_LARGE")
+
+
 # =============================================================================
 # write_file tests
 # =============================================================================

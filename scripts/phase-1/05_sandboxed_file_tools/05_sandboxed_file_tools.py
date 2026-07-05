@@ -73,11 +73,13 @@ def validate_path(user_path: str, sandbox_root: Path) -> Result:
 ## Application
 ## =============================================================================
 def read_file(path: str, sandbox_root: Path) -> Result:
+    # Validates the path is inside sandbox
     path_result = validate_path(path, sandbox_root)
 
     if isinstance(path_result, Err):
         return path_result
 
+    # Validates the path exists
     safe_path = path_result.value
 
     if not safe_path.exists():
@@ -86,12 +88,23 @@ def read_file(path: str, sandbox_root: Path) -> Result:
             error="File does not exist.",
         )
 
+    # Validates the path is a file
     if not safe_path.is_file():
         return Err(
             error_code="NOT_A_FILE",
             error="Path is not a file.",
         )
 
+    # Validates file is not too large
+    MAX_FILE_BYTES = 100_000
+
+    if safe_path.stat().st_size > MAX_FILE_BYTES:
+        return Err(
+            error_code="CONTENT_TOO_LARGE",
+            error="File is too large to read.",
+        )
+
+    # If all validators pass, read the file.
     try:
         content = safe_path.read_text(encoding="utf-8")
     except OSError as exc:
