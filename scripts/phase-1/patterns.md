@@ -80,3 +80,4 @@ read_file with missing path returns INVALID_TOOL_ARGS.
 That proves the harness is not merely parsing JSON; it is enforcing the specific tool contract before execution.
 
 ## Sandboxed File Tools
+
