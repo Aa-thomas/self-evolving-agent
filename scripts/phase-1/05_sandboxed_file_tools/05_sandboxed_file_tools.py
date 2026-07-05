@@ -171,6 +171,41 @@ def write_file(path: str, content: str, sandbox_root: Path) -> Result:
     return Ok(value=str(safe_path))
 
 
+def list_files(path: str, sandbox_root: Path) -> Result:
+    # Validate the path is inside sandbox.
+    path_result = validate_path(path, sandbox_root)
+
+    if isinstance(path_result, Err):
+        return path_result
+
+    safe_path = path_result.value
+
+    # Validate the path exists.
+    if not safe_path.exists():
+        return Err(
+            error_code="FILE_NOT_FOUND",
+            error="Directory does not exist.",
+        )
+
+    # Validate the path is a directory.
+    if not safe_path.is_dir():
+        return Err(
+            error_code="NOT_A_DIRECTORY",
+            error="Path is not a directory.",
+        )
+
+    # If all validators pass, list the directory.
+    try:
+        files = [item.name for item in safe_path.iterdir()]
+    except OSError as exc:
+        return Err(
+            error_code="LIST_ERROR",
+            error=str(exc),
+        )
+
+    return Ok(value=files)
+
+
 ### =============================================================================
 ## Program Init
 ## =============================================================================
