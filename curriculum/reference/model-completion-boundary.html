@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Model Completion Boundary</title>
+    <link rel="stylesheet" href="../assets/course.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Reference</p>
+        <h1>Model Completion Boundary</h1>
+        <p class="lede">A compact reference for the object that Project 1A's loop calls as <code>model.complete(messages)</code>.</p>
+      </header>
+
+      <section>
+        <h2>Core Idea</h2>
+        <p>The model boundary is one method: accept the current message state and return raw assistant text. The harness owns every decision after that.</p>
+        <pre><code>assistant_output = model.complete(messages)</code></pre>
+      </section>
+
+      <section>
+        <h2>Contract</h2>
+        <table class="contract-table">
+          <thead>
+            <tr>
+              <th>Part</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>model</code></td>
+              <td>Any object with a <code>.complete(messages)</code> method.</td>
+            </tr>
+            <tr>
+              <td><code>messages</code></td>
+              <td>The full conversation state so far, usually a list of role/content dictionaries in this project.</td>
+            </tr>
+            <tr>
+              <td><code>complete</code></td>
+              <td>A method. It may call an API, return a fake output, or raise a clear error if misconfigured.</td>
+            </tr>
+            <tr>
+              <td><code>str</code></td>
+              <td>The return value: raw assistant text for the loop to parse.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Class Checklist</h2>
+        <ul class="compact-list">
+          <li>Use <code>class Name:</code> with a colon.</li>
+          <li>Use <code>def __init__(self, ...):</code> to store configuration or fake state.</li>
+          <li>Store per-instance values as <code>self.value</code>, not as shared class variables.</li>
+          <li>Use <code>def complete(self, messages):</code> for the loop boundary.</li>
+          <li>Return raw text. Do not parse JSON inside this method.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Typing Options</h2>
+        <p>For Project 1A, either keep the type loose while tests guide behavior, or use a small protocol once the shape stabilizes.</p>
+        <pre><code>from typing import Protocol
+
+class Model(Protocol):
+    def complete(self, messages: list[dict[str, str]]) -> str:
+        ...</code></pre>
+        <p>A protocol says: this function accepts any object with the right method shape. It does not require the real model and fake model to inherit from the same base class.</p>
+      </section>
+
+      <section>
+        <h2>Ownership Boundary</h2>
+        <table class="contract-table">
+          <thead>
+            <tr>
+              <th>Belongs in model.complete</th>
+              <th>Belongs in run_agent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Calling the provider or returning fake text.</td>
+              <td>Parsing the text as JSON.</td>
+            </tr>
+            <tr>
+              <td>Remembering provider config, model name, or fake outputs.</td>
+              <td>Validating tool request shape and tool args.</td>
+            </tr>
+            <tr>
+              <td>Returning one assistant string.</td>
+              <td>Executing tools, rejecting bad requests, appending observations, and stopping on <code>submit</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Current Project Links</h2>
+        <ul class="compact-list">
+          <li><a href="../lessons/0002-model-complete-boundary.html">Lesson 2: Model Complete Boundary</a></li>
+          <li><a href="../reference/agent-loop-contract.html">Agent Loop Contract</a></li>
+          <li><a href="../phase-1/06_agent_loop/tests_agent_loop.py"><code>tests_agent_loop.py</code></a>: <code>FakeModel</code> is the concrete example to study.</li>
+          <li><a href="https://docs.python.org/3/tutorial/classes.html">Python tutorial: Classes</a></li>
+          <li><a href="https://docs.python.org/3/library/typing.html#typing.Protocol">Python typing: Protocol</a></li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

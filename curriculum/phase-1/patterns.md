@@ -81,3 +81,45 @@ That proves the harness is not merely parsing JSON; it is enforcing the specific
 
 ## Sandboxed File Tools
 
+## Agent Loop
+Function name:
+run_agent
+
+Purpose:
+The loop must support max steps, toolobservations appended to messages,and stop on submit
+
+Inputs:
+- user task: The task from the user
+- model: An object with a .complete(messages) method
+- tools: A dictionary mapping tool names to callable functions
+- max steps: The maximum number of model/tool cycles allowed
+
+Outputs:
+...
+
+Allowed behavior:
+...
+
+Forbidden behavior:
+...
+
+Invariants:
+1.
+2.
+3.
+4.
+5.
+
+Failure cases:
+1.
+2.
+3.
+4.
+5.
+
+Tests this must satisfy:
+1.
+2.
+3.
+4.
+5.

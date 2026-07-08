@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent Loop Contract</title>
+    <link rel="stylesheet" href="../assets/course.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Reference</p>
+        <h1>Agent Loop Contract</h1>
+        <p class="lede">A compact reference for Project 1A's `run_agent` loop.</p>
+      </header>
+
+      <section>
+        <h2>Core Idea</h2>
+        <p>The model proposes the next action. The harness decides whether that action is valid, executes allowed code, records the result as an observation, and calls the model again.</p>
+        <p>Primary source: OpenAI's function-calling guide describes the same flow as: request to model, receive tool call, execute application code, send tool output back, then receive a final response or more tool calls.</p>
+      </section>
+
+      <section>
+        <h2>Function Contract</h2>
+        <table class="contract-table">
+          <thead>
+            <tr>
+              <th>Part</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>user_task</code></td>
+              <td>The user's goal. It becomes the initial user message.</td>
+            </tr>
+            <tr>
+              <td><code>model</code></td>
+              <td>An object with <code>.complete(messages)</code>. It returns raw assistant text.</td>
+            </tr>
+            <tr>
+              <td><code>tools</code></td>
+              <td>A dictionary from tool name to callable. The loop may call only these tools.</td>
+            </tr>
+            <tr>
+              <td><code>max_steps</code></td>
+              <td>The maximum number of model/tool cycles. It prevents infinite loops.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Minimal Algorithm</h2>
+        <pre><code>messages = [{"role": "user", "content": user_task}]
+trace = []
+
+for step in range(max_steps):
+    assistant_output = model.complete(messages)
+    messages.append({"role": "assistant", "content": assistant_output})
+
+    request = parse_and_validate(assistant_output)
+
+    if request is invalid:
+        observation = rejection_result(request.error_code)
+        messages.append({"role": "tool", "content": observation})
+        continue
+
+    if request.tool == "submit":
+        return AgentResult(
+            exit_reason="submitted",
+            final_answer=request.args["answer"],
+            trace=trace,
+        )
+
+    if request.tool not in tools:
+        observation = unknown_tool_result(request.tool)
+    else:
+        observation = tools[request.tool](**request.args)
+
+    messages.append({"role": "tool", "content": observation})
+
+return AgentResult(
+    exit_reason="max_steps",
+    final_answer=None,
+    trace=trace,
+)</code></pre>
+      </section>
+
+      <section>
+        <h2>Invariants</h2>
+        <ul class="compact-list">
+          <li>The model never executes tools directly.</li>
+          <li>Every model output is treated as untrusted text until parsed and validated.</li>
+          <li><code>submit</code> is a stop signal, not a normal external tool call.</li>
+          <li>A tool result or rejection becomes an observation message before the next model call.</li>
+          <li><code>max_steps</code> returns a controlled exit instead of spinning forever.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Current Project Files</h2>
+        <ul class="compact-list">
+          <li><a href="../phase-1/06_agent_loop/agent_loop.py"><code>agent_loop.py</code></a>: implementation target.</li>
+          <li><a href="../phase-1/06_agent_loop/tests_agent_loop.py"><code>tests_agent_loop.py</code></a>: first proof is <code>test_submit_stops_loop</code>.</li>
+          <li><a href="../phase-1/patterns.md"><code>patterns.md</code></a>: your notes on previous Project 1A primitives.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
