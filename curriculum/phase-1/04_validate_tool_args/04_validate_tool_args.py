@@ -1,9 +1,9 @@
 ### =============================================================================
 ## Imports
 ## =============================================================================
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 import json
-from typing import Any, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 import typer
 from pydantic import BaseModel, ConfigDict, StrictStr, ValidationError
@@ -25,13 +25,23 @@ ErrorCode: TypeAlias = Literal[
     "INVALID_TOOL_ARGS",
 ]
 
+T = TypeVar("T")
+
 
 @dataclass(frozen=True)
-class Result:
-    ok: bool
-    value: Any = None
-    error: str | None = None
-    error_code: ErrorCode | None = None
+class Ok(Generic[T]):
+    value: T
+    ok: Literal[True] = field(default=True, init=False)
+
+
+@dataclass(frozen=True)
+class Err:
+    error: str
+    error_code: ErrorCode
+    ok: Literal[False] = field(default=False, init=False)
+
+
+Result: TypeAlias = Ok[T] | Err
 
 
 class StrictModel(BaseModel):
@@ -89,44 +99,41 @@ tool_registry: dict[str, ToolSpec] = {
 ### =============================================================================
 ## Validation Helpers
 ## =============================================================================
-def parse_json(raw_text: str) -> Result:
+def parse_json(raw_text: str) -> Result[Any]:
     try:
         data = json.loads(raw_text)
-        return Result(ok=True, value=data)
+        return Ok(data)
 
     except json.JSONDecodeError as error:
-        return Result(
-            ok=False,
+        return Err(
             error=str(error),
             error_code="INVALID_JSON",
         )
 
 
-def validate_tool_request_shape(data: Any) -> Result:
+def validate_tool_request_shape(data: Any) -> Result[ToolRequest]:
     try:
         tool_request = ToolRequest.model_validate(data)
-        return Result(ok=True, value=tool_request)
+        return Ok(tool_request)
 
     except ValidationError as error:
-        return Result(
-            ok=False,
+        return Err(
             error=str(error),
             error_code="INVALID_TOOL_REQUEST_SHAPE",
         )
 
 
-def validate_tool_exists(tool_request: ToolRequest) -> Result:
+def validate_tool_exists(tool_request: ToolRequest) -> Result[ToolRequest]:
     if tool_request.tool not in tool_registry:
-        return Result(
-            ok=False,
+        return Err(
             error=f"Unknown tool: {tool_request.tool}",
             error_code="UNKNOWN_TOOL",
         )
 
-    return Result(ok=True, value=tool_request)
+    return Ok(tool_request)
 
 
-def validate_tool_args(tool_request: ToolRequest) -> Result:
+def validate_tool_args(tool_request: ToolRequest) -> Result[ValidatedToolRequest]:
     try:
         tool_spec = tool_registry[tool_request.tool]
         validated_args = tool_spec.args_schema.model_validate(tool_request.args)
@@ -136,36 +143,32 @@ def validate_tool_args(tool_request: ToolRequest) -> Result:
             args=validated_args,
         )
 
-        return Result(ok=True, value=validated_tool_request)
+        return Ok(validated_tool_request)
 
     except ValidationError as error:
-        return Result(
-            ok=False,
+        return Err(
             error=str(error),
             error_code="INVALID_TOOL_ARGS",
         )
 
 
-def validate_tool_request(raw_text: str) -> Result:
+def validate_tool_request(raw_text: str) -> Result[ValidatedToolRequest]:
     json_result = parse_json(raw_text)
 
-    if not json_result.ok:
+    if isinstance(json_result, Err):
         return json_result
 
     shape_result = validate_tool_request_shape(json_result.value)
 
-    if not shape_result.ok:
+    if isinstance(shape_result, Err):
         return shape_result
 
     exists_result = validate_tool_exists(shape_result.value)
 
-    if not exists_result.ok:
+    if isinstance(exists_result, Err):
         return exists_result
 
     args_result = validate_tool_args(exists_result.value)
-
-    if not args_result.ok:
-        return args_result
 
     return args_result
 
@@ -192,8 +195,8 @@ def to_jsonable(value: Any) -> Any:
     return value
 
 
-def result_to_dict(result: Result) -> dict[str, Any]:
-    if not result.ok:
+def result_to_dict(result: Result[Any]) -> dict[str, Any]:
+    if isinstance(result, Err):
         return {
             "ok": False,
             "error": result.error,
