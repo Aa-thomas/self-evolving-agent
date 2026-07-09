@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Trace Logger</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Project 1A Primitive 7</p>
+        <h1>A trace is replayable evidence</h1>
+        <p class="lede">A run without a trace is hard to debug. A trace makes every model action, parsed action, tool result, and exit reason inspectable later.</p>
+      </header>
+
+      <section>
+        <h2>The JSON Shape</h2>
+        <pre><code>{
+  "exit_reason": "submitted",
+  "final_answer": "ok",
+  "messages": [...],
+  "steps": [
+    {
+      "step": 0,
+      "assistant_output": "...",
+      "parsed_action": {"tool": "write_file", "args": {...}},
+      "tool_result": {"ok": true, "value": {...}},
+      "exit_reason": null
+    }
+  ]
+}</code></pre>
+        <p>Your implementation target is the seventh primitive, <code>07_trace_logger.py</code>. The useful helpers to design are <code>trace_to_dict</code> and <code>write_trace</code>.</p>
+      </section>
+
+      <section>
+        <h2>What To Look For First</h2>
+        <ul class="compact-list">
+          <li><code>assistant_output</code>: what the model actually said.</li>
+          <li><code>parsed_action</code>: what the harness understood.</li>
+          <li><code>tool_result</code>: what execution or rejection produced.</li>
+          <li><code>exit_reason</code>: why the run stopped.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Practice: Debug From A Trace</h2>
+        <div class="practice">
+          <p>If <code>assistant_output</code> is malformed JSON and <code>parsed_action</code> is null, which field tells you the exact rejection?</p>
+          <textarea aria-label="Trace debug field"></textarea>
+          <button data-check-keywords data-keywords="tool,result,error">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="trace-answer">Reveal answer</button>
+          <div class="answer" id="trace-answer">
+            <p><code>tool_result</code> contains the structured rejection, including fields such as <code>ok</code>, <code>error_code</code>, and <code>error</code>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checkpoint</h2>
+        <ul class="task-list">
+          <li><span><input type="checkbox"></span><span>I can name the five required fields in a trace step.</span></li>
+          <li><span><input type="checkbox"></span><span>I can use a trace to separate model output from harness parsing.</span></li>
+          <li><span><input type="checkbox"></span><span>I know every eval result should point to a trace path.</span></li>
+        </ul>
+        <p class="small">Primary source: <a href="./../Harness%20Engineering%20curriculum%20-%20rewritten.md">Local Harness Engineering curriculum</a>, especially Project 1A's evidence artifact requirement. Proof to create: a trace JSON file with every required step field.</p>
+        <p class="small">Ask your agent teacher to read a failed trace with you before changing code.</p>
+      </section>
+    </main>
+  </body>
+</html>

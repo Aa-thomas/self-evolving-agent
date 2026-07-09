@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Message State Primitive</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Project 1A Primitive 2</p>
+        <h1>Memory is the context you pass back in</h1>
+        <p class="lede">There is no hidden memory primitive in Project 1A. The model sees only the message list your harness sends on the next call.</p>
+      </header>
+
+      <section>
+        <h2>The Contract</h2>
+        <pre><code>state = MessageState()
+state.add_system("Rules")
+state.add_user("Task")
+state.add_assistant(raw_output)
+state.add_tool(observation_json, tool_name="read_file")
+
+messages = state.as_list()</code></pre>
+        <p><code>MessageState</code> stores four roles: <code>system</code>, <code>user</code>, <code>assistant</code>, and <code>tool</code>. When <code>run_agent</code> calls <code>model.complete(messages)</code>, that list is the model's working memory.</p>
+      </section>
+
+      <section>
+        <h2>Why Tool Messages Matter</h2>
+        <p>After a tool runs, the result becomes a <code>tool</code> message. The next model call can react to the observation because it is now part of the passed context.</p>
+        <pre><code>{"role": "tool", "name": "read_file", "content": "{\"ok\": true, \"value\": \"hello\"}"}</code></pre>
+        <p>Your proof should check the second model call. It should receive the earlier assistant output and the tool observation in the message list.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Explain Memory</h2>
+        <div class="practice">
+          <p>In one sentence, explain why the second model call can know the first tool result.</p>
+          <textarea aria-label="Message state memory explanation"></textarea>
+          <button data-check-keywords data-keywords="tool,message,context">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="state-answer">Reveal answer</button>
+          <div class="answer" id="state-answer">
+            <p>The harness appends the tool result as a tool message, then passes the full message context into the next <code>model.complete</code> call.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checkpoint</h2>
+        <ul class="task-list">
+          <li><span><input type="checkbox"></span><span>I can list the four message roles.</span></li>
+          <li><span><input type="checkbox"></span><span>I can explain why memory is not magic storage.</span></li>
+          <li><span><input type="checkbox"></span><span>I can point to the tool observation in a later model call.</span></li>
+        </ul>
+        <p class="small">Primary source: <a href="https://platform.openai.com/docs/guides/function-calling">OpenAI function calling guide</a>, for the tool-output round trip. Reference: <a href="../reference/agent-loop-contract.html">Agent Loop Contract</a>.</p>
+        <p class="small">Ask your agent teacher to walk through a two-step message list if the state transition still feels abstract.</p>
+      </section>
+    </main>
+  </body>
+</html>

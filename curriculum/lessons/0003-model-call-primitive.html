@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Model Call Primitive</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Project 1A Primitive 1</p>
+        <h1>A model call is text in, text out, plus evidence</h1>
+        <p class="lede">The first primitive does not know about tools. It only turns one prompt into one assistant string and records what the call cost in time and tokens.</p>
+      </header>
+
+      <section>
+        <h2>The Contract</h2>
+        <pre><code>record = call_model(prompt="ping", model=model)
+
+record.output_text
+record.latency_seconds
+record.prompt_tokens or record.estimated_total_tokens</code></pre>
+        <p>The model object only needs <code>.complete(messages)</code>. In your implementation, build a one-message conversation, time the call, print the assistant text, and log provider usage when available.</p>
+        <div class="callout">
+          <p><strong>Boundary rule:</strong> model code produces text. Harness code later decides whether that text is a tool request, a rejection, or a final answer.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Implementation Target</h2>
+        <ul class="compact-list">
+          <li><a href="../phase-1/01_model_call.py"><code>01_model_call.py</code></a>: runnable entry point to review and evolve.</li>
+          <li>Proof to create: one prompt produces one assistant string.</li>
+          <li>Log to create: latency plus provider token usage or a clear estimate.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Practice: Retrieve The Shape</h2>
+        <div class="practice">
+          <p>Without looking above, name the three things a Project 1A model-call log must capture.</p>
+          <textarea aria-label="Model call log fields"></textarea>
+          <button data-check-keywords data-keywords="output,latency,tokens">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="model-answer">Reveal answer</button>
+          <div class="answer" id="model-answer">
+            <p>Capture the assistant output text, latency, and token usage or token estimate. Cost can be estimated when pricing is known.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checkpoint</h2>
+        <ul class="task-list">
+          <li><span><input type="checkbox"></span><span>I can explain why <code>complete</code> returns raw text.</span></li>
+          <li><span><input type="checkbox"></span><span>I can find the latency and token fields in <code>ModelCallRecord</code>.</span></li>
+          <li><span><input type="checkbox"></span><span>I know that parsing does not belong in primitive 1.</span></li>
+        </ul>
+        <p class="small">Primary source: <a href="https://platform.openai.com/docs/guides/function-calling">OpenAI function calling guide</a>, for the larger application-side flow that starts with a model response. Related reference: <a href="../reference/model-completion-boundary.html">Model Completion Boundary</a>.</p>
+        <p class="small">Ask your agent teacher follow-up questions if the boundary between model text and harness decisions is unclear.</p>
+      </section>
+    </main>
+  </body>
+</html>
