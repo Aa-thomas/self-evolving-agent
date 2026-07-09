@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Model.complete Boundary</title>
+
+    <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 2 of 10</span>
+        <span>Project 1A Lesson 2</span>
+        <div class="nav-spacer"></div>
+        <a href="0001-agent-loop-from-first-principles.html" aria-label="Previous lesson">Previous</a>
+        <a href="0003-model-call-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+
+      <header>
+        <p class="eyebrow">Project 1A Lesson 2</p>
+        <h1>Make the model boundary an object with one method</h1>
+        <p class="lede">Your next win is to understand what <code>model.complete(messages)</code> means before you write it: an object receives the current message list and returns raw assistant text.</p>
+      </header>
+
+      <section>
+        <h2>The tiny contract</h2>
+        <p>In the agent loop, <code>model</code> does not need to be a framework object. It only needs one behavior:</p>
+        <pre><code>assistant_output = model.complete(messages)</code></pre>
+        <p>Python's class tutorial explains that classes bundle data with functions, and that functions defined on a class become methods on instances. That is the only class idea you need here: put API configuration or fake outputs on <code>self</code>, then expose a <code>complete</code> method.</p>
+        <div class="callout">
+          <p><strong>Boundary rule:</strong> <code>complete</code> talks to the model. <code>run_agent</code> decides what the returned text means.</p>
+        </div>
+        <p>Keep this reference open while you design: Model Completion Boundary.</p>
+      </section>
+
+      <section>
+        <h2>What Python does for you</h2>
+        <p>When you write a method like <code>def complete(self, messages):</code>, the first parameter is the instance. When you call <code>model.complete(messages)</code>, Python supplies <code>model</code> as <code>self</code>. The Python docs call this the usual method call behavior.</p>
+        <pre><code>class ToyResponder:
+    def __init__(self, reply):
+        self.reply = reply
+
+    def complete(self, messages):
+        return self.reply
+
+model = ToyResponder("hello")
+text = model.complete([{"role": "user", "content": "Say hi"}])</code></pre>
+        <p>This toy class is not your final class. It shows the shape: <code>__init__</code> stores state, <code>complete</code> uses that state, and callers use dot syntax.</p>
+      </section>
+
+      <section>
+        <h2>Find the same shape in your tests</h2>
+        <p>Your test file already contains the concept in miniature:</p>
+        <pre><code>class FakeModel:
+    def __init__(self, outputs):
+        self.outputs = outputs
+        self.calls = []
+
+    def complete(self, messages):
+        self.calls.append(deepcopy(messages))
+        return self.outputs.pop(0)</code></pre>
+        <p>That fake is useful because it proves <code>run_agent</code> should depend on behavior, not on a specific concrete class name. A real API-backed model and a fake test model can both satisfy the same <code>.complete(messages)</code> boundary.</p>
+      </section>
+
+      <section>
+        <h2>Design before coding</h2>
+        <p>Before editing <code>agent_loop.py</code>, answer these four questions on paper or in comments:</p>
+        <table class="contract-table">
+          <thead>
+            <tr>
+              <th>Question</th>
+              <th>Why it matters</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>What should the object remember on <code>self</code>?</td>
+              <td>Fake models remember outputs and calls. Real models remember client and model name.</td>
+            </tr>
+            <tr>
+              <td>What argument does <code>complete</code> accept?</td>
+              <td>The loop passes the full message state, not just the newest user text.</td>
+            </tr>
+            <tr>
+              <td>What type does <code>complete</code> return?</td>
+              <td>The parser expects raw assistant text, so the loop should get a string.</td>
+            </tr>
+            <tr>
+              <td>What should remain outside the model class?</td>
+              <td>Parsing, tool validation, tool execution, stop conditions, and observations belong to the harness.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Practice: retrieve the boundary</h2>
+        <div class="practice">
+          <p>Without looking above, write the method signature your loop expects and the one thing it should return.</p>
+          <textarea aria-label="Model complete boundary"></textarea>
+          <button data-check-keywords data-keywords="complete,messages,string">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="answer-1">Reveal answer</button>
+          <div class="answer" id="answer-1">
+            <p>The loop expects a method shaped like <code>complete(self, messages)</code>. Calling it as <code>model.complete(messages)</code> should return raw assistant text as a string.</p>
+          </div>
+        </div>
+
+        <div class="practice">
+          <p>Now name three responsibilities that must stay in <code>run_agent</code>, not inside <code>complete</code>.</p>
+          <textarea aria-label="Harness responsibilities"></textarea>
+          <button data-check-keywords data-keywords="parse,tool,submit">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="answer-2">Reveal answer</button>
+          <div class="answer" id="answer-2">
+            <p><code>run_agent</code> parses the returned text, validates or executes tool requests, and stops when the request is <code>submit</code>. The model class only produces text.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Your coding task</h2>
+        <p>Do this yourself in the implementation file:</p>
+        <ol class="compact-list">
+          <li>Replace the invalid class sketch with either a real method definition or a <code>Protocol</code> that names the method shape.</li>
+          <li>Make sure the method is named <code>complete</code>, takes <code>messages</code>, and returns <code>str</code>.</li>
+          <li>Leave JSON parsing and <code>submit</code> handling in <code>run_agent</code>.</li>
+          <li>Use the existing <code>FakeModel</code> test class as your mental reference, not as code to copy.</li>
+        </ol>
+        <div class="callout warning">
+          <p><strong>Do not overbuild:</strong> no base framework, no provider abstraction, no retries, no streaming, no trace logger yet. This lesson is only the object boundary for the next loop slice.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checkpoint</h2>
+        <ul class="task-list">
+          <li><span><input type="checkbox"></span><span>I can explain why <code>complete</code> is a method, not a string attribute.</span></li>
+          <li><span><input type="checkbox"></span><span>I can state what belongs on <code>self</code>.</span></li>
+          <li><span><input type="checkbox"></span><span>I can explain why the loop can use either a fake model or a real model.</span></li>
+          <li><span><input type="checkbox"></span><span>I know that <code>complete</code> returns raw text, not a parsed tool request.</span></li>
+        </ul>
+        <p class="small">Primary source: <a href="https://docs.python.org/3/tutorial/classes.html">Python tutorial: Classes</a>, especially class objects, instance objects, and method objects. Secondary source: <a href="https://docs.python.org/3/library/typing.html#typing.Protocol">Python typing: Protocol</a>, useful when you want to type "anything with <code>.complete</code>" without forcing inheritance.</p>
+        <p class="small">Ask your agent teacher follow-up questions about the class boundary before you code the next slice.</p>
+      </section>
+    
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 2 of 10</span>
+        <span>Project 1A Lesson 2</span>
+        <div class="nav-spacer"></div>
+        <a href="0001-agent-loop-from-first-principles.html" aria-label="Previous lesson">Previous</a>
+        <a href="0003-model-call-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main>
+  </body>
+</html>

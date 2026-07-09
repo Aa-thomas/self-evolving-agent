@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Eval Runner</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 10 of 10</span>
+        <span>Project 1A Primitive 8</span>
+        <div class="nav-spacer"></div>
+        <a href="0009-trace-logger.html" aria-label="Previous lesson">Previous</a>
+        
+      </nav>
+
+      <header>
+        <p class="eyebrow">Project 1A Primitive 8</p>
+        <h1>Evals define what working means</h1>
+        <p class="lede">The eval runner turns local tasks into pass/fail evidence and keeps the trace for every result.</p>
+      </header>
+
+      <section>
+        <h2>The Contract</h2>
+        <pre><code>cases = load_eval_cases("local_tasks.json")
+summary = run_eval_suite(cases, run_root="traces/evals/project_1a")
+
+summary.total
+summary.passed
+summary.failed
+summary.results[*].trace_path</code></pre>
+        <p>Your implementation target is the eighth primitive, <code>08_eval_runner.py</code>. The local task file you create should cover deterministic tasks such as direct submit, read, write, list, forbidden path, malformed JSON, unknown tool, missing file, copy file, and max-step guard.</p>
+      </section>
+
+      <section>
+        <h2>What A Case Proves</h2>
+        <p>An eval case combines a user task, scripted model outputs, optional sandbox setup, expected final answer or exit reason, and expected file contents. This keeps Project 1A honest: the loop must work in context, not only as isolated unit functions.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Unit Test Or Eval?</h2>
+        <div class="practice">
+          <p>Why is <code>copy_file</code> an eval case instead of only a unit test for <code>write_file</code>?</p>
+          <textarea aria-label="Eval versus unit test"></textarea>
+          <button data-check-keywords data-keywords="loop,read,write">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="eval-answer">Reveal answer</button>
+          <div class="answer" id="eval-answer">
+            <p>It exercises the composed loop: read a file, append the observation, write another file, submit, grade the final answer, and keep the trace.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checkpoint</h2>
+        <ul class="task-list">
+          <li><span><input type="checkbox"></span><span>I can explain what fields an eval case needs.</span></li>
+          <li><span><input type="checkbox"></span><span>I can distinguish a unit proof from an eval proof.</span></li>
+          <li><span><input type="checkbox"></span><span>I know how to find the trace path for a failed eval.</span></li>
+        </ul>
+        <p class="small">Primary source: <a href="https://docs.pytest.org/en/stable/how-to/assert.html">pytest assertion docs</a>, for the pass/fail discipline behind the runner. Proof to create: a summary with total, passed, failed, and trace paths.</p>
+        <p class="small">Ask your agent teacher to help classify a failed eval before patching the harness.</p>
+      </section>
+    
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 10 of 10</span>
+        <span>Project 1A Primitive 8</span>
+        <div class="nav-spacer"></div>
+        <a href="0009-trace-logger.html" aria-label="Previous lesson">Previous</a>
+        
+      </nav>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Schema Validation</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 6 of 10</span>
+        <span>Project 1A Primitive 4</span>
+        <div class="nav-spacer"></div>
+        <a href="0005-manual-tool-protocol.html" aria-label="Previous lesson">Previous</a>
+        <a href="0007-sandboxed-file-tools.html" aria-label="Next lesson">Next</a>
+      </nav>
+
+      <header>
+        <p class="eyebrow">Project 1A Primitive 4</p>
+        <h1>Validation is a four-gate checkpoint</h1>
+        <p class="lede">The harness must reject bad model output before any tool code can run.</p>
+      </header>
+
+      <section>
+        <h2>The Four Gates</h2>
+        <table class="contract-table">
+          <thead>
+            <tr>
+              <th>Gate</th>
+              <th>Rejects</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>JSON parse</td>
+              <td><code>INVALID_JSON</code></td>
+            </tr>
+            <tr>
+              <td>Outer shape</td>
+              <td><code>INVALID_TOOL_REQUEST_SHAPE</code></td>
+            </tr>
+            <tr>
+              <td>Tool registry</td>
+              <td><code>UNKNOWN_TOOL</code></td>
+            </tr>
+            <tr>
+              <td>Tool args schema</td>
+              <td><code>INVALID_TOOL_ARGS</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Your <code>validate_tool_request</code> function should compose these gates in order. Each failure should return a structured rejection so the loop can later turn it into an observation.</p>
+      </section>
+
+      <section>
+        <h2>Why This Is Not Tool Execution</h2>
+        <p>Validation only answers: "May this request reach a tool handler?" It does not read files or write files. That separation is what lets unknown tools and bad arguments fail safely.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Classify The Failure</h2>
+        <div class="practice">
+          <p>What error code should this produce: <code>{"tool": "read_file", "args": {}}</code>?</p>
+          <textarea aria-label="Schema validation failure"></textarea>
+          <button data-check-keywords data-keywords="invalid,tool,args">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="schema-answer">Reveal answer</button>
+          <div class="answer" id="schema-answer">
+            <p><code>INVALID_TOOL_ARGS</code>. The JSON is valid, the outer shape exists, and <code>read_file</code> is known, but the required <code>path</code> argument is missing.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checkpoint</h2>
+        <ul class="task-list">
+          <li><span><input type="checkbox"></span><span>I can name the four validation gates in order.</span></li>
+          <li><span><input type="checkbox"></span><span>I can distinguish wrong shape from wrong args.</span></li>
+          <li><span><input type="checkbox"></span><span>I know unknown tools are rejected before execution.</span></li>
+        </ul>
+        <p class="small">Primary source: <a href="https://docs.pydantic.dev/latest/concepts/models/">Pydantic docs: Models</a>. Proof file: <code>validate_tool_args_tests.py</code>.</p>
+        <p class="small">Ask your agent teacher to quiz you on error codes before moving to file tools.</p>
+      </section>
+    
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 6 of 10</span>
+        <span>Project 1A Primitive 4</span>
+        <div class="nav-spacer"></div>
+        <a href="0005-manual-tool-protocol.html" aria-label="Previous lesson">Previous</a>
+        <a href="0007-sandboxed-file-tools.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main>
+  </body>
+</html>

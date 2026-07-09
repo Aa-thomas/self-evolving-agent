@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Sandboxed File Tools</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 7 of 10</span>
+        <span>Project 1A Primitive 5</span>
+        <div class="nav-spacer"></div>
+        <a href="0006-schema-validation.html" aria-label="Previous lesson">Previous</a>
+        <a href="0008-agent-loop-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+
+      <header>
+        <p class="eyebrow">Project 1A Primitive 5</p>
+        <h1>Tools are permissioned code paths</h1>
+        <p class="lede"><code>read_file</code>, <code>write_file</code>, and <code>list_files</code> are useful only because the harness restricts them to a sandbox root.</p>
+      </header>
+
+      <section>
+        <h2>The Sandbox Rule</h2>
+        <pre><code>safe_path = (sandbox_root / user_path).resolve()
+safe_path must stay inside sandbox_root</code></pre>
+        <p><code>validate_path</code> rejects empty paths, absolute paths, parent traversal, and resolved paths outside the sandbox. Tool handlers call this before touching the filesystem.</p>
+        <div class="callout">
+          <p><strong>Security habit:</strong> validating a tool request schema is not enough. The tool implementation still enforces its own boundary.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>The Three Tools</h2>
+        <table class="contract-table">
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Allowed result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>read_file(path)</code></td>
+              <td>Returns file text or a structured read rejection.</td>
+            </tr>
+            <tr>
+              <td><code>write_file(path, content)</code></td>
+              <td>Writes text inside the sandbox and returns bytes written.</td>
+            </tr>
+            <tr>
+              <td><code>list_files(path=".")</code></td>
+              <td>Returns sorted names in a sandbox directory.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Practice: Classify Paths</h2>
+        <div class="practice">
+          <p>Which of these should be rejected and why: <code>notes.txt</code>, <code>../secret.txt</code>, <code>/tmp/secret.txt</code>?</p>
+          <textarea aria-label="Sandbox path classification"></textarea>
+          <button data-check-keywords data-keywords="parent,absolute,sandbox">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="sandbox-answer">Reveal answer</button>
+          <div class="answer" id="sandbox-answer">
+            <p><code>notes.txt</code> is allowed if it resolves inside the sandbox. <code>../secret.txt</code> is parent traversal. <code>/tmp/secret.txt</code> is absolute. The last two are rejected.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checkpoint</h2>
+        <ul class="task-list">
+          <li><span><input type="checkbox"></span><span>I can explain why path validation lives inside the tool implementation.</span></li>
+          <li><span><input type="checkbox"></span><span>I can name the three file tools and their arguments.</span></li>
+          <li><span><input type="checkbox"></span><span>I know forbidden path attempts become structured tool results.</span></li>
+        </ul>
+        <p class="small">Primary source: <a href="https://docs.python.org/3/library/pathlib.html">Python docs: pathlib</a>. Proof file: <code>tests_05_sandboxed_file_tools.py</code>.</p>
+        <p class="small">Ask your agent teacher for more path traversal examples if you want to stress-test this boundary.</p>
+      </section>
+    
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 7 of 10</span>
+        <span>Project 1A Primitive 5</span>
+        <div class="nav-spacer"></div>
+        <a href="0006-schema-validation.html" aria-label="Previous lesson">Previous</a>
+        <a href="0008-agent-loop-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main>
+  </body>
+</html>
