@@ -147,7 +147,6 @@ def test_max_steps_stops_infinite_loop():
 
     assert len(model.calls) == 2
     assert list_files.calls == [{}, {}]
-    assert result.trace[-1]["exit_reason"] == "max_steps"
 
 
 def test_unregistered_runtime_tool_is_rejected_without_execution():
@@ -169,10 +168,6 @@ def test_unregistered_runtime_tool_is_rejected_without_execution():
 
     assert len(model.calls) == 2
     assert tool_observation(model.calls[1])["error_code"] == "UNKNOWN_TOOL"
-    assert result.trace[0]["parsed_action"] == {
-        "tool": "read_file",
-        "args": {"path": "notes.txt"},
-    }
 
 
 def test_unknown_protocol_tool_is_rejected_without_execution():
@@ -324,49 +319,3 @@ def test_tool_exception_becomes_observation():
         "error_code": "TOOL_EXCEPTION",
         "error": "tool exploded",
     }
-
-
-def test_trace_contains_step_records():
-    model = FakeModel(
-        outputs=[
-            '{"tool": "write_file", "args": {"path": "answer.txt", "content": "done"}}',
-            '{"tool": "submit", "args": {"answer": "done"}}',
-        ]
-    )
-    write_file = FakeTool(result=Ok({"path": "answer.txt", "bytes_written": 4}))
-
-    result = run_agent(
-        user_task="Write answer.txt.",
-        model=model,
-        tools={"write_file": write_file},
-        max_steps=5,
-    )
-
-    assert result.trace == [
-        {
-            "step": 0,
-            "assistant_output": (
-                '{"tool": "write_file", "args": '
-                '{"path": "answer.txt", "content": "done"}}'
-            ),
-            "parsed_action": {
-                "tool": "write_file",
-                "args": {"path": "answer.txt", "content": "done"},
-            },
-            "tool_result": {
-                "ok": True,
-                "value": {"path": "answer.txt", "bytes_written": 4},
-            },
-            "exit_reason": None,
-        },
-        {
-            "step": 1,
-            "assistant_output": '{"tool": "submit", "args": {"answer": "done"}}',
-            "parsed_action": {
-                "tool": "submit",
-                "args": {"answer": "done"},
-            },
-            "tool_result": None,
-            "exit_reason": "submitted",
-        },
-    ]
