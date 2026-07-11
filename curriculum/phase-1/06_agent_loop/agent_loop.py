@@ -38,7 +38,6 @@ ExitReason: TypeAlias = Literal["submitted", "max_steps"]
 class AgentResult:
     exit_reason: ExitReason
     final_answer: str | None
-    trace: list[dict[str, Any]]
 
 
 class StrictModel(BaseModel):
@@ -225,13 +224,6 @@ def args_to_dict(args: BaseModel) -> dict[str, Any]:
     return args.model_dump(exclude_none=True)
 
 
-def request_to_dict(request: ValidatedToolRequest) -> dict[str, Any]:
-    return {
-        "tool": request.tool,
-        "args": args_to_dict(request.args),
-    }
-
-
 def unknown_tool_result(tool_name: str) -> Err:
     return Err(
         error=f"Unknown tool: {tool_name}",
@@ -249,41 +241,26 @@ def run_agent(
     max_steps: int,
 ) -> AgentResult:
     messages = [{"role": "user", "content": user_task}]
-    trace: list[dict[str, Any]] = []
 
-    for step in range(max_steps):
+    for _ in range(max_steps):
         assistant_output = model.complete(messages)
         messages.append({"role": "assistant", "content": assistant_output})
-
-        step_record: dict[str, Any] = {
-            "step": step,
-            "assistant_output": assistant_output,
-            "parsed_action": None,
-            "tool_result": None,
-            "exit_reason": None,
-        }
 
         request_result = validate_tool_request(assistant_output)
 
         if isinstance(request_result, Err):
-            step_record["tool_result"] = result_to_dict(request_result)
-            trace.append(step_record)
             messages.append(
                 {"role": "tool", "content": observation_content(request_result)}
             )
             continue
 
         request = request_result.value
-        step_record["parsed_action"] = request_to_dict(request)
 
         if request.tool == "submit":
             final_answer = request.args.model_dump()["answer"]
-            step_record["exit_reason"] = "submitted"
-            trace.append(step_record)
             return AgentResult(
                 exit_reason="submitted",
                 final_answer=final_answer,
-                trace=trace,
             )
 
         if request.tool not in tools:
@@ -297,15 +274,9 @@ def run_agent(
                     error_code="TOOL_EXCEPTION",
                 )
 
-        step_record["tool_result"] = result_to_dict(tool_result)
-        trace.append(step_record)
         messages.append({"role": "tool", "content": observation_content(tool_result)})
-
-    if trace:
-        trace[-1]["exit_reason"] = "max_steps"
 
     return AgentResult(
         exit_reason="max_steps",
         final_answer=None,
-        trace=trace,
     )
