@@ -1,80 +1,28 @@
-import typer
-from openai import OpenAI
-import time
-import json
-from dotenv import load_dotenv
-import os
+from __future__ import annotations
 
-load_dotenv()
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-)
-
-# # First API call with reasoning
-# response = client.chat.completions.create(
-#     model="cohere/north-mini-code:free",
-#     messages=[
-#         {"role": "user", "content": "How many r's are in the word 'strawberry'?"}
-#     ],
-#     extra_body={"reasoning": {"enabled": True}},
-# )
-#
-# # Extract the assistant message with reasoning_details
-# response = response.choices[0].message
-#
-# # Preserve the assistant message with reasoning_details
-# messages = [
-#     {"role": "user", "content": "How many r's are in the word 'strawberry'?"},
-#     {
-#         "role": "assistant",
-#         "content": response.content,
-#         # "reasoning_details": response.reasoning_details  # Pass back unmodified
-#     },
-#     {"role": "user", "content": "Are you sure? Think carefully."},
-# ]
-#
-# # Second API call - model continues reasoning from where it left off
-# response2 = client.chat.completions.create(
-#     model="cohere/north-mini-code:free",
-#     messages=messages,
-#     extra_body={"reasoning": {"enabled": True}},
-# )
-#
-app = typer.Typer()
+import importlib.util
+from pathlib import Path
+import sys
 
 
-@app.command()
-def model_call(prompt: str) -> None:
-    start_time = time.perf_counter()
+MODULE_PATH = Path(__file__).resolve().with_name("01_model_call") / "01_model_call.py"
+MODULE_NAME = "project_1a_model_call"
 
-    response = client.chat.completions.create(
-        model="cohere/north-mini-code:free",
-        messages=[{"role": "user", "content": prompt}],
-    )
+spec = importlib.util.spec_from_file_location(MODULE_NAME, MODULE_PATH)
 
-    latency = time.perf_counter() - start_time
+assert spec is not None
+assert spec.loader is not None
 
-    message = response.choices[0].message
-    usage = response.usage
+module = importlib.util.module_from_spec(spec)
+sys.modules[MODULE_NAME] = module
+spec.loader.exec_module(module)
 
-    if usage:
-        data = {
-            "latency": latency,
-            "prompt_tokens": usage.prompt_tokens,
-            "completion_tokens": usage.completion_tokens,
-            "total_tokens": usage.total_tokens,
-        }
-    else:
-        data = {"latency": latency}
-
-    print(message.content)
-    print(json.dumps(data, indent=2))
+ModelCallRecord = module.ModelCallRecord
+OpenRouterModel = module.OpenRouterModel
+call_model = module.call_model
+estimate_tokens = module.estimate_tokens
+record_to_dict = module.record_to_dict
 
 
-## =============================================================================
-## Program Init
-## =============================================================================
 if __name__ == "__main__":
-    app()
+    module.app()
