@@ -61,6 +61,17 @@ def tool_observation(messages):
     return json.loads(messages[-1]["content"])
 
 
+def assert_err_observation(messages, error_code: str):
+    observation = tool_observation(messages)
+
+    assert observation["ok"] is False
+    assert observation["error_code"] == error_code
+    assert isinstance(observation["error"], str)
+    assert observation["error"]
+
+    return observation
+
+
 ## =============================================================================
 ## tests
 ## =============================================================================
@@ -167,7 +178,8 @@ def test_unregistered_runtime_tool_is_rejected_without_execution():
     assert result.exit_reason == "submitted"
 
     assert len(model.calls) == 2
-    assert tool_observation(model.calls[1])["error_code"] == "UNKNOWN_TOOL"
+    observation = assert_err_observation(model.calls[1], "UNKNOWN_TOOL")
+    assert observation["error"] == "Unknown tool: read_file"
 
 
 def test_unknown_protocol_tool_is_rejected_without_execution():
@@ -190,7 +202,8 @@ def test_unknown_protocol_tool_is_rejected_without_execution():
     assert read_file.calls == []
 
     assert len(model.calls) == 2
-    assert tool_observation(model.calls[1])["error_code"] == "UNKNOWN_TOOL"
+    observation = assert_err_observation(model.calls[1], "UNKNOWN_TOOL")
+    assert observation["error"] == "Unknown tool: delete_file"
 
 
 def test_malformed_json_is_rejected_without_execution():
@@ -213,7 +226,7 @@ def test_malformed_json_is_rejected_without_execution():
     assert read_file.calls == []
 
     assert len(model.calls) == 2
-    assert tool_observation(model.calls[1])["error_code"] == "INVALID_JSON"
+    assert_err_observation(model.calls[1], "INVALID_JSON")
 
 
 def test_invalid_tool_request_shape_is_rejected_without_execution():
@@ -236,9 +249,7 @@ def test_invalid_tool_request_shape_is_rejected_without_execution():
     assert read_file.calls == []
 
     assert len(model.calls) == 2
-    assert tool_observation(model.calls[1])["error_code"] == (
-        "INVALID_TOOL_REQUEST_SHAPE"
-    )
+    assert_err_observation(model.calls[1], "INVALID_TOOL_REQUEST_SHAPE")
 
 
 def test_invalid_tool_args_are_rejected_without_execution():
@@ -261,7 +272,7 @@ def test_invalid_tool_args_are_rejected_without_execution():
     assert read_file.calls == []
 
     assert len(model.calls) == 2
-    assert tool_observation(model.calls[1])["error_code"] == "INVALID_TOOL_ARGS"
+    assert_err_observation(model.calls[1], "INVALID_TOOL_ARGS")
 
 
 def test_tool_error_becomes_observation():
