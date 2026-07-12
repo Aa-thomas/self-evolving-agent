@@ -11,52 +11,89 @@
     <main>
       <header>
         <p class="eyebrow">Project 1A Primitive 1</p>
-        <h1>A model call is text in, text out, plus evidence</h1>
-        <p class="lede">The first primitive does not know about tools. It only turns one prompt into one assistant string and records what the call cost in time and tokens.</p>
+        <h1>A model call is a boundary, not a brain</h1>
+        <p class="lede">The first primitive turns one user prompt into one raw assistant string and records enough evidence to debug that call later.</p>
       </header>
 
       <section>
-        <h2>The Contract</h2>
+        <h2>Why This Matters In Production</h2>
+        <p>An applied AI engineer is responsible for the seam between provider behavior and application behavior. If that seam is blurry, every later bug becomes harder to assign: did the model say the wrong thing, did the harness parse it wrong, or did a tool run when it should not have?</p>
+        <div class="callout">
+          <p><strong>Invariant:</strong> <code>call_model</code> asks a model for text and returns a structured record. It does not parse tool JSON, execute tools, or decide whether an answer is final.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Predict Before Reading</h2>
+        <p>A fake model returns <code>{"tool": "read_file", "args": {"path": "notes.txt"}}</code>. Should primitive 1 reject that as a tool request?</p>
+        <p>Prediction: no. At this layer it is only output text. Rejection belongs to the parser and validation layers that come later.</p>
+      </section>
+
+      <section>
+        <h2>Concrete Walkthrough</h2>
         <pre><code>record = call_model(prompt="ping", model=model)
 
 record.output_text
 record.latency_seconds
-record.prompt_tokens or record.estimated_total_tokens</code></pre>
-        <p>The model object only needs <code>.complete(messages)</code>. In your implementation, build a one-message conversation, time the call, print the assistant text, and log provider usage when available.</p>
-        <div class="callout">
-          <p><strong>Boundary rule:</strong> model code produces text. Harness code later decides whether that text is a tool request, a rejection, or a final answer.</p>
-        </div>
+record.input_tokens
+record.output_tokens
+record.usage_source</code></pre>
+        <p>The model object only needs <code>.complete(messages)</code>. The primitive builds one message list, calls the model, measures latency, confirms the return value is a string, and stores provider token usage or a clear estimate.</p>
+        <p>Implementation and proof live in <a href="../phase-1/01_model_call/01_model_call.py"><code>01_model_call.py</code></a> and <a href="../phase-1/01_model_call/tests_01_model_call.py"><code>tests_01_model_call.py</code></a>. The key proof is that a fake model receives exactly one user message and returns a <code>ModelCallRecord</code>.</p>
       </section>
 
       <section>
-        <h2>Implementation Target</h2>
+        <h2>Failure Case</h2>
+        <p>Suppose <code>model.complete</code> returns <code>{"content": "pong"}</code> instead of <code>"pong"</code>. If primitive 1 accepts that object, later code may treat provider-specific shapes as normal harness state. The boundary has leaked.</p>
+        <p>The correct behavior is a clear type failure at the model boundary. That makes the incident reproducible before the output reaches parsing, validation, or tools.</p>
+      </section>
+
+      <section>
+        <h2>Evidence And Observability</h2>
+        <p>Convincing evidence for this primitive is not a demo response from a live API. It is a deterministic test with a fake model:</p>
         <ul class="compact-list">
-          <li><a href="../phase-1/01_model_call.py"><code>01_model_call.py</code></a>: runnable entry point to review and evolve.</li>
-          <li>Proof to create: one prompt produces one assistant string.</li>
-          <li>Log to create: latency plus provider token usage or a clear estimate.</li>
+          <li>the fake model records the exact message list it received,</li>
+          <li><code>record.output_text</code> equals the fake output,</li>
+          <li><code>record.latency_seconds</code> exists,</li>
+          <li>token usage is either provider-sourced or explicitly estimated.</li>
         </ul>
+        <p>Run the focused proof with <code>uv run pytest curriculum/phase-1/01_model_call/tests_01_model_call.py</code>.</p>
       </section>
 
       <section>
-        <h2>Practice: Retrieve The Shape</h2>
+        <h2>Engineering Tradeoff</h2>
+        <p>Keep the adapter thin even though it feels convenient to parse JSON here. A thin adapter is less magical and easier to test. The tradeoff is that later primitives must do more explicit work, but that separation makes failures easier to localize.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Choose The Boundary</h2>
         <div class="practice">
-          <p>Without looking above, name the three things a Project 1A model-call log must capture.</p>
-          <textarea aria-label="Model call log fields"></textarea>
-          <button data-check-keywords data-keywords="output,latency,tokens">Check answer</button>
+          <p>A provider returns raw text that happens to look like a tool request. What should <code>call_model</code> do?</p>
+          <div class="choice-list">
+            <label><input type="radio" name="model-boundary" value="parse"><strong>Parse it immediately.</strong><span>Convert the JSON before returning.</span></label>
+            <label><input type="radio" name="model-boundary" value="record"><strong>Record it unchanged.</strong><span>Return text plus call evidence.</span></label>
+            <label><input type="radio" name="model-boundary" value="execute"><strong>Execute requested tool.</strong><span>Call the named function now.</span></label>
+          </div>
+          <button data-check-choice data-answer="record" data-feedback-parse="Parsing here hides the boundary. Primitive 3 owns JSON parsing." data-feedback-record="Correct. The output is still raw assistant text at this layer." data-feedback-execute="Execution here would let model text control tools before validation.">Check answer</button>
           <p class="feedback"></p>
-          <button class="reveal-button" data-reveal data-target="model-answer">Reveal answer</button>
+          <button class="reveal-button" data-reveal data-target="model-answer">Reveal explanation</button>
           <div class="answer" id="model-answer">
-            <p>Capture the assistant output text, latency, and token usage or token estimate. Cost can be estimated when pricing is known.</p>
+            <p><code>call_model</code> should return a record containing the raw assistant text, latency, and token usage or estimate. Later primitives decide whether that text is JSON, a valid request, or a final answer.</p>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h2>Transfer Prompt</h2>
+        <p>If a customer required latency SLO reporting, what extra field would you add to <code>ModelCallRecord</code> without letting provider details leak into the agent loop?</p>
       </section>
 
       <section>
         <h2>Checkpoint</h2>
         <ul class="task-list">
           <li><span><input type="checkbox"></span><span>I can explain why <code>complete</code> returns raw text.</span></li>
-          <li><span><input type="checkbox"></span><span>I can find the latency and token fields in <code>ModelCallRecord</code>.</span></li>
-          <li><span><input type="checkbox"></span><span>I know that parsing does not belong in primitive 1.</span></li>
+          <li><span><input type="checkbox"></span><span>I can point to the evidence fields in <code>ModelCallRecord</code>.</span></li>
+          <li><span><input type="checkbox"></span><span>I know that parsing and tool execution do not belong in primitive 1.</span></li>
         </ul>
         <p class="small">Primary source: <a href="https://platform.openai.com/docs/guides/function-calling">OpenAI function calling guide</a>, for the larger application-side flow that starts with a model response. Related reference: <a href="../reference/model-completion-boundary.html">Model Completion Boundary</a>.</p>
         <p class="small">Ask your agent teacher follow-up questions if the boundary between model text and harness decisions is unclear.</p>

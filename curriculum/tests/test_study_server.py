@@ -14,6 +14,10 @@ def test_study_store_round_trip(tmp_path):
         {
             "status": "ready_to_implement",
             "responses": {
+                "jot_notes": {
+                    "answer": "submit, stop condition, no external tool",
+                    "self_assessment": "unrated",
+                },
                 "invariant": {
                     "answer": "The harness decides whether a request runs.",
                     "self_assessment": "clear",
@@ -28,6 +32,8 @@ def test_study_store_round_trip(tmp_path):
                 "open_question": "When is the assistant message appended?",
             },
             "reflection": {
+                "feynman_explanation": "The model suggests moves, but the harness is the referee.",
+                "feynman_limit": "The analogy hides JSON parsing and validation details.",
                 "mental_model": "The model proposes; the harness decides.",
                 "next_step": "Implement submit handling at home.",
             },
@@ -35,8 +41,15 @@ def test_study_store_round_trip(tmp_path):
     )
 
     assert saved["status"] == "ready_to_implement"
+    assert saved["responses"]["jot_notes"]["answer"] == "submit, stop condition, no external tool"
     assert saved["responses"]["invariant"]["answer"] == "The harness decides whether a request runs."
     assert saved["plan"]["target_function"] == "run_agent"
+    assert saved["reflection"]["feynman_explanation"] == (
+        "The model suggests moves, but the harness is the referee."
+    )
+    assert saved["reflection"]["feynman_limit"] == (
+        "The analogy hides JSON parsing and validation details."
+    )
     assert saved["reflection"]["next_step"] == "Implement submit handling at home."
     assert store.progress() == [
         {
