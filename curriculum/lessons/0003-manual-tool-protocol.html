@@ -12,47 +12,80 @@
       <header>
         <p class="eyebrow">Project 1A Primitive 3</p>
         <h1>A tool call starts as untrusted JSON text</h1>
-        <p class="lede">Before schemas, tools, or loops, the harness must parse one assistant string into one Python value.</p>
+        <p class="lede">Before schemas, tools, or loops, the harness must parse one assistant string without pretending the model executed anything.</p>
       </header>
 
       <section>
-        <h2>The Protocol</h2>
-        <pre><code>{"tool": "read_file", "args": {"path": "notes.txt"}}</code></pre>
-        <p>The model does not call <code>read_file</code>. It emits text that asks for <code>read_file</code>. The harness parses that text with <code>json.loads</code>, then later decides whether the request is valid.</p>
-        <div class="callout warning">
-          <p><strong>Separate the stages:</strong> valid JSON is not the same thing as a valid tool request. A string like <code>"hello"</code> is valid JSON but not a Project 1A tool request.</p>
+        <h2>Why This Matters In Production</h2>
+        <p>Agent systems often fail because teams treat model output as an action instead of a request. The parser is the first trust boundary. It converts text into data or returns a structured rejection that the rest of the harness can handle.</p>
+        <div class="callout">
+          <p><strong>Invariant:</strong> valid JSON is not the same as a valid tool request. Primitive 3 proves only that the assistant text can be decoded as JSON.</p>
         </div>
       </section>
 
       <section>
-        <h2>Where It Lives</h2>
-        <ul class="compact-list">
-          <li><a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>: runnable parser entry point.</li>
-          <li>Core helper to create: <code>parse_json(raw_text)</code>.</li>
-          <li>Proof to create: valid protocol JSON becomes a structured value, malformed JSON returns <code>INVALID_JSON</code>.</li>
-        </ul>
+        <h2>Predict Before Reading</h2>
+        <p>Which of these should produce <code>INVALID_JSON</code>: <code>{"tool": "read_file"}</code> or <code>{"tool": "read_file", "args": </code>?</p>
+        <p>Prediction: only the second. The first is valid JSON with the wrong Project 1A shape; that is a later validation failure.</p>
       </section>
 
       <section>
-        <h2>Practice: Spot The Boundary</h2>
+        <h2>Concrete Walkthrough</h2>
+        <pre><code>raw = '{"tool": "read_file", "args": {"path": "notes.txt"}}'
+json_result = parse_json(raw)
+
+if not json_result.ok:
+    return INVALID_JSON
+
+data = json_result.value</code></pre>
+        <p>The parser entry point is <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>. At this stage, the important behavior is narrow: malformed text becomes <code>INVALID_JSON</code>; decoded JSON moves forward as data.</p>
+      </section>
+
+      <section>
+        <h2>Failure Case</h2>
+        <p>A model returns <code>read_file("notes.txt")</code>. A human understands the intention, but <code>json.loads</code> must reject it. Accepting informal formats creates a support burden: every future prompt wording becomes an unofficial protocol.</p>
+      </section>
+
+      <section>
+        <h2>Evidence And Observability</h2>
+        <p>The evidence is a small parser proof: malformed JSON returns a structured result with <code>ok=False</code> and <code>error_code="INVALID_JSON"</code>. The later agent-loop proof <a href="../phase-1/06_agent_loop/tests_agent_loop.py"><code>test_malformed_json_is_rejected_without_execution</code></a> confirms the bad text does not reach a tool.</p>
+        <p>Run the composed proof with <code>uv run pytest curriculum/phase-1/06_agent_loop/tests_agent_loop.py -k malformed_json</code>.</p>
+      </section>
+
+      <section>
+        <h2>Engineering Tradeoff</h2>
+        <p>Strict JSON feels less forgiving than natural-language recovery, but it makes the protocol testable. For Project 1A, choose strict parsing and let the loop return an observation so the model can try again within <code>max_steps</code>.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Classify The Bad Output</h2>
         <div class="practice">
-          <p>What does primitive 3 prove, and what does it not prove yet?</p>
-          <textarea aria-label="Manual tool protocol boundary"></textarea>
-          <button data-check-keywords data-keywords="json,parse,schema">Check answer</button>
+          <p>The assistant returns <code>"hello"</code>. What should primitive 3 say?</p>
+          <div class="choice-list">
+            <label><input type="radio" name="tool-protocol" value="invalid-json"><strong>Return invalid JSON.</strong><span>The text cannot decode.</span></label>
+            <label><input type="radio" name="tool-protocol" value="valid-json"><strong>Return decoded JSON.</strong><span>The parser did succeed.</span></label>
+            <label><input type="radio" name="tool-protocol" value="unknown-tool"><strong>Reject unknown tool.</strong><span>The registry decides later.</span></label>
+          </div>
+          <button data-check-choice data-answer="valid-json" data-feedback-invalid-json="A JSON string is valid JSON. It fails later because it is not the expected object shape." data-feedback-valid-json="Correct. Primitive 3 decodes JSON; schema validation rejects the shape later." data-feedback-unknown-tool="Tool names are checked only after the decoded value has the expected request shape.">Check answer</button>
           <p class="feedback"></p>
-          <button class="reveal-button" data-reveal data-target="tool-protocol-answer">Reveal answer</button>
+          <button class="reveal-button" data-reveal data-target="tool-protocol-answer">Reveal explanation</button>
           <div class="answer" id="tool-protocol-answer">
-            <p>It proves the assistant text can be parsed as JSON. It does not yet prove the object has the right schema, names a known tool, or has valid args.</p>
+            <p><code>"hello"</code> is valid JSON. It is not a valid Project 1A tool request, but that is primitive 4's job.</p>
           </div>
         </div>
       </section>
 
       <section>
+        <h2>Transfer Prompt</h2>
+        <p>If a customer wanted XML or YAML tool requests, what would have to change in the parser while keeping the later validation boundary intact?</p>
+      </section>
+
+      <section>
         <h2>Checkpoint</h2>
         <ul class="task-list">
-          <li><span><input type="checkbox"></span><span>I can write the one-object tool JSON shape from memory.</span></li>
-          <li><span><input type="checkbox"></span><span>I can explain why the model is only making a request.</span></li>
-          <li><span><input type="checkbox"></span><span>I know malformed JSON must be rejected before schema checks.</span></li>
+          <li><span><input type="checkbox"></span><span>I can write the one-object JSON tool-request shape from memory.</span></li>
+          <li><span><input type="checkbox"></span><span>I can explain why the model is making a request, not executing code.</span></li>
+          <li><span><input type="checkbox"></span><span>I can distinguish malformed JSON from valid JSON with the wrong shape.</span></li>
         </ul>
         <p class="small">Primary source: <a href="https://docs.python.org/3/library/json.html">Python docs: json</a>. Related reference: <a href="../reference/agent-loop-contract.html">Agent Loop Contract</a>.</p>
         <p class="small">Ask your agent teacher to generate malformed examples if you want more parser practice.</p>

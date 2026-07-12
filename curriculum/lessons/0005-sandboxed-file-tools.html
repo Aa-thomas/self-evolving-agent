@@ -16,53 +16,67 @@
       </header>
 
       <section>
-        <h2>The Sandbox Rule</h2>
-        <pre><code>safe_path = (sandbox_root / user_path).resolve()
-safe_path must stay inside sandbox_root</code></pre>
-        <p><code>validate_path</code> rejects empty paths, absolute paths, parent traversal, and resolved paths outside the sandbox. Tool handlers call this before touching the filesystem.</p>
+        <h2>Why This Matters In Production</h2>
+        <p>A file tool is not just a helper function. It is a permission boundary. If the model can trick the tool into reading <code>../secrets.env</code> or writing outside the task directory, the agent has crossed from automation into a security incident.</p>
         <div class="callout">
-          <p><strong>Security habit:</strong> validating a tool request schema is not enough. The tool implementation still enforces its own boundary.</p>
+          <p><strong>Invariant:</strong> every filesystem path must resolve inside <code>sandbox_root</code> before the tool reads, writes, or lists anything.</p>
         </div>
       </section>
 
       <section>
-        <h2>The Three Tools</h2>
-        <table class="contract-table">
-          <thead>
-            <tr>
-              <th>Tool</th>
-              <th>Allowed result</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>read_file(path)</code></td>
-              <td>Returns file text or a structured read rejection.</td>
-            </tr>
-            <tr>
-              <td><code>write_file(path, content)</code></td>
-              <td>Writes text inside the sandbox and returns bytes written.</td>
-            </tr>
-            <tr>
-              <td><code>list_files(path=".")</code></td>
-              <td>Returns sorted names in a sandbox directory.</td>
-            </tr>
-          </tbody>
-        </table>
+        <h2>Predict Before Reading</h2>
+        <p>The request passed schema validation: <code>{"tool": "read_file", "args": {"path": "../secret.txt"}}</code>. Should the file tool still reject it?</p>
+        <p>Prediction: yes. Schema validation proves the argument has a <code>path</code>; it does not prove the path is safe for this sandbox.</p>
       </section>
 
       <section>
-        <h2>Practice: Classify Paths</h2>
+        <h2>Concrete Walkthrough</h2>
+        <pre><code>candidate = (sandbox_root / user_path).resolve()
+
+if candidate is outside sandbox_root:
+    return Err("Path escapes sandbox", "PATH_OUTSIDE_SANDBOX")
+
+return read_text(candidate)</code></pre>
+        <p>The implementation and proof live in <a href="../phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"><code>05_sandboxed_file_tools.py</code></a> and <a href="../phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"><code>tests_05_sandboxed_file_tools.py</code></a>. Tool handlers call path validation immediately before filesystem access.</p>
+      </section>
+
+      <section>
+        <h2>Failure Case</h2>
+        <p>A customer asks the agent to summarize local notes. The model emits <code>read_file("../customer_tokens.txt")</code>. The request is syntactically valid and the tool name is known. The security boundary is enforced only if the file tool resolves the path and rejects anything outside the sandbox.</p>
+      </section>
+
+      <section>
+        <h2>Evidence And Observability</h2>
+        <p>Convincing evidence tests both allowed and forbidden paths. A good proof creates a file inside the sandbox, creates a tempting file outside it, then asserts the outside file is never read or written. The result should be a structured error, not a Python traceback.</p>
+        <p>Run the focused proof with <code>uv run pytest curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py</code>.</p>
+      </section>
+
+      <section>
+        <h2>Engineering Tradeoff</h2>
+        <p>Flexible file paths make demos feel smoother, but strict sandboxing makes the agent safe to run repeatedly. Project 1A chooses explicit permissions over convenience: the model may request paths, but the tool owns the final filesystem decision.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Block The Escape</h2>
         <div class="practice">
-          <p>Which of these should be rejected and why: <code>notes.txt</code>, <code>../secret.txt</code>, <code>/tmp/secret.txt</code>?</p>
-          <textarea aria-label="Sandbox path classification"></textarea>
-          <button data-check-keywords data-keywords="parent,absolute,sandbox">Check answer</button>
+          <p>Which request should the file tool reject even after schema validation passes?</p>
+          <div class="choice-list">
+            <label><input type="radio" name="sandbox-path" value="notes"><strong>Read notes.txt.</strong><span>Relative path inside sandbox.</span></label>
+            <label><input type="radio" name="sandbox-path" value="nested"><strong>Write drafts/out.txt.</strong><span>Nested path inside sandbox.</span></label>
+            <label><input type="radio" name="sandbox-path" value="escape"><strong>Read ../secret.txt.</strong><span>Parent traversal outside sandbox.</span></label>
+          </div>
+          <button data-check-choice data-answer="escape" data-feedback-notes="A plain relative path can be allowed if it resolves inside the sandbox." data-feedback-nested="A nested relative path can be allowed after parent directories are handled safely." data-feedback-escape="Correct. Parent traversal must be rejected by the tool boundary.">Check answer</button>
           <p class="feedback"></p>
-          <button class="reveal-button" data-reveal data-target="sandbox-answer">Reveal answer</button>
+          <button class="reveal-button" data-reveal data-target="sandbox-answer">Reveal explanation</button>
           <div class="answer" id="sandbox-answer">
-            <p><code>notes.txt</code> is allowed if it resolves inside the sandbox. <code>../secret.txt</code> is parent traversal. <code>/tmp/secret.txt</code> is absolute. The last two are rejected.</p>
+            <p><code>../secret.txt</code> attempts to escape the sandbox root. The tool must reject it even though the argument shape is valid.</p>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h2>Transfer Prompt</h2>
+        <p>If this agent ran in a customer's repository, what extra path rules would you add for generated files, ignored directories, or binary files?</p>
       </section>
 
       <section>
