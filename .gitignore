@@ -8,5 +8,9 @@ wheels/
 
 .env
 
+# Local study workspace data
+curriculum/data/*.sqlite3
+.playwright-cli/
+
 # Virtual environments
 .venv

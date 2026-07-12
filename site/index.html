@@ -6,14 +6,23 @@
     <title>Project 1A Lessons</title>
     <link rel="stylesheet" href="assets/course.css">
     <link rel="stylesheet" href="assets/site.css">
+    <link rel="stylesheet" href="assets/study.css">
+    <script defer src="assets/study.js"></script>
   </head>
-  <body>
+  <body data-course-home>
     <main class="course-home">
       <header>
         <p class="eyebrow">Harness Engineering</p>
         <h1>Project 1A Lessons</h1>
-        <p class="lede">A public reading site for the Project 1A agent primitives. This version publishes lessons only: no implementation source, private notes, or local reference artifacts.</p>
+        <p class="lede">Study the Project 1A agent primitives, capture what you understand, and leave each lesson with a focused plan for your next home coding session.</p>
       </header>
+
+      <section class="workflow-link" aria-label="Study workflow">
+        <h2>Study, then build later</h2>
+        <p>Each lesson has a private local workspace for retrieval, notes, a narrow implementation plan, and reflection. Nothing on the site edits or runs your code.</p>
+        <p><a href="study-workflow.html">Open the Study Workflow</a></p>
+        <div class="study-summary" id="study-progress" aria-live="polite"></div>
+      </section>
 
       <section class="course-map" aria-label="Project 1A primitive flow">
         <div>Model call</div>
