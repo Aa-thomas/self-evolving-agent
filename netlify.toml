@@ -2,6 +2,12 @@
   command = "python3 tools/build_lessons_site.py"
   publish = "site"
 
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/study/:splat"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]

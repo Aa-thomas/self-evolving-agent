@@ -94,6 +94,15 @@ def add_site_assets(html: str) -> str:
             1,
         )
 
+    if script_marker in html and "../assets/study.js" not in html:
+        html = html.replace(
+            script_marker,
+            script_marker
+            + '\n    <link rel="stylesheet" href="../assets/study.css">'
+            + '\n    <script defer src="../assets/study.js"></script>',
+            1,
+        )
+
     return html
 
 
@@ -164,6 +173,8 @@ def render_index(lessons: list[Lesson]) -> str:
     <link rel="stylesheet" href="assets/site.css">
     <link rel="stylesheet" href="assets/study.css">
     <script defer src="assets/study.js"></script>
+    <link rel="stylesheet" href="assets/study.css">
+    <script defer src="assets/study.js"></script>
   </head>
   <body data-course-home>
     <main class="course-home">
@@ -175,7 +186,7 @@ def render_index(lessons: list[Lesson]) -> str:
 
       <section class="workflow-link" aria-label="Study workflow">
         <h2>Study, then build later</h2>
-        <p>Each lesson has a private local workspace for retrieval, notes, a narrow implementation plan, and reflection. Nothing on the site edits or runs your code.</p>
+        <p>Each lesson has a private synced workspace for retrieval, notes, a narrow implementation plan, and reflection. Nothing on the site edits or runs your code.</p>
         <p><a href="study-workflow.html">Open the Study Workflow</a></p>
         <div class="study-summary" id="study-progress" aria-live="polite"></div>
       </section>
