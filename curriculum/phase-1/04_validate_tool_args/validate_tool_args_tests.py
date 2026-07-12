@@ -4,12 +4,7 @@ import sys
 from pathlib import Path
 
 
-MODULE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "scripts"
-    / "phase-1"
-    / "04_validate_tool_args.py"
-)
+MODULE_PATH = Path(__file__).resolve().with_name("04_validate_tool_args.py")
 
 spec = importlib.util.spec_from_file_location("validate_tool_args", MODULE_PATH)
 
