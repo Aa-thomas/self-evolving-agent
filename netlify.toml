@@ -3,6 +3,12 @@
   publish = "site"
 
 [[redirects]]
+  from = "/lessons/:lesson"
+  to = "/lessons/:lesson.html"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/study/:splat"
   status = 200
