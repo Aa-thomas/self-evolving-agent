@@ -4,6 +4,8 @@ from pathlib import Path
 
 import typer
 
+FIXTURES = Path(__file__).resolve().parent
+
 # =============================================================================
 # JSON TESTS
 # =============================================================================
@@ -11,7 +13,7 @@ import typer
 
 def test_readjson():
     # Open an existing JSON file in read mode.
-    with open("scripts/jsonfile.json", "r") as file:
+    with (FIXTURES / "jsonfile.json").open("r") as file:
         # Convert the JSON file contents into a Python dictionary.
         result = json.load(file)
 
@@ -22,16 +24,18 @@ def test_readjson():
     assert result == expected
 
 
-def test_writejson():
+def test_writejson(tmp_path: Path):
     # The dictionary that will be written to the JSON file.
     data = {"name": "sathiyajith", "rollno": 56, "cgpa": 8.6, "phone": "9976770500"}
 
-    # Open/create the output file in write mode and write the dictionary as JSON.
-    with open("scripts/write.json", "w") as file:
+    output = tmp_path / "write.json"
+
+    # Open/create a temporary output file and write the dictionary as JSON.
+    with output.open("w") as file:
         json.dump(data, file)
 
     # Re-open the written file in read mode.
-    with open("scripts/write.json", "r") as file:
+    with output.open("r") as file:
         # Convert the JSON file contents back into a Python dictionary.
         result = json.load(file)
 
@@ -41,7 +45,7 @@ def test_writejson():
 
 def test_validatekeys():
     # Open the previously written JSON file.
-    with open("scripts/write.json", "r") as file:
+    with (FIXTURES / "write.json").open("r") as file:
         # Convert the JSON file contents into a Python dictionary.
         result = json.load(file)
 
