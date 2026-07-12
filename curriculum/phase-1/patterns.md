@@ -1,5 +1,40 @@
+# 01 Model Call
 
-## Parse Tool Request
+## Pass #1
+
+- Model Call = Text In + Text Out  + Evidence
+- Takes prompt and creates assistant output string
+- Records Cost: Time + input/output tokens
+- Model object = any object with .complete(messages)
+
+## The Contract
+
+```
+record = call_model(prompt="ping", model=model)
+
+record.output_text
+record.latency_seconds
+record.prompt_tokens or record.estimated_total_tokens
+```
+
+## Pass #2
+
+- The model call primitive is simple. It is just tge text you send the model - (the prompt)and then the text the model outputs (the assisstant output) plus our evidence - meaning the cost in time (latency) and our input/output tokens
+- Our basic function shape is simply on object with a .complete() method
+- record = call_model(prompt=“ping”, model=model)
+- output_token_cost = record.output_tokens
+- input_token_cost = record.input_tokens
+- time_elapsed = record.latency_seconds
+
+## Ammendments
+- model.complete() should be model.complete(messages). call model should build a one message list, THEN call model.complete(messages)
+- Dont confuse token counts with cost. Safer wording is token usage.
+- We should be returning a record not just printing to the cli. The primitive should return structured data.
+- We should keep model provider code behind the modele object. The openrouter/openai client should not be the whole primitive. Any fake or real model with.complete(messages) -> str can be used. That way we can test without api calls
+- Add token estimates using helper functions for if a model provider doesnt provide token usage data
+- Create a proper adapter for openrouter before using it with the model call function.
+
+# 03 Parse Tool Request
 - the model does not execute tools. The harness executes tools. The model just makes requests and its up to your harness to decide if that request is valid and what to do with it.
 - Goal: Given raw assistant output, I can convert a valid tool request into a structured internal representation, and I can reject invalid requests clearly.
 
@@ -15,7 +50,7 @@ I misunderstood the difference between valid JSON and a valid tool request. Vali
 What test now proves it:
 Tests now prove that valid JSON parses successfully, malformed JSON returns a structured INVALID_JSON rejection, valid tool-request objects pass Pydantic validation, and invalid shapes such as missing tool, missing args, non-dict args, or non-object JSON return INVALID_TOOL_REQUEST_SHAPE.
 
-## Validate Tool args
+# Validate Tool args
 -create a list of valid tools
 - create a function that checks if the requested tool is in the list of valid tools
 - validate the schema of that tool
@@ -79,9 +114,9 @@ read_file with missing path returns INVALID_TOOL_ARGS.
 
 That proves the harness is not merely parsing JSON; it is enforcing the specific tool contract before execution.
 
-## Sandboxed File Tools
+# Sandboxed File Tools
 
-## Agent Loop
+# Agent Loop
 Function name:
 run_agent
 
