@@ -55,11 +55,11 @@ def read_lesson(source: Path) -> Lesson:
 
 
 def clean_site() -> None:
-    if SITE.exists():
-        shutil.rmtree(SITE)
+    if LESSONS_OUT.exists():
+        shutil.rmtree(LESSONS_OUT)
 
     LESSONS_OUT.mkdir(parents=True)
-    ASSETS_OUT.mkdir(parents=True)
+    ASSETS_OUT.mkdir(parents=True, exist_ok=True)
 
 
 def copy_assets() -> None:
@@ -74,17 +74,27 @@ def strip_private_links(html: str) -> str:
     return LOCAL_LINK_PATTERN.sub(lambda match: match.group(1), html)
 
 
-def add_site_stylesheet(html: str) -> str:
-    marker = '<link rel="stylesheet" href="../assets/course.css">'
+def add_site_assets(html: str) -> str:
+    stylesheet_marker = '<link rel="stylesheet" href="../assets/course.css">'
+    script_marker = '<script defer src="../assets/lesson.js"></script>'
 
-    if marker not in html:
-        return html
+    if stylesheet_marker in html and "../assets/site.css" not in html:
+        html = html.replace(
+            stylesheet_marker,
+            stylesheet_marker + '\n    <link rel="stylesheet" href="../assets/site.css">',
+            1,
+        )
 
-    return html.replace(
-        marker,
-        marker + '\n    <link rel="stylesheet" href="../assets/site.css">',
-        1,
-    )
+    if script_marker in html and "../assets/study.js" not in html:
+        html = html.replace(
+            script_marker,
+            script_marker
+            + '\n    <link rel="stylesheet" href="../assets/study.css">'
+            + '\n    <script defer src="../assets/study.js"></script>',
+            1,
+        )
+
+    return html
 
 
 def nav_html(lessons: list[Lesson], index: int, *, bottom: bool = False) -> str:
@@ -120,7 +130,7 @@ def render_lesson(lessons: list[Lesson], index: int) -> str:
     lesson = lessons[index]
     html = lesson.source.read_text(encoding="utf-8")
     html = strip_private_links(html)
-    html = add_site_stylesheet(html)
+    html = add_site_assets(html)
     html = html.replace("<main>", "<main>" + nav_html(lessons, index), 1)
     html = html.replace("</main>", nav_html(lessons, index, bottom=True) + "    </main>", 1)
     return html
@@ -152,14 +162,23 @@ def render_index(lessons: list[Lesson]) -> str:
     <title>Project 1A Lessons</title>
     <link rel="stylesheet" href="assets/course.css">
     <link rel="stylesheet" href="assets/site.css">
+    <link rel="stylesheet" href="assets/study.css">
+    <script defer src="assets/study.js"></script>
   </head>
-  <body>
+  <body data-course-home>
     <main class="course-home">
       <header>
         <p class="eyebrow">Harness Engineering</p>
         <h1>Project 1A Lessons</h1>
-        <p class="lede">A public reading site for the Project 1A agent primitives. This version publishes lessons only: no implementation source, private notes, or local reference artifacts.</p>
+        <p class="lede">Study the Project 1A agent primitives, capture what you understand, and leave each lesson with a focused plan for your next home coding session.</p>
       </header>
+
+      <section class="workflow-link" aria-label="Study workflow">
+        <h2>Study, then build later</h2>
+        <p>Each lesson has a private local workspace for retrieval, notes, a narrow implementation plan, and reflection. Nothing on the site edits or runs your code.</p>
+        <p><a href="study-workflow.html">Open the Study Workflow</a></p>
+        <div class="study-summary" id="study-progress" aria-live="polite"></div>
+      </section>
 
       <section class="course-map" aria-label="Project 1A primitive flow">
         <div>Model call</div>
@@ -204,8 +223,8 @@ SITE_CSS = """
   color: var(--muted);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 14px;
-  margin-bottom: 26px;
+  gap: 8px;
+  margin-bottom: 20px;
   padding: 0 0 14px;
 }
 
@@ -217,21 +236,24 @@ SITE_CSS = """
 }
 
 .site-nav a {
+  align-items: center;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--accent-ink);
+  display: inline-flex;
   line-height: 1;
+  min-height: 44px;
   padding: 9px 10px;
   text-decoration: none;
 }
 
 .site-nav span {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .nav-spacer {
-  flex: 1 1 auto;
+  display: none;
 }
 
 .course-home header {
@@ -241,7 +263,7 @@ SITE_CSS = """
 .course-map {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 24px 0 8px;
 }
 
@@ -273,7 +295,8 @@ SITE_CSS = """
   border-radius: 8px;
   display: grid;
   gap: 2px;
-  padding: 14px 16px;
+  min-height: 72px;
+  padding: 14px;
   text-decoration: none;
 }
 
@@ -288,6 +311,36 @@ SITE_CSS = """
 .lesson-index strong {
   color: var(--ink);
   font-size: 1.05rem;
+}
+
+@media (min-width: 480px) {
+  .course-map {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 640px) {
+  .site-nav {
+    gap: 10px 14px;
+    margin-bottom: 26px;
+  }
+
+  .site-nav span {
+    font-size: 0.9rem;
+  }
+
+  .nav-spacer {
+    display: block;
+    flex: 1 1 auto;
+  }
+
+  .course-map {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+
+  .lesson-index a {
+    padding: 14px 16px;
+  }
 }
 """
 

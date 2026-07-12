@@ -1,9 +1,38 @@
+import sqlite3
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from study_server import StudyStore
+
+
+def test_study_store_migrates_legacy_reflections(tmp_path):
+    database = tmp_path / "study.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE reflections (
+                lesson_id TEXT PRIMARY KEY,
+                mental_model TEXT NOT NULL DEFAULT '',
+                next_step TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            );
+            INSERT INTO reflections (lesson_id, mental_model, next_step, updated_at)
+            VALUES ('0001-model-call-primitive', 'Keep the boundary thin.', 'Write the focused proof.', '2026-01-01T00:00:00+00:00');
+            """
+        )
+
+    store = StudyStore(database)
+
+    migrated = store.load("0001-model-call-primitive")
+
+    assert migrated["reflection"] == {
+        "feynman_explanation": "",
+        "feynman_limit": "",
+        "mental_model": "Keep the boundary thin.",
+        "next_step": "Write the focused proof.",
+    }
 
 
 def test_study_store_round_trip(tmp_path):
@@ -14,6 +43,10 @@ def test_study_store_round_trip(tmp_path):
         {
             "status": "ready_to_implement",
             "responses": {
+                "jot_notes": {
+                    "answer": "submit, stop condition, no external tool",
+                    "self_assessment": "unrated",
+                },
                 "invariant": {
                     "answer": "The harness decides whether a request runs.",
                     "self_assessment": "clear",
@@ -28,6 +61,8 @@ def test_study_store_round_trip(tmp_path):
                 "open_question": "When is the assistant message appended?",
             },
             "reflection": {
+                "feynman_explanation": "The model suggests moves, but the harness is the referee.",
+                "feynman_limit": "The analogy hides JSON parsing and validation details.",
                 "mental_model": "The model proposes; the harness decides.",
                 "next_step": "Implement submit handling at home.",
             },
@@ -35,8 +70,15 @@ def test_study_store_round_trip(tmp_path):
     )
 
     assert saved["status"] == "ready_to_implement"
+    assert saved["responses"]["jot_notes"]["answer"] == "submit, stop condition, no external tool"
     assert saved["responses"]["invariant"]["answer"] == "The harness decides whether a request runs."
     assert saved["plan"]["target_function"] == "run_agent"
+    assert saved["reflection"]["feynman_explanation"] == (
+        "The model suggests moves, but the harness is the referee."
+    )
+    assert saved["reflection"]["feynman_limit"] == (
+        "The analogy hides JSON parsing and validation details."
+    )
     assert saved["reflection"]["next_step"] == "Implement submit handling at home."
     assert store.progress() == [
         {

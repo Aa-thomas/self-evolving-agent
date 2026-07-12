@@ -70,6 +70,8 @@ class StudyStore:
 
                 CREATE TABLE IF NOT EXISTS reflections (
                     lesson_id TEXT PRIMARY KEY,
+                    feynman_explanation TEXT NOT NULL DEFAULT '',
+                    feynman_limit TEXT NOT NULL DEFAULT '',
                     mental_model TEXT NOT NULL DEFAULT '',
                     next_step TEXT NOT NULL DEFAULT '',
                     updated_at TEXT NOT NULL,
@@ -77,6 +79,28 @@ class StudyStore:
                 );
                 """
             )
+            self.ensure_columns(
+                connection,
+                "reflections",
+                {
+                    "feynman_explanation": "TEXT NOT NULL DEFAULT ''",
+                    "feynman_limit": "TEXT NOT NULL DEFAULT ''",
+                },
+            )
+
+    def ensure_columns(
+        self,
+        connection: sqlite3.Connection,
+        table: str,
+        columns: dict[str, str],
+    ) -> None:
+        existing = {
+            row["name"]
+            for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        for name, definition in columns.items():
+            if name not in existing:
+                connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
     def load(self, lesson_id: str) -> dict[str, object]:
         with self.connect() as connection:
@@ -93,7 +117,9 @@ class StudyStore:
                 (lesson_id,),
             ).fetchone()
             reflection = connection.execute(
-                "SELECT mental_model, next_step FROM reflections WHERE lesson_id = ?", (lesson_id,)
+                "SELECT feynman_explanation, feynman_limit, mental_model, next_step "
+                "FROM reflections WHERE lesson_id = ?",
+                (lesson_id,),
             ).fetchone()
 
         return {
@@ -155,11 +181,16 @@ class StudyStore:
                 ),
             )
             connection.execute(
-                "INSERT INTO reflections (lesson_id, mental_model, next_step, updated_at) VALUES (?, ?, ?, ?) "
-                "ON CONFLICT(lesson_id) DO UPDATE SET mental_model = excluded.mental_model, "
+                "INSERT INTO reflections "
+                "(lesson_id, feynman_explanation, feynman_limit, mental_model, next_step, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(lesson_id) DO UPDATE SET feynman_explanation = excluded.feynman_explanation, "
+                "feynman_limit = excluded.feynman_limit, mental_model = excluded.mental_model, "
                 "next_step = excluded.next_step, updated_at = excluded.updated_at",
                 (
                     lesson_id,
+                    text_value(reflection.get("feynman_explanation")),
+                    text_value(reflection.get("feynman_limit")),
                     text_value(reflection.get("mental_model")),
                     text_value(reflection.get("next_step")),
                     timestamp,

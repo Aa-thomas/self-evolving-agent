@@ -7,6 +7,7 @@
   cursor: pointer;
   font: inherit;
   font-weight: 700;
+  min-height: 48px;
   padding: 12px 15px;
   position: fixed;
   right: 0;
@@ -21,13 +22,13 @@
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  padding: 22px;
+  padding: 16px;
   position: fixed;
   right: 0;
   top: 0;
   transform: translateX(104%);
   transition: transform 180ms ease;
-  width: min(440px, 100vw);
+  width: 100vw;
   z-index: 20;
 }
 
@@ -82,7 +83,7 @@
   border-top: 1px solid var(--line);
   display: grid;
   gap: 8px;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   margin: 16px 0 0;
   padding: 12px 0;
 }
@@ -90,6 +91,10 @@
 .study-status-row label,
 .study-status-row select {
   margin: 0;
+}
+
+.study-status-row label {
+  grid-column: 1 / -1;
 }
 
 .save-state {
@@ -112,6 +117,7 @@
   color: var(--muted);
   cursor: pointer;
   font: inherit;
+  min-height: 44px;
   padding: 8px 4px;
 }
 
@@ -146,12 +152,13 @@
   border-radius: 5px;
   color: var(--ink);
   font: inherit;
+  min-height: 44px;
   padding: 9px 10px;
   width: 100%;
 }
 
 .study-panel textarea {
-  min-height: 78px;
+  min-height: 96px;
   resize: vertical;
 }
 
@@ -169,6 +176,7 @@
   cursor: pointer;
   font: inherit;
   font-weight: 700;
+  min-height: 44px;
   padding: 10px 12px;
 }
 
@@ -208,7 +216,27 @@
 .progress-badge.ready_to_implement { background: #dff5e8; color: #12643c; }
 .progress-badge.review { background: #e5edff; color: #274a97; }
 
+.study-panel-open {
+  overflow: hidden;
+}
+
+@media (min-width: 480px) {
+  .study-status-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .study-status-row label {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 681px) {
+  .study-panel {
+    padding: 22px;
+    width: min(440px, 100vw);
+  }
+}
+
 @media (max-width: 680px) {
-  .study-panel { padding: 18px; }
   .study-summary { grid-template-columns: 1fr; }
 }
