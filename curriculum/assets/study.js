@@ -10,7 +10,7 @@ const LESSON_CONTEXT = {
 };
 
 function lessonIdFromPage() {
-  const match = window.location.pathname.match(/\/(\d{4}-[a-z0-9-]+)\.html$/);
+  const match = window.location.pathname.match(/\/(\d{4}-[a-z0-9-]+)(?:\.html)?$/);
   return match ? match[1] : null;
 }
 
