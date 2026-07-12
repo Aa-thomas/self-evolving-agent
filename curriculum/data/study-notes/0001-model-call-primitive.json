@@ -1,0 +1,39 @@
+{
+  "lesson_id": "0001-model-call-primitive",
+  "status": "not_started",
+  "updated_at": "2026-07-12T22:24:00.363Z",
+  "responses": {
+    "jot_notes": {
+      "answer": "",
+      "self_assessment": "unrated"
+    },
+    "one_sentence": {
+      "answer": "",
+      "self_assessment": "unrated"
+    },
+    "invariant": {
+      "answer": "",
+      "self_assessment": "unrated"
+    },
+    "failure": {
+      "answer": "",
+      "self_assessment": "unrated"
+    },
+    "evidence": {
+      "answer": "",
+      "self_assessment": "unrated"
+    }
+  },
+  "plan": {
+    "target_function": "",
+    "smallest_slice": "",
+    "must_do": "",
+    "must_not_do": "",
+    "first_proof": "",
+    "open_question": ""
+  },
+  "reflection": {
+    "mental_model": "",
+    "next_step": ""
+  }
+}
