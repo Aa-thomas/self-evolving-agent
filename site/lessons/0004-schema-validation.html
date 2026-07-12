@@ -6,8 +6,8 @@
     <title>Project 1A: Schema Validation</title>
     <link rel="stylesheet" href="../assets/course.css">
     <link rel="stylesheet" href="../assets/site.css">
-    <script defer src="../assets/lesson.js"></script>
     <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/lesson.js"></script>
     <script defer src="../assets/study.js"></script>
   </head>
   <body>
@@ -23,58 +23,97 @@
 
       <header>
         <p class="eyebrow">Project 1A Primitive 4</p>
-        <h1>Validation is a four-gate checkpoint</h1>
-        <p class="lede">The harness must reject bad model output before any tool code can run.</p>
+        <h1>Validation decides what may reach a tool</h1>
+        <p class="lede">The harness must reject bad model output before any permissioned code path can run.</p>
       </header>
 
       <section>
-        <h2>The Four Gates</h2>
+        <h2>Why This Matters In Production</h2>
+        <p>When a model emits a tool request, the service needs a deterministic gate between untrusted text and executable code. This is where an AI reliability engineer prevents accidental tool calls, confusing errors, and incident reports with no clear cause.</p>
+        <div class="callout">
+          <p><strong>Invariant:</strong> validation returns a structured accepted request or a structured rejection. It never executes the requested tool.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Predict Before Reading</h2>
+        <p>Classify this request: <code>{"tool": "read_file", "args": {}}</code>. Is it malformed JSON, wrong outer shape, unknown tool, or invalid args?</p>
+        <p>Prediction: <code>INVALID_TOOL_ARGS</code>. The JSON decodes, the outer object has <code>tool</code> and <code>args</code>, and <code>read_file</code> is known, but the required <code>path</code> argument is missing.</p>
+      </section>
+
+      <section>
+        <h2>Concrete Walkthrough</h2>
         <table class="contract-table">
           <thead>
             <tr>
               <th>Gate</th>
               <th>Rejects</th>
+              <th>Owns</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>JSON parse</td>
               <td><code>INVALID_JSON</code></td>
+              <td>Can the text decode?</td>
             </tr>
             <tr>
               <td>Outer shape</td>
               <td><code>INVALID_TOOL_REQUEST_SHAPE</code></td>
+              <td>Is it a request object?</td>
             </tr>
             <tr>
               <td>Tool registry</td>
               <td><code>UNKNOWN_TOOL</code></td>
+              <td>Is this tool allowed here?</td>
             </tr>
             <tr>
               <td>Tool args schema</td>
               <td><code>INVALID_TOOL_ARGS</code></td>
+              <td>Can this tool receive these args?</td>
             </tr>
           </tbody>
         </table>
-        <p>Your <code>validate_tool_request</code> function should compose these gates in order. Each failure should return a structured rejection so the loop can later turn it into an observation.</p>
+        <p>The focused validation proof lives in <code>validate_tool_args_tests.py</code>. The loop-level proof lives in <code>tests_agent_loop.py</code>, where invalid requests become observations instead of executions.</p>
       </section>
 
       <section>
-        <h2>Why This Is Not Tool Execution</h2>
-        <p>Validation only answers: "May this request reach a tool handler?" It does not read files or write files. That separation is what lets unknown tools and bad arguments fail safely.</p>
+        <h2>Failure Case</h2>
+        <p>The assistant asks for <code>{"tool": "delete_file", "args": {"path": "notes.txt"}}</code>. If the harness only checks that JSON has <code>tool</code> and <code>args</code>, it may route an unsupported action toward code that should not exist. The registry gate must stop it with <code>UNKNOWN_TOOL</code>.</p>
       </section>
 
       <section>
-        <h2>Practice: Classify The Failure</h2>
+        <h2>Evidence And Observability</h2>
+        <p>Evidence must show both rejection and non-execution. A good test asserts the error code and then checks the fake tool's call list is empty. That proves the harness did not merely notice the problem after side effects happened.</p>
+        <p>Run the focused loop proofs with <code>uv run pytest curriculum/phase-1/06_agent_loop/tests_agent_loop.py -k "unknown or invalid"</code>.</p>
+      </section>
+
+      <section>
+        <h2>Engineering Tradeoff</h2>
+        <p>Strict validation can reject requests that a human could repair. That is acceptable here because the loop can return a structured observation and let the model try again. The tradeoff is strictness versus recovery; Project 1A chooses strict gates plus bounded retry.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Pick The Gate</h2>
         <div class="practice">
-          <p>What error code should this produce: <code>{"tool": "read_file", "args": {}}</code>?</p>
-          <textarea aria-label="Schema validation failure"></textarea>
-          <button data-check-keywords data-keywords="invalid,tool,args">Check answer</button>
+          <p>The assistant returns <code>{"tool": "read_file"}</code>. Which gate should reject it?</p>
+          <div class="choice-list">
+            <label><input type="radio" name="schema-gate" value="json"><strong>JSON parse gate.</strong><span>The text cannot decode.</span></label>
+            <label><input type="radio" name="schema-gate" value="shape"><strong>Outer shape gate.</strong><span>The args field is missing.</span></label>
+            <label><input type="radio" name="schema-gate" value="registry"><strong>Tool registry gate.</strong><span>The tool name is unknown.</span></label>
+          </div>
+          <button data-check-choice data-answer="shape" data-feedback-json="The text is valid JSON, so the parser should not own this failure." data-feedback-shape="Correct. The request object is missing the required args field." data-feedback-registry="The tool name is known; the request fails before registry or arg validation matters.">Check answer</button>
           <p class="feedback"></p>
-          <button class="reveal-button" data-reveal data-target="schema-answer">Reveal answer</button>
+          <button class="reveal-button" data-reveal data-target="schema-answer">Reveal explanation</button>
           <div class="answer" id="schema-answer">
-            <p><code>INVALID_TOOL_ARGS</code>. The JSON is valid, the outer shape exists, and <code>read_file</code> is known, but the required <code>path</code> argument is missing.</p>
+            <p>The request has valid JSON but the wrong outer shape. It should return <code>INVALID_TOOL_REQUEST_SHAPE</code>.</p>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h2>Transfer Prompt</h2>
+        <p>If a customer added a <code>search_docs</code> tool, what would you validate in the registry and what would you validate in that tool's argument schema?</p>
       </section>
 
       <section>

@@ -50,6 +50,8 @@ function renderStudyPanel(lessonId) {
     </nav>
     <section data-study-view="think" class="study-view active">
       <p class="study-step">1 of 3 · Before revisiting the prose</p>
+      <label for="jot-notes">Jot notes</label>
+      <textarea id="jot-notes" data-response-id="jot_notes" placeholder="Raw fragments, keywords, examples, confusions, or copied error messages. Keep this messy."></textarea>
       <label for="one-sentence">In one sentence, what is this primitive?</label>
       <textarea id="one-sentence" data-response-id="one_sentence" placeholder="Explain it in your own words."></textarea>
       <label for="invariant">What must never happen?</label>
@@ -84,6 +86,10 @@ function renderStudyPanel(lessonId) {
     </section>
     <section data-study-view="reflect" class="study-view">
       <p class="study-step">3 of 3 · Close the study session</p>
+      <label for="feynman-explanation">Explain this to a smart 12-year-old</label>
+      <textarea id="feynman-explanation" data-reflection-field="feynman_explanation" placeholder="Use plain language, one analogy, and no framework jargon."></textarea>
+      <label for="feynman-limit">Where does that explanation break?</label>
+      <textarea id="feynman-limit" data-reflection-field="feynman_limit" placeholder="Name one detail your simple explanation leaves out or risks oversimplifying."></textarea>
       <label for="mental-model">What changed in your mental model?</label>
       <textarea id="mental-model" data-reflection-field="mental_model" placeholder="Capture the correction or connection you want to remember."></textarea>
       <label for="next-step">Next smallest step when you are home</label>
