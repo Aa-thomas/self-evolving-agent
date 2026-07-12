@@ -5,7 +5,7 @@
 [[redirects]]
   from = "/lessons/:lesson"
   to = "/lessons/:lesson.html"
-  status = 301
+  status = 200
   force = true
 
 [[redirects]]
