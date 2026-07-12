@@ -1,7 +1,7 @@
 # Mission: Harness Engineering
 
 ## Why
-Build production-shaped AI agents from first principles, with enough evidence to be credible for applied AI, agent engineering, and AI reliability roles. The immediate goal is Project 1A: understand and implement the minimal agent loop before using agent frameworks or benchmark harnesses.
+Build production-shaped AI agents from first principles, with enough evidence to be credible for AI Engineer, Applied AI Engineer, Agent Engineer, Forward Deployed Engineer, and AI reliability roles. The immediate goal is Project 1A: understand and implement the minimal agent loop before using agent frameworks or benchmark harnesses.
 
 ## Success looks like
 - Implement a small file-agent loop that stops on `submit`, enforces `max_steps`, executes only registered tools, and appends tool observations to message state.
@@ -13,6 +13,7 @@ Build production-shaped AI agents from first principles, with enough evidence to
 - Stay focused on the curriculum's primitive -> micro-system -> benchmarked harness path.
 - Prefer small runnable artifacts over broad reading.
 - Teach one tight Project 1A concept at a time.
+- Every learner-facing HTML lesson must meet `LESSON-AUTHORING-STANDARD.md`; concise scope must not mean shallow instruction.
 
 ## Out of scope
 - Agent frameworks.

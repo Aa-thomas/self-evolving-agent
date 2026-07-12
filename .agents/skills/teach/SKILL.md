@@ -60,6 +60,12 @@ Each lesson should recommend a primary source for the user to read or watch. Thi
 
 Each lesson should contain a reminder to ask followup questions to the agent. The agent is their teacher, and can assist with anything that's unclear.
 
+### Lesson quality gate
+
+Before authoring a new lesson, look for a workspace-level lesson-authoring standard and follow it. In this repository, the curriculum standard is `curriculum/LESSON-AUTHORING-STANDARD.md`. It records mission-specific requirements that supplement this general skill.
+
+A lesson is not complete merely because it explains a concept accurately. It must give the learner a way to apply the concept, receive meaningful feedback, and connect it to the mission's real-world outcome. When the mission is career-oriented, make the operational failure prevented, the observable evidence, and the engineering tradeoff explicit.
+
 ## Assets
 
 Lessons are built from reusable **components**, stored in `./assets/`: stylesheets, quiz widgets, simulators, diagram helpers — anything a second lesson could reuse.
