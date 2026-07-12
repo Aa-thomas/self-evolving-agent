@@ -30,6 +30,35 @@ function checkKeywords(button) {
   feedback.className = "feedback";
 }
 
+function checkChoice(button) {
+  const practice = button.closest(".practice");
+  if (!practice) return;
+
+  const feedback = practice.querySelector(".feedback");
+  const expected = button.getAttribute("data-answer");
+  const selected = practice.querySelector("input[type='radio']:checked");
+  if (!feedback || !expected) return;
+
+  if (!selected) {
+    feedback.textContent = "Choose an answer first, then check the feedback.";
+    feedback.className = "feedback";
+    return;
+  }
+
+  const selectedValue = selected.getAttribute("value") || "";
+  const feedbackKey = `feedback${selectedValue.replace(/(^|-)([a-z])/g, (_, __, letter) => letter.toUpperCase())}`;
+  const optionFeedback = button.dataset[feedbackKey];
+
+  if (selectedValue === expected) {
+    feedback.textContent = optionFeedback || button.getAttribute("data-correct") || "Correct. Your choice preserves the lesson invariant.";
+    feedback.className = "feedback good";
+    return;
+  }
+
+  feedback.textContent = optionFeedback || button.getAttribute("data-incorrect") || "Not quite. Re-check the invariant and the failure case.";
+  feedback.className = "feedback";
+}
+
 document.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLButtonElement)) return;
@@ -40,5 +69,9 @@ document.addEventListener("click", (event) => {
 
   if (target.matches("[data-check-keywords]")) {
     checkKeywords(target);
+  }
+
+  if (target.matches("[data-check-choice]")) {
+    checkChoice(target);
   }
 });
