@@ -23,137 +23,94 @@
 
       <header>
         <p class="eyebrow">Project 1A Primitive 6</p>
-        <h1>The agent loop is the harness's control flow</h1>
-        <p class="lede">Primitive 6 composes the first five primitives: call the model, treat messages as state, parse untrusted tool JSON, validate it, execute only allowed tools, and stop safely.</p>
+        <h1>The agent loop owns control flow</h1>
+        <p class="lede">Primitive 6 composes model calls, message state, parsing, validation, file tools, observations, and stop conditions into one minimal harness.</p>
       </header>
 
       <section>
-        <h2>Why This Matters</h2>
-        <p>The curriculum's thesis is: hold the model fixed and treat the harness as the learnable surface. In Project 1A, the loop is where that becomes real. The model returns text. Your harness turns that text into a decision.</p>
+        <h2>Why This Matters In Production</h2>
+        <p>The loop is where an AI engineer proves the model is not directly controlling the system. The model proposes text. The harness decides whether to stop, reject, execute an allowed tool, append an observation, or end because the step budget is exhausted.</p>
         <div class="callout">
-          <p><strong>Working mental model:</strong> the model requests; the harness validates, executes or rejects, records an observation, and decides whether to continue.</p>
+          <p><strong>Invariant:</strong> the model requests; the harness validates, executes or rejects, records an observation, and decides whether another model call is allowed.</p>
         </div>
-        <p>OpenAI's function-calling docs describe tool calling as a multi-step conversation: your application sends a request, receives a tool call, executes application-side code, returns the tool output, then gets a final response or more tool calls. Project 1A rebuilds that flow manually so you can see each moving part.</p>
       </section>
 
       <section>
-        <h2>The Loop Shape</h2>
-        <div class="grid">
-          <div class="card">
-            <h3>1. Ask model</h3>
-            <p>Call <code>model.complete(messages)</code>. The model sees the current message state.</p>
-          </div>
-          <div class="card">
-            <h3>2. Parse action</h3>
-            <p>Treat assistant output as untrusted JSON and convert it into a tool request.</p>
-          </div>
-          <div class="card">
-            <h3>3. Decide</h3>
-            <p>If the request is <code>submit</code>, stop. If invalid, reject. If known and allowed, execute.</p>
-          </div>
-          <div class="card">
-            <h3>4. Append observation</h3>
-            <p>Add the result to <code>messages</code>, then let the next model call react to it.</p>
-          </div>
-        </div>
-        <p>Keep these references open while coding: Agent Loop Contract and Model Completion Boundary.</p>
+        <h2>Predict Before Reading</h2>
+        <p>The model returns <code>{"tool": "submit", "args": {"answer": "done"}}</code>, and the tools dictionary contains a callable named <code>submit</code>. Should the loop call that tool?</p>
+        <p>Prediction: no. <code>submit</code> is internal loop control. It is shaped like a request so the model can use one protocol, but the harness handles it as a stop condition.</p>
       </section>
 
       <section>
-        <h2>The Algorithm</h2>
-        <pre><code>messages = [user task]
+        <h2>Concrete Walkthrough</h2>
+        <pre><code>messages = [{"role": "user", "content": user_task}]
 
 for step in range(max_steps):
     assistant_output = model.complete(messages)
-    append assistant message
+    messages.append({"role": "assistant", "content": assistant_output})
+
     request = validate_tool_request(assistant_output)
 
-    if invalid:
-        append rejection as tool observation
+    if request is invalid:
+        messages.append(rejection_observation)
         continue
 
     if request.tool == "submit":
-        return submitted result
+        return submitted_answer
 
-    tool_result = tools[request.tool](**request.args)
-    append tool_result as tool observation
+    result = tools[request.tool](**request.args)
+    messages.append(tool_observation(result))
 
-return max_steps result</code></pre>
-        <p>The implementation target is <code>06_agent_loop/agent_loop.py</code>. Keep this file focused on the control loop: model call, validation, submit, tool execution, observation, and max-step exit.</p>
+return max_steps_exit</code></pre>
+        <p>The implementation target is <code>06_agent_loop/agent_loop.py</code>. Keep Agent Loop Contract and Model Completion Boundary open while coding.</p>
       </section>
 
       <section>
-        <h2>Start From The First Test</h2>
-        <p>Your current active proof is <code>test_submit_stops_loop</code>. It says:</p>
-        <pre><code>model returns: {"tool": "submit", "args": {"answer": "done"}}
-
-run_agent should:
-- call the model once
-- not execute read_file
-- return exit_reason == "submitted"
-- return final_answer == "done"</code></pre>
-        <p>This is the smallest useful loop because it proves <code>submit</code> is a stop condition, not a normal tool execution.</p>
+        <h2>Failure Case</h2>
+        <p>If the loop treats <code>submit</code> as a normal external tool, a final answer could trigger arbitrary code or be rejected as an unknown tool. If the loop fails to enforce <code>max_steps</code>, malformed output can spin forever. If it executes unknown tools, model text becomes authority.</p>
       </section>
 
       <section>
-        <h2>Stop Conditions</h2>
-        <div class="grid">
-          <div class="card">
-            <h3><code>submit</code></h3>
-            <p>Returns <code>exit_reason="submitted"</code> and the submitted answer. No external tool is executed.</p>
+        <h2>Evidence And Observability</h2>
+        <p>The first proof is <code>test_submit_stops_loop</code>. It asserts the loop calls the model once, does not execute <code>read_file</code>, does not execute a registered <code>submit</code> function, returns <code>exit_reason == "submitted"</code>, and returns <code>final_answer == "done"</code>.</p>
+        <p>Additional proofs cover tool observations, malformed JSON, unknown tools, invalid args, tool exceptions, and <code>max_steps</code>. Run them with <code>uv run pytest curriculum/phase-1/06_agent_loop/tests_agent_loop.py</code>.</p>
+      </section>
+
+      <section>
+        <h2>Engineering Tradeoff</h2>
+        <p>The loop can be strict and stop on the first invalid output, or it can return a rejection observation and let the model repair its next request. Project 1A chooses bounded recovery: invalid output becomes an observation, but <code>max_steps</code> prevents unlimited retries.</p>
+      </section>
+
+      <section>
+        <h2>Practice: Choose The Harness Decision</h2>
+        <div class="practice">
+          <p>The assistant returns malformed JSON on step 0, then a valid submit on step 1. What should the loop do on step 0?</p>
+          <div class="choice-list">
+            <label><input type="radio" name="loop-decision" value="crash"><strong>Crash the run.</strong><span>Raise the parse exception.</span></label>
+            <label><input type="radio" name="loop-decision" value="observe"><strong>Append rejection observation.</strong><span>Let bounded recovery happen.</span></label>
+            <label><input type="radio" name="loop-decision" value="execute"><strong>Execute default tool.</strong><span>Guess the intended action.</span></label>
           </div>
-          <div class="card">
-            <h3><code>max_steps</code></h3>
-            <p>Returns <code>exit_reason="max_steps"</code> when the model never submits in the allowed budget.</p>
+          <button data-check-choice data-answer="observe" data-feedback-crash="Crashing loses the chance to recover and hides the failure from message state." data-feedback-observe="Correct. The rejection becomes context, and max_steps still bounds retries." data-feedback-execute="Guessing a tool violates the core harness boundary. Only validated requests execute.">Check answer</button>
+          <p class="feedback"></p>
+          <button class="reveal-button" data-reveal data-target="loop-answer">Reveal explanation</button>
+          <div class="answer" id="loop-answer">
+            <p>The loop should append a structured <code>INVALID_JSON</code> observation, then continue if the step budget allows. That makes the failure visible to the next model call.</p>
           </div>
         </div>
       </section>
 
       <section>
-        <h2>Practice: Retrieve The Contract</h2>
-        <div class="practice">
-          <p>Without looking above, write the four moving parts the loop needs after the user task enters the system.</p>
-          <textarea aria-label="Agent loop moving parts"></textarea>
-          <button data-check-keywords data-keywords="model,parse,submit,observation">Check answer</button>
-          <p class="feedback"></p>
-          <button class="reveal-button" data-reveal data-target="loop-answer-1">Reveal answer</button>
-          <div class="answer" id="loop-answer-1">
-            <p>Model call, parse and validate assistant output, stop on <code>submit</code> or execute/reject a tool, append an observation before the next model call.</p>
-          </div>
-        </div>
-
-        <div class="practice">
-          <p>Why must <code>read_file</code> not be called in <code>test_submit_stops_loop</code>?</p>
-          <textarea aria-label="Why submit does not call read file"></textarea>
-          <button data-check-keywords data-keywords="submit,stop,tool">Check answer</button>
-          <p class="feedback"></p>
-          <button class="reveal-button" data-reveal data-target="loop-answer-2">Reveal answer</button>
-          <div class="answer" id="loop-answer-2">
-            <p><code>submit</code> is the loop's stop signal. It is shaped like a tool request so the model can use the same protocol, but the harness handles it internally and returns the final answer without executing an external tool.</p>
-          </div>
-        </div>
-
-        <div class="practice">
-          <p>Why does invalid JSON become a tool observation instead of ending the whole run immediately?</p>
-          <textarea aria-label="Invalid JSON observation"></textarea>
-          <button data-check-keywords data-keywords="observation,next,model">Check answer</button>
-          <p class="feedback"></p>
-          <button class="reveal-button" data-reveal data-target="loop-answer-3">Reveal answer</button>
-          <div class="answer" id="loop-answer-3">
-            <p>The loop records the rejection as an observation so the next model call can see what failed and try a valid action, while <code>max_steps</code> still prevents infinite retries.</p>
-          </div>
-        </div>
+        <h2>Transfer Prompt</h2>
+        <p>If a production customer cared more about safety than task completion, which loop failures would you make terminal instead of recoverable?</p>
       </section>
 
       <section>
         <h2>Checkpoint</h2>
         <ul class="task-list">
           <li><span><input type="checkbox"></span><span>I can state why the model does not execute tools.</span></li>
-          <li><span><input type="checkbox"></span><span>I can describe why <code>messages</code> are state.</span></li>
           <li><span><input type="checkbox"></span><span>I can explain why <code>submit</code> is internal loop control.</span></li>
           <li><span><input type="checkbox"></span><span>I can describe when a tool observation is appended.</span></li>
           <li><span><input type="checkbox"></span><span>I can explain why <code>max_steps</code> is a safety feature.</span></li>
-          <li><span><input type="checkbox"></span><span>I know the first proof: make <code>test_submit_stops_loop</code> pass.</span></li>
         </ul>
         <p class="small">Primary source: <a href="https://platform.openai.com/docs/guides/function-calling">OpenAI function calling guide</a>. Secondary principle: <a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic's Building Effective Agents</a>. References: Agent Loop Contract and Model Completion Boundary.</p>
         <p class="small">Ask your agent teacher to trace one complete loop step if any transition is unclear.</p>
