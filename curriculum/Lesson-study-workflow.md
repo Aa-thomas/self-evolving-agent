@@ -29,7 +29,21 @@ Convert the lesson into:
 4. code proof,
 5. post-coding evidence.
 
-The final goal is not just to understand the concept. The final goal is to create a runnable proof: a test, trace, eval, failure note, or working code slice.
+The final goal is not just to understand the concept. The final goal is to create a runnable proof, explain what it establishes and does not establish, and retain the causal model well enough to use it later.
+
+The complete system loop is:
+
+```text
+lesson recall and practice
+→ narrow implementation handoff
+→ configured proof
+→ evidence-based explainer
+→ recall from memory
+→ confirmed learning record
+→ spaced review
+```
+
+At the start of a home teaching session, run `./tools/study-context`. Use `./tools/prove-lesson <lesson-id>` for configured evidence rather than copying a command out of notes.
 
 ---
 

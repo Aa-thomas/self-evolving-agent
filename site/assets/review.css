@@ -1,0 +1,9 @@
+.review-page { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+.review-intro { max-width: 60ch; }
+.review-card { margin: 1.5rem 0; padding: 1.5rem; border: 1px solid #d6dce8; border-radius: 12px; background: #fff; }
+.review-card h2 { font-size: 1.25rem; }
+.review-lesson { color: #52617a; font-weight: 700; margin: 0; }
+.review-card textarea { box-sizing: border-box; display: block; min-height: 9rem; width: 100%; margin: 1rem 0; padding: .75rem; font: inherit; }
+.review-card fieldset { border: 0; padding: 0; margin: 0; }
+.review-card label { margin-right: 1rem; }
+.submit-reviews, [data-connect] { padding: .7rem 1rem; font: inherit; font-weight: 700; cursor: pointer; }

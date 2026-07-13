@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "id": "valid-tool-observation",
+      "title": "Allowed tool becomes an observation",
+      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
+      "steps": [
+        {
+          "stage": "model_output",
+          "label": "The model proposes read_file",
+          "detail": "{\"tool\":\"read_file\",\"args\":{\"path\":\"notes.txt\"}}",
+          "question": "What does the harness do next?",
+          "choices": ["Validate proposed request", "Trust assistant text", "Stop with submission"],
+          "answer": 0,
+          "explanation": "The assistant output is untrusted text until parsing and validation succeed."
+        },
+        {
+          "stage": "harness_decision",
+          "label": "The request is valid and registered",
+          "detail": "tool=read_file; args are valid; tool is registered",
+          "question": "What enters message state after execution?",
+          "choices": ["Append tool observation", "Return Python object", "Append no observation"],
+          "answer": 0,
+          "explanation": "The result is serialized into a tool observation before the next model call."
+        }
+      ]
+    },
+    {
+      "id": "invalid-json-recovery",
+      "title": "Malformed JSON gets bounded recovery",
+      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
+      "steps": [
+        {
+          "stage": "model_output",
+          "label": "The model emits malformed JSON",
+          "detail": "{tool: read_file}",
+          "question": "What is the safe next transition?",
+          "choices": ["Append rejection observation", "Infer requested action", "Execute requested tool"],
+          "answer": 0,
+          "explanation": "The failure becomes visible context, and max_steps keeps recovery bounded."
+        }
+      ]
+    },
+    {
+      "id": "submit-stop",
+      "title": "Submit is internal loop control",
+      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_submit_stops_loop",
+      "steps": [
+        {
+          "stage": "validated_request",
+          "label": "The validated request is submit",
+          "detail": "{\"tool\":\"submit\",\"args\":{\"answer\":\"done\"}}",
+          "question": "What does the harness do next?",
+          "choices": ["Return submitted answer", "Call registered submit", "Request another completion"],
+          "answer": 0,
+          "explanation": "Submit is protocol-shaped internal control. It is never dispatched as an external tool."
+        }
+      ]
+    },
+    {
+      "id": "unknown-tool",
+      "title": "Unknown tools are rejected",
+      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
+      "steps": [
+        {
+          "stage": "validated_shape",
+          "label": "The request shape is valid but the tool is absent",
+          "detail": "tool=delete_file; registry=[read_file, write_file, list_files]",
+          "question": "Which result preserves harness authority?",
+          "choices": ["Append unknown-tool observation", "Perform requested deletion", "Return successful submission"],
+          "answer": 0,
+          "explanation": "Valid JSON is not permission. Only registered tools may execute."
+        }
+      ]
+    },
+    {
+      "id": "max-steps",
+      "title": "The step budget is a safety brake",
+      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
+      "steps": [
+        {
+          "stage": "budget_check",
+          "label": "The last allowed step did not submit",
+          "detail": "step=2; max_steps=3; another model call would exceed the budget",
+          "question": "What is the correct exit?",
+          "choices": ["Exit with max_steps", "Continue until submission", "Execute fallback tool"],
+          "answer": 0,
+          "explanation": "The harness owns the budget and stops even when the model has not finished."
+        }
+      ]
+    }
+  ]
+}
