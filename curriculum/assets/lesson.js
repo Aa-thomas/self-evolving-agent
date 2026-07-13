@@ -52,11 +52,17 @@ function checkChoice(button) {
   if (selectedValue === expected) {
     feedback.textContent = optionFeedback || button.getAttribute("data-correct") || "Correct. Your choice preserves the lesson invariant.";
     feedback.className = "feedback good";
+    document.dispatchEvent(new CustomEvent("learning:practice-attempt", {
+      detail: { passed: true, selected: selectedValue, expected, kind: "choice" },
+    }));
     return;
   }
 
   feedback.textContent = optionFeedback || button.getAttribute("data-incorrect") || "Not quite. Re-check the invariant and the failure case.";
   feedback.className = "feedback";
+  document.dispatchEvent(new CustomEvent("learning:practice-attempt", {
+    detail: { passed: false, selected: selectedValue, expected, kind: "choice" },
+  }));
 }
 
 document.addEventListener("click", (event) => {
