@@ -19,6 +19,12 @@ Treat the current directory as a teaching workspace. The state of their learning
 - `./assets/*`: Reusable **components** shared across lessons. See [Assets](#assets).
 - `NOTES.md`: A scratchpad for you to jot down user preferences, or working notes.
 
+### Repository orchestration hook
+
+Before choosing or resuming a lesson, look for a repository-owned teaching orchestration document. In this workspace it is `curriculum/TEACHING-ORCHESTRATION.md`. Read it completely and follow it for repository-specific learner state, prerequisite, evidence, and review workflows.
+
+When that document specifies a read-only session-context command, run it at the start of the teaching session. Treat its recommendation as the default next action, while allowing the learner to override it. Repository application code owns state transitions; do not reproduce or bypass transition rules through prompt judgment alone.
+
 ## Philosophy
 
 To learn at a deep level, the user needs three things:

@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Run a lesson's allowlisted proof and persist inspectable evidence."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import uuid
+from datetime import UTC, datetime
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CURRICULUM = ROOT / "curriculum"
+sys.path.insert(0, str(CURRICULUM))
+
+from learning_flow import lesson_config, load_manifest  # noqa: E402
+from learning_state import state_backend  # noqa: E402
+from explainer import build_explainer  # noqa: E402
+from study_server import DEFAULT_DATABASE  # noqa: E402
+
+
+def timestamp() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def payload_for_save(state: dict[str, object]) -> dict[str, object]:
+    return {
+        key: state[key]
+        for key in ("status", "responses", "plan", "reflection", "phase", "milestones", "evidence")
+    }
+
+
+def git_diff(targets: list[str]) -> str:
+    if not targets:
+        return ""
+    result = subprocess.run(
+        ["git", "diff", "--", *targets],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return result.stdout[-100_000:]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("lesson_id")
+    parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE)
+    parser.add_argument("--local", action="store_true", help="Use local SQLite even when remote sync is configured")
+    args = parser.parse_args()
+
+    config = lesson_config(args.lesson_id, load_manifest())
+    implementation = config["implementation"]
+    command = implementation["proof_command"]
+    if not command:
+        raise SystemExit(f"{args.lesson_id} does not have an executable proof yet.")
+
+    store = state_backend(args.database, prefer_remote=not args.local)
+    state = store.load(args.lesson_id)
+    if state["phase"] not in {"ready_to_implement", "implementing", "consolidating"}:
+        raise SystemExit("Lesson must have a complete implementation handoff before proof execution.")
+    if state["phase"] == "ready_to_implement":
+        starting = payload_for_save(state)
+        starting.update({"phase": "implementing", "event_source": "prove-lesson"})
+        state = store.save(args.lesson_id, starting)
+
+    started_at = timestamp()
+    result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+    proof_id = str(uuid.uuid4())
+    proof = {
+        "proof_id": proof_id,
+        "lesson_id": args.lesson_id,
+        "command": command,
+        "started_at": started_at,
+        "completed_at": timestamp(),
+        "exit_code": result.returncode,
+        "passed": result.returncode == 0,
+        "stdout": result.stdout[-30_000:],
+        "stderr": result.stderr[-30_000:],
+        "targets": implementation["targets"],
+        "diff": git_diff(implementation["targets"]),
+    }
+
+    run_directory = CURRICULUM / "data" / "proof-runs"
+    run_directory.mkdir(parents=True, exist_ok=True)
+    artifact = run_directory / f"{args.lesson_id}-{proof_id}.json"
+    artifact.write_text(json.dumps(proof, indent=2), encoding="utf-8")
+
+    state = store.load(args.lesson_id)
+    save_payload = payload_for_save(state)
+    evidence = dict(state["evidence"])
+    evidence["proof_runs"] = [*evidence.get("proof_runs", []), {
+        "proof_id": proof_id,
+        "passed": proof["passed"],
+        "exit_code": proof["exit_code"],
+        "artifact": str(artifact.relative_to(ROOT)),
+        "completed_at": proof["completed_at"],
+    }][-50:]
+    save_payload["evidence"] = evidence
+    save_payload["event_source"] = "prove-lesson"
+    if proof["passed"]:
+        milestones = dict(state["milestones"])
+        milestones["proof_passed"] = True
+        save_payload.update({"phase": "consolidating", "milestones": milestones})
+    updated = store.save(args.lesson_id, save_payload)
+
+    if proof["passed"]:
+        markdown_path, html_path = build_explainer(
+            args.lesson_id,
+            config,
+            updated,
+            artifact,
+        )
+        updated = store.load(args.lesson_id)
+        explainer_evidence = dict(updated["evidence"])
+        explainer_evidence["explainer_path"] = str(html_path.relative_to(ROOT))
+        explainer_payload = payload_for_save(updated)
+        explainer_payload.update({"evidence": explainer_evidence, "event_source": "prove-lesson"})
+        store.save(args.lesson_id, explainer_payload)
+        print(f"Explainer: {html_path.relative_to(ROOT)}")
+
+    print(result.stdout, end="")
+    print(result.stderr, end="", file=sys.stderr)
+    print(f"Proof evidence: {artifact.relative_to(ROOT)}")
+    raise SystemExit(result.returncode)
+
+
+if __name__ == "__main__":
+    main()
