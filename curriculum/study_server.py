@@ -6,7 +6,8 @@ import argparse
 import json
 import re
 import sqlite3
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +18,30 @@ SITE_ROOT = ROOT / "site"
 DEFAULT_DATABASE = ROOT / "curriculum" / "data" / "study.sqlite3"
 LESSON_ID = re.compile(r"^\d{4}-[a-z0-9-]+$")
 STATUSES = {"not_started", "studying", "ready_to_implement", "review"}
+PHASES = {
+    "not_started",
+    "studying",
+    "ready_to_implement",
+    "implementing",
+    "consolidating",
+    "learned",
+}
+MILESTONE_KEYS = {
+    "meaningful_practice_passed",
+    "implementation_plan_ready",
+    "proof_passed",
+    "explainer_reviewed",
+    "recall_passed",
+    "learning_record_written",
+}
+PHASE_ORDER = {
+    "not_started": 0,
+    "studying": 1,
+    "ready_to_implement": 2,
+    "implementing": 3,
+    "consolidating": 4,
+    "learned": 5,
+}
 
 
 def now() -> str:
@@ -77,6 +102,37 @@ class StudyStore:
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY (lesson_id) REFERENCES lesson_study(lesson_id) ON DELETE CASCADE
                 );
+
+                CREATE TABLE IF NOT EXISTS learning_state (
+                    lesson_id TEXT PRIMARY KEY,
+                    phase TEXT NOT NULL DEFAULT 'not_started',
+                    milestones_json TEXT NOT NULL DEFAULT '{}',
+                    evidence_json TEXT NOT NULL DEFAULT '{}',
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (lesson_id) REFERENCES lesson_study(lesson_id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS learning_events (
+                    event_id TEXT PRIMARY KEY,
+                    lesson_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+                    from_phase TEXT NOT NULL,
+                    to_phase TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL,
+                    FOREIGN KEY (lesson_id) REFERENCES lesson_study(lesson_id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS review_schedule (
+                    lesson_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    due_at TEXT NOT NULL,
+                    interval_index INTEGER NOT NULL DEFAULT 0,
+                    last_reviewed_at TEXT,
+                    PRIMARY KEY (lesson_id, kind),
+                    FOREIGN KEY (lesson_id) REFERENCES lesson_study(lesson_id) ON DELETE CASCADE
+                );
                 """
             )
             self.ensure_columns(
@@ -121,6 +177,24 @@ class StudyStore:
                 "FROM reflections WHERE lesson_id = ?",
                 (lesson_id,),
             ).fetchone()
+            learning = connection.execute(
+                "SELECT phase, milestones_json, evidence_json FROM learning_state WHERE lesson_id = ?",
+                (lesson_id,),
+            ).fetchone()
+            event_rows = connection.execute(
+                "SELECT event_id, event_type, source, evidence_refs_json, from_phase, to_phase, occurred_at "
+                "FROM learning_events WHERE lesson_id = ? ORDER BY occurred_at DESC LIMIT 50",
+                (lesson_id,),
+            ).fetchall()
+            review_rows = connection.execute(
+                "SELECT kind, due_at, interval_index, last_reviewed_at FROM review_schedule "
+                "WHERE lesson_id = ? ORDER BY due_at",
+                (lesson_id,),
+            ).fetchall()
+
+        phase = learning["phase"] if learning else phase_for_status(study["status"] if study else "not_started")
+        milestones = json.loads(learning["milestones_json"]) if learning else empty_milestones()
+        evidence = json.loads(learning["evidence_json"]) if learning else empty_evidence()
 
         return {
             "lesson_id": lesson_id,
@@ -129,6 +203,17 @@ class StudyStore:
             "responses": {row["prompt_id"]: dict(row) for row in response_rows},
             "plan": dict(plan) if plan else {},
             "reflection": dict(reflection) if reflection else {},
+            "phase": phase,
+            "milestones": {**empty_milestones(), **milestones},
+            "evidence": {**empty_evidence(), **evidence},
+            "events": [
+                {
+                    **{key: row[key] for key in row.keys() if key != "evidence_refs_json"},
+                    "evidence_refs": json.loads(row["evidence_refs_json"]),
+                }
+                for row in event_rows
+            ],
+            "reviews": [dict(row) for row in review_rows],
         }
 
     def save(self, lesson_id: str, payload: dict[str, object]) -> dict[str, object]:
@@ -144,6 +229,29 @@ class StudyStore:
 
         timestamp = now()
         with self.connect() as connection:
+            current_learning = connection.execute(
+                "SELECT phase, milestones_json, evidence_json FROM learning_state WHERE lesson_id = ?",
+                (lesson_id,),
+            ).fetchone()
+            current_phase = current_learning["phase"] if current_learning else "not_started"
+            requested_phase = payload.get("phase")
+            if requested_phase is None:
+                requested_phase = phase_for_status(status)
+                if PHASE_ORDER[requested_phase] < PHASE_ORDER[current_phase]:
+                    requested_phase = current_phase
+            if requested_phase not in PHASES:
+                raise ValueError("Invalid lesson phase.")
+            milestones = sanitize_milestones(
+                payload.get("milestones"),
+                json.loads(current_learning["milestones_json"]) if current_learning else None,
+            )
+            if requested_phase == "ready_to_implement" and plan_is_complete(plan):
+                milestones["implementation_plan_ready"] = True
+            evidence = sanitize_evidence(
+                payload.get("evidence"),
+                json.loads(current_learning["evidence_json"]) if current_learning else None,
+            )
+            validate_learning_transition(current_phase, requested_phase, milestones)
             connection.execute(
                 "INSERT INTO lesson_study (lesson_id, status, updated_at) VALUES (?, ?, ?) "
                 "ON CONFLICT(lesson_id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at",
@@ -196,14 +304,175 @@ class StudyStore:
                     timestamp,
                 ),
             )
+            connection.execute(
+                "INSERT INTO learning_state (lesson_id, phase, milestones_json, evidence_json, updated_at) "
+                "VALUES (?, ?, ?, ?, ?) ON CONFLICT(lesson_id) DO UPDATE SET "
+                "phase = excluded.phase, milestones_json = excluded.milestones_json, "
+                "evidence_json = excluded.evidence_json, updated_at = excluded.updated_at",
+                (
+                    lesson_id,
+                    requested_phase,
+                    json.dumps(milestones, sort_keys=True),
+                    json.dumps(evidence, sort_keys=True),
+                    timestamp,
+                ),
+            )
+            if requested_phase != current_phase:
+                append_learning_event(
+                    connection,
+                    lesson_id=lesson_id,
+                    event_type=event_for_phase(requested_phase),
+                    source=text_value(payload.get("event_source"), "study-api")[:80],
+                    evidence_refs=[],
+                    from_phase=current_phase,
+                    to_phase=requested_phase,
+                    timestamp=timestamp,
+                )
+            schedule_kind = (
+                "pre_implementation" if requested_phase == "ready_to_implement"
+                else "retention" if requested_phase == "learned"
+                else None
+            )
+            if schedule_kind:
+                connection.execute(
+                    "INSERT OR IGNORE INTO review_schedule "
+                    "(lesson_id, kind, due_at, interval_index) VALUES (?, ?, ?, 0)",
+                    (lesson_id, schedule_kind, (datetime.now(UTC) + timedelta(days=1)).isoformat(timespec="seconds")),
+                )
         return self.load(lesson_id)
 
     def progress(self) -> list[dict[str, str]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT lesson_id, status, updated_at FROM lesson_study ORDER BY lesson_id"
+                "SELECT s.lesson_id, s.status, COALESCE(l.phase, s.status) AS phase, s.updated_at "
+                "FROM lesson_study s LEFT JOIN learning_state l ON l.lesson_id = s.lesson_id "
+                "ORDER BY s.lesson_id"
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def due_reviews(self, at: datetime | None = None) -> list[dict[str, object]]:
+        cutoff = (at or datetime.now(UTC)).isoformat(timespec="seconds")
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT lesson_id, kind, due_at, interval_index, last_reviewed_at "
+                "FROM review_schedule WHERE due_at <= ? ORDER BY due_at",
+                (cutoff,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def phase_for_status(status: str) -> str:
+    return {
+        "not_started": "not_started",
+        "studying": "studying",
+        "ready_to_implement": "ready_to_implement",
+        "review": "studying",
+    }[status]
+
+
+def plan_is_complete(plan: object) -> bool:
+    if not isinstance(plan, dict):
+        return False
+    required = ("target_function", "smallest_slice", "must_do", "must_not_do", "first_proof")
+    return all(isinstance(plan.get(field), str) and plan[field].strip() for field in required)
+
+
+def empty_milestones() -> dict[str, bool]:
+    return {key: False for key in sorted(MILESTONE_KEYS)}
+
+
+def empty_evidence() -> dict[str, object]:
+    return {
+        "practice_attempts": [],
+        "proof_runs": [],
+        "trace_paths": [],
+        "explainer_path": None,
+        "recall_attempts": [],
+        "learning_record_path": None,
+    }
+
+
+def sanitize_milestones(value: object, existing: dict[str, object] | None = None) -> dict[str, bool]:
+    result = {**empty_milestones(), **(existing or {})}
+    if value is None:
+        return {key: bool(result[key]) for key in sorted(MILESTONE_KEYS)}
+    if not isinstance(value, dict) or set(value) - MILESTONE_KEYS:
+        raise ValueError("Learning milestones have an invalid shape.")
+    for key, enabled in value.items():
+        if not isinstance(enabled, bool):
+            raise ValueError("Learning milestones must be booleans.")
+        result[key] = enabled
+    return {key: bool(result[key]) for key in sorted(MILESTONE_KEYS)}
+
+
+def sanitize_evidence(value: object, existing: dict[str, object] | None = None) -> dict[str, object]:
+    result = {**empty_evidence(), **(existing or {})}
+    if value is None:
+        return result
+    if not isinstance(value, dict) or set(value) - set(empty_evidence()):
+        raise ValueError("Learning evidence has an invalid shape.")
+    for key, item in value.items():
+        if key in {"practice_attempts", "proof_runs", "trace_paths", "recall_attempts"}:
+            if not isinstance(item, list):
+                raise ValueError(f"Evidence field {key} must be a list.")
+            result[key] = item[-50:]
+        elif item is not None and not isinstance(item, str):
+            raise ValueError(f"Evidence field {key} must be text or null.")
+        else:
+            result[key] = item
+    return result
+
+
+def validate_learning_transition(from_phase: str, to_phase: str, milestones: dict[str, bool]) -> None:
+    if PHASE_ORDER[to_phase] < PHASE_ORDER[from_phase]:
+        raise ValueError("Lesson phase cannot move backward.")
+    requirements = {
+        "ready_to_implement": "implementation_plan_ready",
+        "consolidating": "proof_passed",
+        "learned": "learning_record_written",
+    }
+    requirement = requirements.get(to_phase)
+    if requirement and not milestones[requirement]:
+        raise ValueError(f"Phase {to_phase} requires milestone {requirement}.")
+
+
+def event_for_phase(phase: str) -> str:
+    return {
+        "studying": "lesson.started",
+        "ready_to_implement": "lesson.ready_to_implement",
+        "implementing": "implementation.started",
+        "consolidating": "implementation.proof_passed",
+        "learned": "consolidation.recall_passed",
+        "not_started": "lesson.reset",
+    }[phase]
+
+
+def append_learning_event(
+    connection: sqlite3.Connection,
+    *,
+    lesson_id: str,
+    event_type: str,
+    source: str,
+    evidence_refs: list[str],
+    from_phase: str,
+    to_phase: str,
+    timestamp: str,
+) -> None:
+    connection.execute(
+        "INSERT INTO learning_events "
+        "(event_id, lesson_id, event_type, source, evidence_refs_json, from_phase, to_phase, occurred_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            str(uuid.uuid4()),
+            lesson_id,
+            event_type,
+            source,
+            json.dumps(evidence_refs),
+            from_phase,
+            to_phase,
+            timestamp,
+        ),
+    )
 
 
 def text_value(value: object, default: str = "") -> str:

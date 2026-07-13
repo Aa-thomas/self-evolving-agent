@@ -11,6 +11,8 @@ wheels/
 # Local study workspace data
 curriculum/data/*.sqlite3
 curriculum/data/*.json
+curriculum/data/proof-runs/
+curriculum/explainers/generated/
 .playwright-cli/
 
 # Virtual environments
