@@ -8,6 +8,11 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/review"
+  to = "/review.html"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

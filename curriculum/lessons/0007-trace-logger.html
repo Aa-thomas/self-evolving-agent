@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Project 1A: Trace Logger</title>
     <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/agent-trace-lab.css">
     <script defer src="../assets/lesson.js"></script>
+    <script defer src="../assets/agent-trace-lab.js"></script>
   </head>
   <body>
     <main>
@@ -73,6 +75,13 @@
             <p>A <code>max_steps</code> result without assistant outputs cannot show whether the model was stuck repeating valid tool calls, emitting invalid JSON, or drifting between unrelated actions.</p>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h2>Trace Lab: Diagnose The Decision</h2>
+        <p>Use the visible fields to distinguish what the model proposed from what the harness decided.</p>
+        <div class="trace-lab" data-agent-trace-lab data-mode="trace"></div>
+        <noscript><p>Static fallback: preserve raw output, parsed action, observation, and exit reason for each step.</p></noscript>
       </section>
 
       <section>

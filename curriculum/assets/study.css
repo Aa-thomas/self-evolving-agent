@@ -195,7 +195,7 @@
 .study-summary {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .study-summary strong {
@@ -220,6 +220,9 @@
 .progress-badge.studying { background: #fff3c4; color: #6d4d00; }
 .progress-badge.ready_to_implement { background: #dff5e8; color: #12643c; }
 .progress-badge.review { background: #e5edff; color: #274a97; }
+.progress-badge.implementing { background: #e5edff; color: #274a97; }
+.progress-badge.consolidating { background: #f2e7ff; color: #603396; }
+.progress-badge.learned { background: #dff5e8; color: #12643c; }
 
 .study-panel-open {
   overflow: hidden;

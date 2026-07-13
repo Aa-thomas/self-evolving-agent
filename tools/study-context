@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""Summarize the durable learning state and recommend one next action."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CURRICULUM = ROOT / "curriculum"
+sys.path.insert(0, str(CURRICULUM))
+
+from learning_flow import load_manifest, prerequisites_met  # noqa: E402
+from learning_state import RemoteStudyStore  # noqa: E402
+from study_server import DEFAULT_DATABASE, StudyStore  # noqa: E402
+
+
+def load_states(database: Path) -> tuple[dict[str, dict[str, object]], list[dict[str, object]]]:
+    site_url = os.environ.get("STUDY_SITE_URL", "").strip()
+    token = os.environ.get("STUDY_ACCESS_TOKEN", "").strip()
+    if site_url and token:
+        remote = RemoteStudyStore(site_url, token)
+        manifest = load_manifest()
+        states = {lesson_id: remote.load(lesson_id) for lesson_id in manifest["lessons"]}
+        return states, remote.due_reviews()
+    remote_snapshot = CURRICULUM / "data" / "study.json"
+    if remote_snapshot.is_file():
+        payload = json.loads(remote_snapshot.read_text(encoding="utf-8"))
+        lessons = payload.get("lessons", {})
+        if isinstance(lessons, dict):
+            reviews = payload.get("reviews", {})
+            due = [value for value in reviews.values() if isinstance(value, dict)] if isinstance(reviews, dict) else []
+            return lessons, due
+    if not database.is_file():
+        return {}, []
+    store = StudyStore(database)
+    return ({row["lesson_id"]: store.load(row["lesson_id"]) for row in store.progress()}, store.due_reviews())
+
+
+def learning_records() -> list[dict[str, str]]:
+    records = []
+    for path in sorted((CURRICULUM / "learning-records").glob("*.md")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        title = lines[0].removeprefix("# ") if lines else path.stem
+        records.append({"path": str(path.relative_to(ROOT)), "title": title})
+    return records
+
+
+def recommendation(
+    manifest: dict[str, object],
+    states: dict[str, dict[str, object]],
+    due_reviews: list[dict[str, object]],
+) -> dict[str, str]:
+    lessons = manifest["lessons"]
+    phases = {lesson_id: str(state.get("phase", "not_started")) for lesson_id, state in states.items()}
+    for lesson_id, lesson in lessons.items():
+        if lesson.get("established_by") and phases.get(lesson_id, "not_started") == "not_started":
+            phases[lesson_id] = "learned"
+    if due_reviews:
+        review = sorted(due_reviews, key=lambda item: str(item.get("due_at", "")))[0]
+        return {
+            "lesson_id": str(review.get("lesson_id", "")),
+            "phase": str(review.get("kind", "review")),
+            "action": "Answer the due retrieval prompt from memory before reopening source material.",
+            "reason": "retrieval review is due",
+        }
+    priority = {"consolidating": 0, "ready_to_implement": 1, "implementing": 1, "studying": 2}
+    unfinished = sorted(
+        (
+            (priority[phase], lesson_id, phase)
+            for lesson_id, phase in phases.items()
+            if phase in priority
+        )
+    )
+    if unfinished:
+        _, lesson_id, phase = unfinished[0]
+        action = {
+            "consolidating": "Complete implementation-specific recall and confirm the learning record.",
+            "ready_to_implement": "Resume the saved implementation handoff and run its first proof.",
+            "implementing": "Run or repair the configured proof, then collect evidence.",
+            "studying": "Resume meaningful practice and complete the implementation handoff.",
+        }[phase]
+        return {"lesson_id": lesson_id, "phase": phase, "action": action, "reason": "unfinished learning loop"}
+
+    for lesson_id in lessons:
+        if phases.get(lesson_id) == "learned":
+            continue
+        if prerequisites_met(lesson_id, phases, manifest):
+            return {
+                "lesson_id": lesson_id,
+                "phase": "not_started",
+                "action": "Begin the lesson with prediction before explanation.",
+                "reason": "all manifest prerequisites are learned",
+            }
+    return {
+        "lesson_id": "",
+        "phase": "blocked",
+        "action": "Reconcile existing learning records with learner-state milestones.",
+        "reason": "no lesson is currently unlocked by machine-readable state",
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE)
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args()
+
+    manifest = load_manifest()
+    states, due_reviews = load_states(args.database)
+    now = datetime.now(UTC)
+    due_reviews = [
+        review for review in due_reviews
+        if review.get("due_at") and datetime.fromisoformat(str(review["due_at"]).replace("Z", "+00:00")) <= now
+    ]
+    mission = (CURRICULUM / "MISSION.md").read_text(encoding="utf-8").strip()
+    result = {
+        "mission": mission,
+        "learning_records": learning_records(),
+        "lesson_states": {
+            lesson_id: {
+                "phase": state.get("phase", "not_started"),
+                "milestones": state.get("milestones", {}),
+                "plan": state.get("plan", {}),
+            }
+            for lesson_id, state in states.items()
+        },
+        "due_reviews": due_reviews,
+        "recommendation": recommendation(manifest, states, due_reviews),
+    }
+    if args.as_json:
+        print(json.dumps(result, indent=2))
+        return
+    next_step = result["recommendation"]
+    print(f"Next: {next_step['lesson_id'] or 'state reconciliation'}")
+    print(f"Why: {next_step['reason']}")
+    print(f"Action: {next_step['action']}")
+    if next_step["lesson_id"] in result["lesson_states"]:
+        plan = result["lesson_states"][next_step["lesson_id"]].get("plan", {})
+        if any(plan.values()):
+            print("\nImplementation handoff:")
+            for key, value in plan.items():
+                if value:
+                    print(f"- {key.replace('_', ' ')}: {value}")
+
+
+if __name__ == "__main__":
+    main()

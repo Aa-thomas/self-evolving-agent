@@ -5,6 +5,7 @@ from html import escape
 from pathlib import Path
 import re
 import shutil
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +15,9 @@ ASSETS_SRC = CURRICULUM / "assets"
 SITE = ROOT / "site"
 LESSONS_OUT = SITE / "lessons"
 ASSETS_OUT = SITE / "assets"
+
+sys.path.insert(0, str(CURRICULUM))
+from learning_flow import load_manifest  # noqa: E402
 
 
 LOCAL_LINK_PATTERN = re.compile(
@@ -57,9 +61,12 @@ def read_lesson(source: Path) -> Lesson:
 def clean_site() -> None:
     if LESSONS_OUT.exists():
         shutil.rmtree(LESSONS_OUT)
+    if (SITE / "traces").exists():
+        shutil.rmtree(SITE / "traces")
 
     LESSONS_OUT.mkdir(parents=True)
     ASSETS_OUT.mkdir(parents=True, exist_ok=True)
+    (SITE / "traces").mkdir(parents=True, exist_ok=True)
 
 
 def copy_assets() -> None:
@@ -68,6 +75,13 @@ def copy_assets() -> None:
             shutil.copy2(asset, ASSETS_OUT / asset.name)
 
     (ASSETS_OUT / "site.css").write_text(SITE_CSS, encoding="utf-8")
+    shutil.copy2(CURRICULUM / "learning-flow.json", SITE / "learning-flow.json")
+    for trace in (CURRICULUM / "traces").glob("*.json"):
+        shutil.copy2(trace, SITE / "traces" / trace.name)
+
+
+def write_review_page() -> None:
+    shutil.copy2(CURRICULUM / "review.html", SITE / "review.html")
 
 
 def strip_private_links(html: str) -> str:
@@ -82,15 +96,6 @@ def add_site_assets(html: str) -> str:
         html = html.replace(
             stylesheet_marker,
             stylesheet_marker + '\n    <link rel="stylesheet" href="../assets/site.css">',
-            1,
-        )
-
-    if script_marker in html and "../assets/study.js" not in html:
-        html = html.replace(
-            script_marker,
-            script_marker
-            + '\n    <link rel="stylesheet" href="../assets/study.css">'
-            + '\n    <script defer src="../assets/study.js"></script>',
             1,
         )
 
@@ -173,8 +178,6 @@ def render_index(lessons: list[Lesson]) -> str:
     <link rel="stylesheet" href="assets/site.css">
     <link rel="stylesheet" href="assets/study.css">
     <script defer src="assets/study.js"></script>
-    <link rel="stylesheet" href="assets/study.css">
-    <script defer src="assets/study.js"></script>
   </head>
   <body data-course-home>
     <main class="course-home">
@@ -219,10 +222,18 @@ def write_index(lessons: list[Lesson]) -> None:
 
 
 def main() -> None:
+    manifest = load_manifest()
     lessons = [read_lesson(path) for path in sorted(LESSONS_SRC.glob("*.html"))]
+    lesson_ids = {lesson.source.stem for lesson in lessons}
+    manifest_ids = set(manifest["lessons"])
+    if lesson_ids != manifest_ids:
+        missing = sorted(lesson_ids - manifest_ids)
+        extra = sorted(manifest_ids - lesson_ids)
+        raise ValueError(f"Lesson manifest mismatch. Missing: {missing}; extra: {extra}")
 
     clean_site()
     copy_assets()
+    write_review_page()
     write_lessons(lessons)
     write_index(lessons)
 

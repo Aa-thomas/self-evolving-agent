@@ -80,10 +80,48 @@ def test_study_store_round_trip(tmp_path):
         "The analogy hides JSON parsing and validation details."
     )
     assert saved["reflection"]["next_step"] == "Implement submit handling at home."
+    assert saved["phase"] == "ready_to_implement"
+    assert saved["milestones"]["implementation_plan_ready"] is True
+    assert saved["milestones"]["proof_passed"] is False
+    assert saved["events"][0]["event_type"] == "lesson.ready_to_implement"
+    assert saved["reviews"][0]["kind"] == "pre_implementation"
     assert store.progress() == [
         {
             "lesson_id": "0006-agent-loop-primitive",
             "status": "ready_to_implement",
+            "phase": "ready_to_implement",
             "updated_at": saved["updated_at"],
         }
     ]
+
+
+def test_study_store_requires_proof_before_consolidation(tmp_path):
+    store = StudyStore(tmp_path / "study.sqlite3")
+    ready = store.save(
+        "0006-agent-loop-primitive",
+        {
+            "status": "ready_to_implement",
+            "plan": {
+                "target_function": "run_agent",
+                "smallest_slice": "Stop on submit.",
+                "must_do": "Return the answer.",
+                "must_not_do": "Execute submit.",
+                "first_proof": "test_submit_stops_loop",
+                "open_question": "none",
+            },
+        },
+    )
+
+    try:
+        store.save(
+            "0006-agent-loop-primitive",
+            {
+                "status": ready["status"],
+                "phase": "consolidating",
+                "milestones": ready["milestones"],
+            },
+        )
+    except ValueError as error:
+        assert "proof_passed" in str(error)
+    else:
+        raise AssertionError("Consolidation advanced without a passing proof")

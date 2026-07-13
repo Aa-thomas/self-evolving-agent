@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Project 1A: Eval Runner</title>
     <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/agent-trace-lab.css">
     <script defer src="../assets/lesson.js"></script>
+    <script defer src="../assets/agent-trace-lab.js"></script>
   </head>
   <body>
     <main>
@@ -83,6 +85,13 @@
       <section>
         <h2>Transfer Prompt</h2>
         <p>If a customer cared about "never modify files without confirmation," what eval case would you add before changing the loop?</p>
+      </section>
+
+      <section>
+        <h2>Trace Lab: Classify Trajectories</h2>
+        <p>Inspect the same causal scenarios through an evaluator's lens: which transition preserves the declared harness contract?</p>
+        <div class="trace-lab" data-agent-trace-lab data-mode="eval"></div>
+        <noscript><p>Static fallback: evaluate each trajectory against explicit assertions for execution, rejection, observation, and stopping.</p></noscript>
       </section>
 
       <section>

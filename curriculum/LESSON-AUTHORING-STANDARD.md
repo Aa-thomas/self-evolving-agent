@@ -48,6 +48,21 @@ Every linked code artifact, test, trace, eval, and command must exist and work b
 
 When the lesson teaches a contract or invariant, its practice and linked proof must test the same behavior. If the implementation changes, update the lesson in the same change.
 
+Every lesson must also have an entry in `learning-flow.json`. The manifest is the machine-readable contract for prerequisites, implementation evidence, unlocks, and the appropriate teaching form.
+
+## Micro-world decision gate
+
+Use the smallest teaching form that exposes the concept. A quiz tests judgment, a playground tries isolated inputs, and a micro-world exposes an evolving system with hidden state and causal consequences.
+
+A micro-world is eligible only when:
+
+1. the goal is a mental model rather than fact recall;
+2. important behavior is hidden, dynamic, spatial, or branching;
+3. learner actions reveal meaningful cause and effect; and
+4. the world is grounded in real code, traces, schemas, or tests.
+
+Record the decision, score, rationale, scenario source, learner action, and static fallback in `learning-flow.json`. A full micro-world requires a score of at least six. Do not add one when an annotated example or small playground teaches the same thing.
+
 ## Author checklist
 
 Before publishing, verify:
@@ -57,4 +72,5 @@ Before publishing, verify:
 - Every internal link and runnable proof is valid.
 - The lesson has a primary-source recommendation and links to relevant reference material.
 - The page makes a tangible contribution to the primitive -> micro-system -> benchmarked harness progression.
+- The learning-flow entry is valid, and any micro-world is justified and grounded in a real artifact.
 - The lesson is readable as a standalone page, while still linking forward to the next skill.

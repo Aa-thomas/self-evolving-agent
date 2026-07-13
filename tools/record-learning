@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Confirm implementation recall and write a decision-grade learning record."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CURRICULUM = ROOT / "curriculum"
+sys.path.insert(0, str(CURRICULUM))
+
+from learning_state import state_backend  # noqa: E402
+from study_server import DEFAULT_DATABASE  # noqa: E402
+
+
+def next_record_path(title: str) -> Path:
+    directory = CURRICULUM / "learning-records"
+    numbers = [int(path.name[:4]) for path in directory.glob("[0-9][0-9][0-9][0-9]-*.md")]
+    number = max(numbers, default=0) + 1
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
+    return directory / f"{number:04d}-{slug}.md"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("lesson_id")
+    parser.add_argument("--title", required=True)
+    parser.add_argument("--summary", required=True, help="What was demonstrated and why it matters next")
+    parser.add_argument("--recall", required=True, help="Learner's causal explanation from memory")
+    parser.add_argument("--evidence", required=True, help="Specific proof and scenario used to assess recall")
+    parser.add_argument("--confirm", action="store_true", help="Confirm the record matches demonstrated understanding")
+    parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE)
+    parser.add_argument("--local", action="store_true", help="Use local SQLite even when remote sync is configured")
+    args = parser.parse_args()
+    if not args.confirm:
+        raise SystemExit("Review the candidate with the learner, then rerun with --confirm.")
+    if min(len(args.summary.strip()), len(args.recall.strip()), len(args.evidence.strip())) < 20:
+        raise SystemExit("Summary, recall, and evidence must be specific enough to audit.")
+
+    store = state_backend(args.database, prefer_remote=not args.local)
+    state = store.load(args.lesson_id)
+    if state["phase"] != "consolidating" or not state["milestones"]["proof_passed"]:
+        raise SystemExit("A passing configured proof must place the lesson in consolidation first.")
+    if not state["evidence"].get("explainer_path"):
+        raise SystemExit("Build and review the evidence explainer before writing a learning record.")
+
+    record_path = next_record_path(args.title)
+    record_path.write_text(
+        f"# {args.title.strip()}\n\n{args.summary.strip()}\n\n"
+        f"**Evidence:** {args.evidence.strip()}\n",
+        encoding="utf-8",
+    )
+    milestones = dict(state["milestones"])
+    milestones.update({
+        "explainer_reviewed": True,
+        "recall_passed": True,
+        "learning_record_written": True,
+    })
+    evidence = dict(state["evidence"])
+    evidence["recall_attempts"] = [*evidence.get("recall_attempts", []), {
+        "answer": args.recall.strip(),
+        "assessed_as": "passed",
+        "confirmed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }][-50:]
+    evidence["learning_record_path"] = str(record_path.relative_to(ROOT))
+    payload = {key: state[key] for key in ("status", "responses", "plan", "reflection")}
+    payload.update({
+        "phase": "learned",
+        "milestones": milestones,
+        "evidence": evidence,
+        "event_source": "record-learning",
+    })
+    try:
+        store.save(args.lesson_id, payload)
+    except Exception:
+        record_path.unlink(missing_ok=True)
+        raise
+    print(record_path.relative_to(ROOT))
+
+
+if __name__ == "__main__":
+    main()

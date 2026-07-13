@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Project 1A: Agent Loop Primitive</title>
     <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/agent-trace-lab.css">
     <script defer src="../assets/lesson.js"></script>
+    <script defer src="../assets/agent-trace-lab.js"></script>
   </head>
   <body>
     <main>
@@ -85,6 +87,13 @@ return max_steps_exit</code></pre>
             <p>The loop should append a structured <code>INVALID_JSON</code> observation, then continue if the step budget allows. That makes the failure visible to the next model call.</p>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h2>Trace Lab: Build Machine Feel</h2>
+        <p>Move through real-shaped harness scenarios. Predict the next transition before the explanation appears.</p>
+        <div class="trace-lab" data-agent-trace-lab data-mode="predict"></div>
+        <noscript><p>Static fallback: assistant output → parse and validate → execute, reject, or stop → append an observation when continuing.</p></noscript>
       </section>
 
       <section>

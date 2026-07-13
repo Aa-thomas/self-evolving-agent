@@ -1,13 +1,16 @@
-const LESSON_CONTEXT = {
-  "0001-model-call-primitive": { target: "call_model", proof: "Model call record test" },
-  "0002-message-state-primitive": { target: "message state", proof: "Second-call message-state proof" },
-  "0003-manual-tool-protocol": { target: "parse_tool_request", proof: "Valid and invalid request cases" },
-  "0004-schema-validation": { target: "validate_tool_args", proof: "One validation gate test" },
-  "0005-sandboxed-file-tools": { target: "read_file / write_file / list_files", proof: "Sandbox path test" },
-  "0006-agent-loop-primitive": { target: "run_agent", proof: "test_submit_stops_loop" },
-  "0007-trace-logger": { target: "trace event contract", proof: "One replayable trace case" },
-  "0008-eval-runner": { target: "run_eval_suite", proof: "One local evaluation case" },
-};
+async function loadLessonContext(lessonId) {
+  try {
+    const response = await fetch("../learning-flow.json");
+    if (!response.ok) throw new Error("Manifest unavailable");
+    const lesson = (await response.json()).lessons?.[lessonId];
+    return {
+      target: lesson?.implementation?.targets?.join(", ") || "No implementation target yet",
+      proof: lesson?.implementation?.first_proof || "No proof configured yet",
+    };
+  } catch {
+    return { target: "Check the lesson implementation target", proof: "Choose one executable proof" };
+  }
+}
 
 function lessonIdFromPage() {
   const match = window.location.pathname.match(/\/(\d{4}-[a-z0-9-]+)(?:\.html)?$/);
@@ -38,8 +41,7 @@ function connectStudy() {
   return true;
 }
 
-function renderStudyPanel(lessonId) {
-  const context = LESSON_CONTEXT[lessonId] || { target: "", proof: "" };
+function renderStudyPanel(lessonId, context) {
   const panel = document.createElement("aside");
   panel.className = "study-panel";
   panel.id = "study-workspace";
@@ -122,6 +124,11 @@ function renderStudyPanel(lessonId) {
     </section>
   `;
   document.body.append(panel);
+  panel.learningState = {
+    phase: "not_started",
+    milestones: {},
+    evidence: { practice_attempts: [], proof_runs: [], trace_paths: [], recall_attempts: [] },
+  };
 
   const launcher = document.createElement("button");
   launcher.className = "study-launcher";
@@ -137,21 +144,58 @@ function renderStudyPanel(lessonId) {
     if (connectStudy()) await loadStudy(panel, lessonId);
   });
   panel.querySelector("[data-mark-ready]").addEventListener("click", () => {
+    const plan = valuesFor(panel, "[data-plan-field]", "planField");
+    const missing = ["target_function", "smallest_slice", "must_do", "must_not_do", "first_proof"]
+      .filter((field) => !plan[field]?.trim());
+    if (missing.length) {
+      setSaveState(panel, "Complete the implementation handoff first");
+      showStudyTab(panel, "plan");
+      return;
+    }
     panel.querySelector("[data-study-status]").value = "ready_to_implement";
+    panel.learningState.phase = "ready_to_implement";
+    panel.learningState.milestones.implementation_plan_ready = true;
     scheduleSave(panel, lessonId, 0);
   });
   panel.querySelectorAll("[data-study-tab]").forEach((button) => {
     button.addEventListener("click", () => showStudyTab(panel, button.dataset.studyTab));
   });
   panel.querySelectorAll("textarea, input, select").forEach((field) => {
-    field.addEventListener("input", () => scheduleSave(panel, lessonId));
-    field.addEventListener("change", () => scheduleSave(panel, lessonId));
+    const beginStudying = () => {
+      if (field.matches("[data-study-status]") || panel.learningState.phase !== "not_started") return;
+      panel.learningState.phase = "studying";
+      panel.querySelector("[data-study-status]").value = "studying";
+    };
+    field.addEventListener("input", () => { beginStudying(); scheduleSave(panel, lessonId); });
+    field.addEventListener("change", () => { beginStudying(); scheduleSave(panel, lessonId); });
+  });
+  panel.querySelector("[data-study-status]").addEventListener("change", (event) => {
+    const value = event.target.value;
+    if (value === "ready_to_implement") {
+      event.target.value = panel.learningState.phase === "ready_to_implement" ? value : "studying";
+      if (event.target.value !== value) setSaveState(panel, "Use Mark ready after completing the plan");
+      return;
+    }
+    if (value === "not_started" || value === "studying") panel.learningState.phase = value;
   });
 
   document.querySelectorAll(".practice textarea").forEach((textarea, index) => {
     const responseId = `lesson_practice_${index + 1}`;
     textarea.dataset.responseId = responseId;
     textarea.addEventListener("input", () => scheduleSave(panel, lessonId));
+  });
+
+  document.addEventListener("learning:practice-attempt", (event) => {
+    const attempt = { ...event.detail, occurred_at: new Date().toISOString() };
+    panel.learningState.evidence.practice_attempts = [
+      ...(panel.learningState.evidence.practice_attempts || []), attempt,
+    ].slice(-50);
+    if (attempt.passed) panel.learningState.milestones.meaningful_practice_passed = true;
+    if (panel.querySelector("[data-study-status]").value === "not_started") {
+      panel.querySelector("[data-study-status]").value = "studying";
+      panel.learningState.phase = "studying";
+    }
+    scheduleSave(panel, lessonId, 0);
   });
 
   return panel;
@@ -189,6 +233,11 @@ function hydrate(panel, data) {
   panel.querySelectorAll("[data-reflection-field]").forEach((field) => {
     field.value = data.reflection?.[field.dataset.reflectionField] || "";
   });
+  panel.learningState = {
+    phase: data.phase || "not_started",
+    milestones: data.milestones || {},
+    evidence: data.evidence || { practice_attempts: [], proof_runs: [], trace_paths: [], recall_attempts: [] },
+  };
 }
 
 function collectStudyData(panel) {
@@ -209,6 +258,10 @@ function collectStudyData(panel) {
     responses,
     plan: valuesFor(panel, "[data-plan-field]", "planField"),
     reflection: valuesFor(panel, "[data-reflection-field]", "reflectionField"),
+    phase: panel.learningState.phase,
+    milestones: panel.learningState.milestones,
+    evidence: panel.learningState.evidence,
+    event_source: "lesson-site",
   };
 }
 
@@ -262,7 +315,7 @@ async function loadStudy(panel, lessonId) {
 async function setupLessonWorkspace() {
   const lessonId = lessonIdFromPage();
   if (!lessonId) return;
-  const panel = renderStudyPanel(lessonId);
+  const panel = renderStudyPanel(lessonId, await loadLessonContext(lessonId));
   await loadStudy(panel, lessonId);
   document.querySelectorAll(".site-nav").forEach((nav) => {
     if (!nav.querySelector("[data-workflow-link]")) {
@@ -288,18 +341,19 @@ async function setupCourseHome() {
     const data = await response.json();
     const byLesson = new Map(data.lessons.map((item) => [item.lesson_id, item]));
     const lessonLinks = Array.from(document.querySelectorAll(".lesson-index a"));
-    const counts = { studying: 0, ready_to_implement: 0, review: 0 };
+    const counts = { studying: 0, ready_to_implement: 0, implementing: 0, consolidating: 0, learned: 0 };
     lessonLinks.forEach((link) => {
       const lessonId = link.getAttribute("href").replace("lessons/", "").replace(".html", "");
       const state = byLesson.get(lessonId);
-      if (!state || state.status === "not_started") return;
-      counts[state.status] += 1;
+      if (!state || state.phase === "not_started") return;
+      const phase = state.phase || state.status;
+      counts[phase] = (counts[phase] || 0) + 1;
       const badge = document.createElement("span");
-      badge.className = `progress-badge ${state.status}`;
-      badge.textContent = state.status.replaceAll("_", " ");
+      badge.className = `progress-badge ${phase}`;
+      badge.textContent = phase.replaceAll("_", " ");
       link.append(badge);
     });
-    progress.innerHTML = `<strong>${counts.studying} studying</strong><strong>${counts.ready_to_implement} ready to implement</strong><strong>${counts.review} marked for review</strong>`;
+    progress.innerHTML = `<strong>${counts.studying} studying</strong><strong>${counts.ready_to_implement + counts.implementing} building</strong><strong>${counts.consolidating} consolidating</strong><strong>${counts.learned} learned</strong>`;
   } catch {
     progress.textContent = "Open a lesson and connect sync to track progress.";
   }

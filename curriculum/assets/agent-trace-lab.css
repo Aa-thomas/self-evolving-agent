@@ -1,0 +1,37 @@
+.trace-lab {
+  background: color-mix(in srgb, var(--panel) 72%, white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 20px 0;
+  padding: clamp(14px, 3vw, 24px);
+}
+
+.trace-lab-header { align-items: start; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+.trace-lab-header h3 { margin: 2px 0 0; }
+.trace-lab-kicker, .trace-state p, .trace-source { color: var(--muted); font-size: .78rem; margin: 0; text-transform: uppercase; }
+.trace-lab select, .trace-lab button { font: inherit; min-height: 42px; }
+.trace-timeline { display: grid; gap: 8px; list-style: none; margin: 20px 0; padding: 0; }
+.trace-timeline li { align-items: center; color: var(--muted); display: flex; gap: 9px; }
+.trace-timeline span { align-items: center; border: 1px solid var(--line); border-radius: 50%; display: inline-flex; height: 28px; justify-content: center; width: 28px; }
+.trace-timeline .current { color: var(--ink); font-weight: 700; }
+.trace-timeline .current span, .trace-timeline .complete span { background: var(--accent); color: white; }
+.trace-state { background: white; border: 1px solid var(--line); border-radius: 6px; overflow-wrap: anywhere; padding: 14px; }
+.trace-state code { display: block; margin-top: 8px; }
+.trace-lab fieldset { border: 0; margin: 18px 0; padding: 0; }
+.trace-lab legend { font-weight: 700; margin-bottom: 10px; }
+.trace-lab fieldset label { display: block; margin: 8px 0; }
+.trace-lab-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.trace-lab-actions button { background: var(--ink); border: 0; border-radius: 5px; color: white; cursor: pointer; padding: 8px 12px; }
+.trace-lab-actions button:disabled { cursor: not-allowed; opacity: .42; }
+.trace-feedback { min-height: 1.6em; }
+.trace-feedback.good { color: #12643c; font-weight: 700; }
+.trace-source { margin-top: 18px; text-transform: none; }
+.trace-static { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+.trace-static summary { cursor: pointer; font-weight: 700; }
+
+@media print {
+  .trace-lab select, .trace-lab fieldset, .trace-lab-actions, .trace-feedback { display: none; }
+  .trace-timeline .pending { display: flex; }
+  .trace-static { display: block; }
+  .trace-static summary { display: none; }
+}

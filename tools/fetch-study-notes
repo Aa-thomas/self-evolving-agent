@@ -15,7 +15,7 @@ curl --fail --silent --show-error \
   -o "$temporary"
 
 mv "$temporary" "$snapshot"
-jq -e '.schema_version == 1 and (.lessons | type == "object")' "$snapshot" > /dev/null
+jq -e '(.schema_version >= 1) and (.lessons | type == "object")' "$snapshot" > /dev/null
 
 lesson_ids="$(jq -r '.lessons | keys[]' "$snapshot")"
 while IFS= read -r lesson_id; do
