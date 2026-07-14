@@ -12,8 +12,13 @@ wheels/
 curriculum/data/*.sqlite3
 curriculum/data/*.json
 curriculum/data/proof-runs/
+curriculum/data/study-notes/
 curriculum/explainers/generated/
 .playwright-cli/
+node_modules/
 
 # Virtual environments
 .venv
+
+# Local Netlify folder
+.netlify

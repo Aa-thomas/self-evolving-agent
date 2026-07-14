@@ -37,6 +37,10 @@ class RemoteStudyStore:
         try:
             with urlopen(request, timeout=20) as response:
                 result = json.load(response)
+        except HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace").strip()
+            message = f"Remote study state request failed: HTTP {error.code}"
+            raise RuntimeError(f"{message}: {detail}" if detail else message) from error
         except (URLError, TimeoutError) as error:
             raise RuntimeError(f"Remote study state request failed: {error}") from error
         if not isinstance(result, dict):

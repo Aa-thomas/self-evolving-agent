@@ -16,5 +16,8 @@ dev = [
     "pytest>=9.1.0",
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["curriculum/phase-1/01_model_call"]
+
 [tool.ruff.lint]
 fixable = []
