@@ -5,10 +5,17 @@
       "requires": [],
       "unlocks": ["0002-message-state-primitive"],
       "learning_goal": "Explain the model completion boundary and preserve an inspectable call record.",
-      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "established_by": [
+        "curriculum/learning-records/0001-ready-for-agent-loop.md"
+      ],
       "implementation": {
-        "targets": ["curriculum/phase-1/01_model_call.py"],
-        "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/01_model_call/tests_01_model_call.py"],
+        "targets": ["curriculum/phase-1/01_model_call/model_call.py"],
+        "proof_command": [
+          "uv",
+          "run",
+          "pytest",
+          "curriculum/phase-1/01_model_call/tests_01_model_call.py"
+        ],
         "first_proof": "Model call record test"
       },
       "micro_world": {
@@ -25,10 +32,17 @@
       "requires": ["0001-model-call-primitive"],
       "unlocks": ["0003-manual-tool-protocol"],
       "learning_goal": "Explain how ordered messages become the state supplied to the next model call.",
-      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "established_by": [
+        "curriculum/learning-records/0001-ready-for-agent-loop.md"
+      ],
       "implementation": {
-        "targets": ["curriculum/phase-1/02_message_state.py"],
-        "proof_command": null,
+        "targets": ["curriculum/phase-1/02_message_state/message_state.py"],
+        "proof_command": [
+          "uv",
+          "run",
+          "pytest",
+          "curriculum/phase-1/02_message_state/tests_02_message_state.py"
+        ],
         "first_proof": "Second-call message-state proof"
       },
       "micro_world": {
@@ -45,10 +59,12 @@
       "requires": ["0002-message-state-primitive"],
       "unlocks": ["0004-schema-validation"],
       "learning_goal": "Distinguish valid tool-request JSON from malformed or unsupported model output.",
-      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "established_by": [
+        "curriculum/learning-records/0001-ready-for-agent-loop.md"
+      ],
       "implementation": {
         "targets": ["curriculum/phase-1/03_parse_tool_request.py"],
-        "proof_command": null,
+        "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "-k", "malformed_json"],
         "first_proof": "Valid and invalid request cases"
       },
       "micro_world": {
@@ -65,10 +81,19 @@
       "requires": ["0003-manual-tool-protocol"],
       "unlocks": ["0005-sandboxed-file-tools"],
       "learning_goal": "Apply schema validation at the trust boundary before any tool executes.",
-      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "established_by": [
+        "curriculum/learning-records/0001-ready-for-agent-loop.md"
+      ],
       "implementation": {
-        "targets": ["curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py"],
-        "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"],
+        "targets": [
+          "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py"
+        ],
+        "proof_command": [
+          "uv",
+          "run",
+          "pytest",
+          "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"
+        ],
         "first_proof": "One validation gate test"
       },
       "micro_world": {
@@ -85,10 +110,19 @@
       "requires": ["0004-schema-validation"],
       "unlocks": ["0006-agent-loop-primitive"],
       "learning_goal": "Enforce filesystem containment while providing useful file-tool observations.",
-      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "established_by": [
+        "curriculum/learning-records/0001-ready-for-agent-loop.md"
+      ],
       "implementation": {
-        "targets": ["curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"],
-        "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"],
+        "targets": [
+          "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"
+        ],
+        "proof_command": [
+          "uv",
+          "run",
+          "pytest",
+          "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"
+        ],
         "first_proof": "Sandbox path test"
       },
       "micro_world": {
@@ -102,13 +136,24 @@
       }
     },
     "0006-agent-loop-primitive": {
-      "requires": ["0003-manual-tool-protocol", "0004-schema-validation", "0005-sandboxed-file-tools"],
+      "requires": [
+        "0003-manual-tool-protocol",
+        "0004-schema-validation",
+        "0005-sandboxed-file-tools"
+      ],
       "unlocks": ["0007-trace-logger"],
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",
-      "established_by": ["curriculum/learning-records/0002-agent-loop-contract.md"],
+      "established_by": [
+        "curriculum/learning-records/0002-agent-loop-contract.md"
+      ],
       "implementation": {
         "targets": ["curriculum/phase-1/06_agent_loop/agent_loop.py"],
-        "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"],
+        "proof_command": [
+          "uv",
+          "run",
+          "pytest",
+          "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"
+        ],
         "first_proof": "test_submit_stops_loop"
       },
       "micro_world": {

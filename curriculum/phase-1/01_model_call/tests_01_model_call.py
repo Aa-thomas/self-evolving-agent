@@ -6,7 +6,7 @@ import sys
 import pytest
 
 
-MODULE_PATH = Path(__file__).resolve().parent / "01_model_call.py"
+MODULE_PATH = Path(__file__).resolve().parent / "model_call.py"
 
 spec = importlib.util.spec_from_file_location("model_call", MODULE_PATH)
 module = importlib.util.module_from_spec(spec)
