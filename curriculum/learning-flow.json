@@ -87,14 +87,14 @@
       "micro_world": {"decision": "optional", "score": 5, "component": null, "scenario_source": null, "learner_action": "explore_path_containment", "fallback": "annotated_path_diagram", "rationale": "Spatial containment can benefit from manipulation, but existing path cases may teach it sufficiently."}
     },
     "0006-agent-loop-primitive": {
-      "publication": {"status": "draft", "reason": "Vertical-slice rebuild required before publication."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "reconstruction_lab",
       "requires": ["0003-manual-tool-protocol", "0004-schema-validation", "0005-sandboxed-file-tools"],
       "unlocks": ["0007-trace-logger"],
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",
       "learner_decision": "Diagnose the first bad transition and choose the smallest safe correction across parser, validator, runtime registry, and loop control.",
       "established_by": ["curriculum/learning-records/0002-agent-loop-contract.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": ["TOOL_REGISTRY"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
       "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "expected_artifact": "A bounded loop that normalizes failures and preserves message-state observations."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "assertions": ["test_submit_stops_loop", "test_unregistered_runtime_tool_is_rejected_without_execution"], "traces_or_output": ["curriculum/traces/agent-loop-scenarios.json"]},
       "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "A protocol-valid tool can be absent from the runtime handlers.", "responsible_boundary": "agent-loop runtime dispatch", "regression_target": "test_unregistered_runtime_tool_is_rejected_without_execution"},

@@ -4,9 +4,19 @@ const LESSON_ID = /^\d{4}-[a-z0-9-]+$/;
 const STATUSES = new Set(["not_started", "studying", "ready_to_implement", "review"]);
 const PHASES = new Set(["not_started", "studying", "ready_to_implement", "implementing", "consolidating", "learned"]);
 const MILESTONE_KEYS = [
-  "meaningful_practice_passed", "implementation_plan_ready", "proof_passed",
-  "explainer_reviewed", "recall_passed", "learning_record_written",
+  "prediction_committed", "case_set_passed", "artifact_inspected",
+  "implementation_plan_ready", "proof_passed", "failure_explained",
+  "regression_added", "reconstruction_passed", "recall_passed", "learning_record_written",
 ];
+const LOCKED_LESSONS = new Set(["0007-trace-logger", "0008-eval-runner"]);
+const PRACTICE_CONTRACTS = {
+  "0001-model-call-primitive": { minimumCases: 6, threshold: 0.8, reconstruction: true },
+  "0002-message-state-primitive": { minimumCases: 6, threshold: 0.8, reconstruction: true },
+  "0003-manual-tool-protocol": { minimumCases: 8, threshold: 0.8, reconstruction: true },
+  "0004-schema-validation": { minimumCases: 6, threshold: 0.8, reconstruction: true },
+  "0005-sandboxed-file-tools": { minimumCases: 8, threshold: 0.8, reconstruction: true },
+  "0006-agent-loop-primitive": { minimumCases: 6, threshold: 0.8, reconstruction: true },
+};
 const PHASE_ORDER = ["not_started", "studying", "ready_to_implement", "implementing", "consolidating", "learned"];
 const MAX_BODY_BYTES = 250_000;
 const STORE_NAME = "study-workspace";
@@ -52,8 +62,9 @@ function emptyStudy(lessonId) {
     phase: "not_started",
     milestones: Object.fromEntries(MILESTONE_KEYS.map((key) => [key, false])),
     evidence: {
-      practice_attempts: [], proof_runs: [], trace_paths: [], explainer_path: null,
-      recall_attempts: [], learning_record_path: null,
+      practice_attempts: [], artifact_inspections: [], proof_runs: [], trace_paths: [],
+      explainer_path: null, failure_explanations: [], regression_paths: [],
+      reconstruction_attempts: [], recall_attempts: [], learning_record_path: null,
     },
     events: [],
   };
@@ -78,7 +89,40 @@ function completePlan(plan) {
     .every((field) => typeof plan[field] === "string" && plan[field].trim());
 }
 
-function sanitizeLearning(payload, existing, status, plan) {
+function hasTextEvidence(entries, key = null) {
+  return Array.isArray(entries) && entries.some((entry) => {
+    if (typeof entry === "string") return Boolean(entry.trim());
+    return entry && typeof entry === "object" && typeof (key ? entry[key] : Object.values(entry).find((value) => typeof value === "string")) === "string";
+  });
+}
+
+function deriveMilestones(lessonId, plan, reflection, evidence) {
+  const contract = PRACTICE_CONTRACTS[lessonId] || { minimumCases: 6, threshold: 0.8, reconstruction: false };
+  const attempts = Array.isArray(evidence.practice_attempts) ? evidence.practice_attempts : [];
+  const predictionCommitted = attempts.some((attempt) => attempt?.kind === "prediction" && typeof attempt.selected === "string" && attempt.selected.trim() && typeof attempt.rationale === "string" && attempt.rationale.trim());
+  const cases = new Map();
+  for (const attempt of attempts) {
+    if (attempt?.kind === "case" && typeof attempt.case_id === "string" && typeof attempt.passed === "boolean") cases.set(attempt.case_id, attempt.passed);
+  }
+  const score = cases.size ? [...cases.values()].filter(Boolean).length / cases.size : 0;
+  const proofPassed = Array.isArray(evidence.proof_runs) && evidence.proof_runs.some((run) => run?.passed === true);
+  const reconstructionPassed = !contract.reconstruction || (Array.isArray(evidence.reconstruction_attempts) && evidence.reconstruction_attempts.some((attempt) => attempt?.passed === true));
+  const recallPassed = Array.isArray(evidence.recall_attempts) && evidence.recall_attempts.some((attempt) => attempt?.assessed_as === "passed");
+  return {
+    prediction_committed: predictionCommitted,
+    case_set_passed: cases.size >= contract.minimumCases && score >= contract.threshold,
+    artifact_inspected: hasTextEvidence(evidence.artifact_inspections),
+    implementation_plan_ready: completePlan(plan),
+    proof_passed: proofPassed,
+    failure_explained: hasTextEvidence(evidence.failure_explanations, "explanation") || Boolean(reflection.feynman_explanation?.trim() && reflection.feynman_limit?.trim()),
+    regression_added: hasTextEvidence(evidence.regression_paths),
+    reconstruction_passed: reconstructionPassed,
+    recall_passed: recallPassed,
+    learning_record_written: typeof evidence.learning_record_path === "string" && Boolean(evidence.learning_record_path.trim()),
+  };
+}
+
+function sanitizeLearning(payload, existing, status, plan, reflection) {
   const current = existing || emptyStudy(payload.lesson_id || "");
   let phase = payload.phase ?? phaseForStatus(status);
   if (!PHASES.has(phase)) throw new Error("Invalid lesson phase.");
@@ -90,19 +134,8 @@ function sanitizeLearning(payload, existing, status, plan) {
   if (Object.keys(incomingMilestones).some((key) => !MILESTONE_KEYS.includes(key))) {
     throw new Error("Learning milestones have an invalid shape.");
   }
-  const milestones = { ...emptyStudy("").milestones, ...(current.milestones || {}), ...incomingMilestones };
-  if (Object.values(milestones).some((value) => typeof value !== "boolean")) {
+  if (Object.values(incomingMilestones).some((value) => typeof value !== "boolean")) {
     throw new Error("Learning milestones must be booleans.");
-  }
-  if (phase === "ready_to_implement" && completePlan(plan)) milestones.implementation_plan_ready = true;
-  if (phase === "ready_to_implement" && !milestones.implementation_plan_ready) {
-    throw new Error("Phase ready_to_implement requires milestone implementation_plan_ready.");
-  }
-  if (phase === "consolidating" && !milestones.proof_passed) {
-    throw new Error("Phase consolidating requires milestone proof_passed.");
-  }
-  if (phase === "learned" && !milestones.learning_record_written) {
-    throw new Error("Phase learned requires milestone learning_record_written.");
   }
   const evidence = { ...emptyStudy("").evidence, ...(current.evidence || {}) };
   if (payload.evidence !== undefined) {
@@ -111,7 +144,7 @@ function sanitizeLearning(payload, existing, status, plan) {
     }
     for (const [key, value] of Object.entries(payload.evidence)) {
       if (!(key in evidence)) throw new Error("Learning evidence has an invalid shape.");
-      if (["practice_attempts", "proof_runs", "trace_paths", "recall_attempts"].includes(key)) {
+      if (["practice_attempts", "artifact_inspections", "proof_runs", "trace_paths", "failure_explanations", "regression_paths", "reconstruction_attempts", "recall_attempts"].includes(key)) {
         if (!Array.isArray(value)) throw new Error(`Evidence field ${key} must be a list.`);
         evidence[key] = value.slice(-50);
       } else if (value !== null && typeof value !== "string") {
@@ -119,6 +152,14 @@ function sanitizeLearning(payload, existing, status, plan) {
       } else evidence[key] = value;
     }
   }
+  const milestones = deriveMilestones(payload.lesson_id, plan, reflection, evidence);
+  if (LOCKED_LESSONS.has(payload.lesson_id) && phase === "learned") throw new Error("Locked specifications cannot be marked learned.");
+  const required = phase === "ready_to_implement"
+    ? ["prediction_committed", "case_set_passed", "implementation_plan_ready"]
+    : phase === "consolidating" ? ["proof_passed"]
+      : phase === "learned" ? ["failure_explained", "recall_passed", "learning_record_written", "reconstruction_passed"] : [];
+  const missing = required.filter((key) => !milestones[key]);
+  if (missing.length) throw new Error(`Phase ${phase} requires evidence for: ${missing.join(", ")}.`);
   const events = Array.isArray(current.events) ? current.events.slice(-49) : [];
   if (phase !== current.phase) {
     events.push({
@@ -160,7 +201,7 @@ function sanitizeStudy(lessonId, payload, existing = null) {
   const reflectionFields = ["feynman_explanation", "feynman_limit", "mental_model", "next_step"];
   const cleanedPlan = Object.fromEntries(planFields.map((field) => [field, sanitizeText(plan[field])]));
   const cleanedReflection = Object.fromEntries(reflectionFields.map((field) => [field, sanitizeText(reflection[field])]));
-  const learning = sanitizeLearning({ ...payload, lesson_id: lessonId }, existing, status, cleanedPlan);
+  const learning = sanitizeLearning({ ...payload, lesson_id: lessonId }, existing, status, cleanedPlan, cleanedReflection);
   return {
     lesson_id: lessonId,
     status,
