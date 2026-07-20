@@ -62,9 +62,55 @@
 
 .study-intro,
 .study-context,
+.study-plan-intro,
+.study-field-hint,
 .study-complete p {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.study-plan-intro {
+  margin: 0 0 14px;
+}
+
+.study-field-hint {
+  margin: -1px 0 8px;
+}
+
+.study-context-cards {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.study-context-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 11px;
+}
+
+.study-context-card h3 {
+  color: var(--accent-ink);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  margin: 0 0 5px;
+  text-transform: uppercase;
+}
+
+.study-context-card ul {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.study-context-card li {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .icon-button,

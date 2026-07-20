@@ -48,6 +48,11 @@ STUDY_CONTRACT_VERSION = 1
 STUDY_CONTEXT_CARDS = {"starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"}
 STUDY_PROMPT_KINDS = {"retrieval", "explanation", "judgment", "evidence", "uncertainty"}
 STUDY_PLAN_FIELDS = {"target_function", "smallest_slice", "must_do", "must_not_do", "first_proof", "open_question"}
+STUDY_PROMPT_IDS_BY_PATTERN = {
+    "diagnostic_clinic": {"incident_facts", "next_evidence", "rejected_hypothesis"},
+    "experiment_lab": {"behavioral_claim", "controlled_conditions", "failure_evidence"},
+    "operational_drill": {"operational_context", "next_safe_action", "safe_stop_evidence"},
+}
 
 
 class ManifestError(ValueError):
@@ -640,7 +645,7 @@ def validate_operational_drill_contract(lesson_id: str, contract: dict[str, Any]
 def validate_study_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
     """Validate workspace prompts without turning notes into completion evidence."""
     contract = lesson.get("study_contract")
-    if lesson_id in FOUNDATION_BUILD_PRIMITIVES | INTEGRATION_BUILD_LESSONS and not isinstance(contract, dict):
+    if lesson.get("episode_pattern") in EPISODE_PATTERNS and not isinstance(contract, dict):
         raise ManifestError(f"{lesson_id}: selected episode pattern requires a study_contract")
     if contract is None:
         return
@@ -671,6 +676,9 @@ def validate_study_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
         prompt_ids.add(prompt["id"])
     if len(prompt_ids) != len(prompts):
         raise ManifestError(f"{lesson_id}: study_contract.think prompt ids must be unique")
+    required_prompt_ids = STUDY_PROMPT_IDS_BY_PATTERN.get(lesson.get("episode_pattern"))
+    if required_prompt_ids and prompt_ids != required_prompt_ids:
+        raise ManifestError(f"{lesson_id}: study_contract.think prompts must match the {lesson['episode_pattern']} workspace")
 
     plan = contract.get("plan")
     if not isinstance(plan, dict):

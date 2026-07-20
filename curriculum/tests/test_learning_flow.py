@@ -14,6 +14,7 @@ from learning_flow import (
     prerequisites_met,
     validate_manifest,
     validate_operational_drill_contract,
+    validate_study_contract,
 )
 from lint_lessons import lint_lesson
 
@@ -239,6 +240,17 @@ def test_trace_logger_uses_diagnostic_clinic_with_evidence_gap():
     assert contract["worked_investigation"]["current_conclusion"].startswith("The incident is evidence-insufficient")
     assert contract["intervention_strategy"]["mode"] == "add_evidence"
     assert len(contract["diagnostic_model"]["candidate_causes"]) >= 2
+    study = lesson["study_contract"]
+    assert study["think"]["prompts"][0]["id"] == "incident_facts"
+    assert "candidate cause" in study["reflect"]["prediction_vs_evidence"]["prompt"]
+
+
+def test_diagnostic_clinic_requires_a_pattern_aware_study_contract():
+    manifest = deepcopy(load_manifest())
+    manifest["lessons"]["0007-trace-logger"].pop("study_contract")
+
+    with pytest.raises(ManifestError, match="selected episode pattern requires a study_contract"):
+        validate_manifest(manifest)
 
 
 def test_diagnostic_clinic_requires_competing_causes_inspection_and_regression_evidence():
@@ -273,6 +285,17 @@ def test_eval_runner_uses_experiment_lab_with_repeatable_measurement():
     assert contract["experiment_strategy"]["mode"] == "construct"
     assert len(contract["measurement_model"]["outcome_contract"]) >= 2
     assert len(contract["measurement_proof"]["required_evidence"]) >= 4
+    study = lesson["study_contract"]
+    assert study["think"]["prompts"][0]["id"] == "behavioral_claim"
+    assert "wrong-answer" in study["reflect"]["prediction_vs_evidence"]["prompt"]
+
+
+def test_experiment_lab_requires_a_pattern_aware_study_contract():
+    manifest = deepcopy(load_manifest())
+    manifest["lessons"]["0008-eval-runner"].pop("study_contract")
+
+    with pytest.raises(ManifestError, match="selected episode pattern requires a study_contract"):
+        validate_manifest(manifest)
 
 
 def test_experiment_lab_requires_case_coverage_controls_and_failed_case_evidence():
@@ -300,6 +323,24 @@ def test_experiment_lab_requires_case_coverage_controls_and_failed_case_evidence
 
 def test_operational_drill_contract_supports_constrained_evidence_backed_procedure():
     validate_operational_drill_contract("0099-trace-replay", operational_drill_contract())
+
+
+def test_operational_drill_requires_a_pattern_aware_study_contract():
+    lesson = {"episode_pattern": "operational_drill"}
+
+    with pytest.raises(ManifestError, match="selected episode pattern requires a study_contract"):
+        validate_study_contract("0099-trace-replay", lesson)
+
+    lesson["study_contract"] = deepcopy(load_manifest()["lessons"]["0001-model-call-primitive"]["study_contract"])
+    with pytest.raises(ManifestError, match="operational_drill workspace"):
+        validate_study_contract("0099-trace-replay", lesson)
+
+    lesson["study_contract"]["think"]["prompts"] = [
+        {"id": "operational_context", "label": "Context", "prompt": "State the trigger and authority.", "kind": "evidence"},
+        {"id": "next_safe_action", "label": "Action", "prompt": "Commit to the next authorized action.", "kind": "judgment"},
+        {"id": "safe_stop_evidence", "label": "Stop", "prompt": "Name the no-go signal and handoff evidence.", "kind": "uncertainty"},
+    ]
+    validate_study_contract("0099-trace-replay", lesson)
 
 
 def test_operational_drill_requires_preflight_authority_and_safe_stop_evidence():

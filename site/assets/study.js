@@ -1,15 +1,125 @@
+const DEFAULT_STUDY_CONTRACT = {
+  objective: "Form a usable model, plan one narrow implementation slice, and interpret the evidence honestly.",
+  context_cards: ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+  think: {
+    jot_notes: { label: "Jot notes", placeholder: "Raw fragments, questions, examples, and evidence. Keep this messy." },
+    prompts: [
+      { id: "model", label: "What is the model?", prompt: "Explain the central boundary or invariant in your own words.", kind: "explanation" },
+      { id: "decision", label: "What decision matters?", prompt: "Name the decision this lesson asks you to make.", kind: "judgment" },
+      { id: "evidence", label: "What evidence would matter?", prompt: "Name the test, trace, or output that could support the claim.", kind: "evidence" },
+    ],
+  },
+  plan: {
+    intro: "Prepare one bounded implementation handoff.",
+    fields: {
+      target_function: { label: "Function or artifact to work on", placeholder: "One target artifact." },
+      smallest_slice: { label: "Smallest behavior to implement", placeholder: "One narrow behavior, not the whole feature." },
+      must_do: { label: "Must do", placeholder: "List the essential behavior." },
+      must_not_do: { label: "Must not do", placeholder: "List scope boundaries and forbidden behavior." },
+      first_proof: { label: "First proof to run at home", placeholder: "One executable proof." },
+      open_question: { label: "One fuzzy question", placeholder: "Name what you need to check before coding." },
+    },
+  },
+  reflect: {
+    feynman: { label: "Explain this to a smart 12-year-old", subject: "the mechanism you just studied", placeholder: "Use plain language and one analogy." },
+    feynman_limit: { label: "Where does that explanation break?", prompt: "Name one important detail the simple explanation hides." },
+    prediction_vs_evidence: { label: "What did the evidence change?", prompt: "Compare your prediction with the result." },
+    mental_model: { label: "What changed in your mental model?", prompt: "Capture the correction or connection you want to remember." },
+    next_step: { label: "Next smallest step when you are home", prompt: "Write a concrete, one-session action." },
+  },
+};
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  }[character]));
+}
+
+function studyContractFor(lesson) {
+  return lesson?.study_contract || DEFAULT_STUDY_CONTRACT;
+}
+
 async function loadLessonContext(lessonId) {
   try {
     const response = await fetch("../learning-flow.json");
     if (!response.ok) throw new Error("Manifest unavailable");
     const lesson = (await response.json()).lessons?.[lessonId];
     return {
+      lesson,
+      study: studyContractFor(lesson),
       target: lesson?.target_artifacts?.source_files?.join(", ") || "No implementation target yet",
       proof: lesson?.proof_artifacts?.proof_command?.join(" ") || "No proof configured yet",
     };
   } catch {
-    return { target: "Check the lesson implementation target", proof: "Choose one executable proof" };
+    return {
+      lesson: null,
+      study: DEFAULT_STUDY_CONTRACT,
+      target: "Check the lesson implementation target",
+      proof: "Choose one executable proof",
+    };
   }
+}
+
+function listEntries(label, values) {
+  if (!Array.isArray(values) || !values.length) return [];
+  return values.map((value) => `${label}: ${value}`);
+}
+
+function contextEntries(lesson, cardName) {
+  if (!lesson) return [];
+  if (cardName === "starting_artifacts") {
+    const artifacts = lesson.starting_artifacts || {};
+    return [
+      ...listEntries("Source", artifacts.source_files),
+      ...listEntries("Symbol", artifacts.symbols),
+      ...listEntries("Test", artifacts.tests),
+      ...listEntries("Fixture or trace", artifacts.scenario_sources),
+    ];
+  }
+  if (cardName === "target_artifacts") {
+    const artifacts = lesson.target_artifacts || {};
+    return [
+      ...listEntries("Source", artifacts.source_files),
+      ...listEntries("Test", artifacts.tests),
+      ...(artifacts.expected_artifact ? [`Expected result: ${artifacts.expected_artifact}`] : []),
+    ];
+  }
+  if (cardName === "proof_artifacts") {
+    const artifacts = lesson.proof_artifacts || {};
+    return [
+      ...(artifacts.proof_command?.length ? [`Command: ${artifacts.proof_command.join(" ")}`] : []),
+      ...listEntries("Assertion", artifacts.assertions),
+      ...listEntries("Trace or output", artifacts.traces_or_output),
+    ];
+  }
+  if (cardName === "failure_contract") {
+    const failure = lesson.failure_contract || {};
+    return [
+      ...(failure.source ? [`Source: ${failure.source}`] : []),
+      ...(failure.symptom ? [`Symptom: ${failure.symptom}`] : []),
+      ...(failure.responsible_boundary ? [`Responsible boundary: ${failure.responsible_boundary}`] : []),
+      ...(failure.regression_target ? [`Regression target: ${failure.regression_target}`] : []),
+    ];
+  }
+  return [];
+}
+
+function contextTitle(cardName) {
+  return {
+    starting_artifacts: "Starting artifacts",
+    target_artifacts: "Target artifacts",
+    proof_artifacts: "Proof artifacts",
+    failure_contract: "Failure to explain",
+  }[cardName] || "Lesson context";
+}
+
+function renderContextCards(lesson, cards) {
+  const rendered = cards.map((cardName) => {
+    const entries = contextEntries(lesson, cardName);
+    if (!entries.length) return "";
+    return `<section class="study-context-card"><h3>${escapeHtml(contextTitle(cardName))}</h3><ul>${entries.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ul></section>`;
+  }).join("");
+  return rendered ? `<section class="study-context-cards" aria-label="Lesson evidence context">${rendered}</section>` : "";
 }
 
 function lessonIdFromPage() {
@@ -41,7 +151,63 @@ function connectStudy() {
   return true;
 }
 
+const PLAN_FIELD_ORDER = ["target_function", "smallest_slice", "must_do", "must_not_do", "first_proof", "open_question"];
+
+function renderThink(study) {
+  const jot = study.think.jot_notes;
+  const prompts = study.think.prompts.map((prompt) => {
+    const id = `study-think-${prompt.id}`;
+    return `
+      <label for="${escapeHtml(id)}">${escapeHtml(prompt.label)}</label>
+      <p class="study-field-hint">${escapeHtml(prompt.prompt)}</p>
+      <textarea id="${escapeHtml(id)}" data-response-id="${escapeHtml(prompt.id)}" placeholder="Write your own answer before reopening the solution."></textarea>
+    `;
+  }).join("");
+  return `
+    <label for="jot-notes">${escapeHtml(jot.label)}</label>
+    <textarea id="jot-notes" data-response-id="jot_notes" placeholder="${escapeHtml(jot.placeholder)}"></textarea>
+    ${prompts}
+  `;
+}
+
+function renderPlan(study, context) {
+  const fields = PLAN_FIELD_ORDER.map((fieldName) => {
+    const field = study.plan.fields[fieldName];
+    const id = fieldName.replaceAll("_", "-");
+    const element = fieldName === "target_function" || fieldName === "first_proof" ? "input" : "textarea";
+    const fallback = fieldName === "target_function" ? context.target : fieldName === "first_proof" ? context.proof : "";
+    const placeholder = field.placeholder || fallback;
+    const input = element === "input"
+      ? `<input id="${id}" data-plan-field="${fieldName}" placeholder="${escapeHtml(placeholder)}">`
+      : `<textarea id="${id}" data-plan-field="${fieldName}" placeholder="${escapeHtml(placeholder)}"></textarea>`;
+    return `<label for="${id}">${escapeHtml(field.label)}</label>${input}`;
+  }).join("");
+  return `<p class="study-plan-intro">${escapeHtml(study.plan.intro)}</p>${fields}`;
+}
+
+function renderReflect(study) {
+  const reflect = study.reflect;
+  return `
+    <label for="feynman-explanation">${escapeHtml(reflect.feynman.label)}</label>
+    <p class="study-field-hint">Explain ${escapeHtml(reflect.feynman.subject)}.</p>
+    <textarea id="feynman-explanation" data-reflection-field="feynman_explanation" placeholder="${escapeHtml(reflect.feynman.placeholder)}"></textarea>
+    <label for="feynman-limit">${escapeHtml(reflect.feynman_limit.label)}</label>
+    <p class="study-field-hint">${escapeHtml(reflect.feynman_limit.prompt)}</p>
+    <textarea id="feynman-limit" data-reflection-field="feynman_limit" placeholder="Write the important limit in your own words."></textarea>
+    <label for="prediction-vs-evidence">${escapeHtml(reflect.prediction_vs_evidence.label)}</label>
+    <p class="study-field-hint">${escapeHtml(reflect.prediction_vs_evidence.prompt)}</p>
+    <textarea id="prediction-vs-evidence" data-reflection-field="prediction_vs_evidence" placeholder="Connect one prediction to one observed result."></textarea>
+    <label for="mental-model">${escapeHtml(reflect.mental_model.label)}</label>
+    <p class="study-field-hint">${escapeHtml(reflect.mental_model.prompt)}</p>
+    <textarea id="mental-model" data-reflection-field="mental_model" placeholder="Capture the correction or connection you want to remember."></textarea>
+    <label for="next-step">${escapeHtml(reflect.next_step.label)}</label>
+    <p class="study-field-hint">${escapeHtml(reflect.next_step.prompt)}</p>
+    <textarea id="next-step" data-reflection-field="next_step" placeholder="Write a concrete, one-session action."></textarea>
+  `;
+}
+
 function renderStudyPanel(lessonId, context) {
+  const study = context.study;
   const panel = document.createElement("aside");
   panel.className = "study-panel";
   panel.id = "study-workspace";
@@ -54,7 +220,7 @@ function renderStudyPanel(lessonId, context) {
       </div>
       <button class="icon-button" type="button" data-study-close aria-label="Close study workspace">Close</button>
     </div>
-    <p class="study-intro">Notes sync to your private study record. No code is edited or run here.</p>
+    <p class="study-intro">${escapeHtml(study.objective)} Notes sync to your private study record; no code is edited or run here.</p>
     <div class="study-status-row">
       <label for="lesson-status">Session</label>
       <select id="lesson-status" data-study-status>
@@ -73,50 +239,16 @@ function renderStudyPanel(lessonId, context) {
     </nav>
     <section data-study-view="think" class="study-view active">
       <p class="study-step">1 of 3 · Before revisiting the prose</p>
-      <label for="jot-notes">Jot notes</label>
-      <textarea id="jot-notes" data-response-id="jot_notes" placeholder="Raw fragments, keywords, examples, confusions, or copied error messages. Keep this messy."></textarea>
-      <label for="one-sentence">In one sentence, what is this primitive?</label>
-      <textarea id="one-sentence" data-response-id="one_sentence" placeholder="Explain it in your own words."></textarea>
-      <label for="invariant">What must never happen?</label>
-      <textarea id="invariant" data-response-id="invariant" placeholder="Name the boundary or invariant."></textarea>
-      <label for="failure">What failure would this prevent?</label>
-      <textarea id="failure" data-response-id="failure" placeholder="Describe a realistic bad outcome."></textarea>
-      <label for="evidence">What evidence would prove the behavior?</label>
-      <textarea id="evidence" data-response-id="evidence" placeholder="A test, trace, eval, or observable result."></textarea>
-      <label for="understanding">How clear is this now?</label>
-      <select id="understanding" data-response-assessment="one_sentence">
-        <option value="unrated">Choose later</option>
-        <option value="clear">Clear</option>
-        <option value="needs_revision">Needs revision</option>
-        <option value="fuzzy">Still fuzzy</option>
-      </select>
+      ${renderContextCards(context.lesson, study.context_cards)}
+      ${renderThink(study)}
     </section>
     <section data-study-view="plan" class="study-view">
       <p class="study-step">2 of 3 · Prepare the home session</p>
-      <p class="study-context">Suggested target: <code>${context.target}</code><br>Suggested first proof: <code>${context.proof}</code></p>
-      <label for="target-function">Function or artifact to work on</label>
-      <input id="target-function" data-plan-field="target_function" placeholder="${context.target}">
-      <label for="smallest-slice">Smallest behavior to implement</label>
-      <textarea id="smallest-slice" data-plan-field="smallest_slice" placeholder="One narrow behavior, not the whole feature."></textarea>
-      <label for="must-do">Must do</label>
-      <textarea id="must-do" data-plan-field="must_do" placeholder="List the essential behavior."></textarea>
-      <label for="must-not-do">Must not do</label>
-      <textarea id="must-not-do" data-plan-field="must_not_do" placeholder="List scope boundaries and forbidden behavior."></textarea>
-      <label for="first-proof">First proof to run at home</label>
-      <input id="first-proof" data-plan-field="first_proof" placeholder="${context.proof}">
-      <label for="open-question">One fuzzy question</label>
-      <textarea id="open-question" data-plan-field="open_question" placeholder="Name what you need to check before coding."></textarea>
+      ${renderPlan(study, context)}
     </section>
     <section data-study-view="reflect" class="study-view">
       <p class="study-step">3 of 3 · Close the study session</p>
-      <label for="feynman-explanation">Explain this to a smart 12-year-old</label>
-      <textarea id="feynman-explanation" data-reflection-field="feynman_explanation" placeholder="Use plain language, one analogy, and no framework jargon."></textarea>
-      <label for="feynman-limit">Where does that explanation break?</label>
-      <textarea id="feynman-limit" data-reflection-field="feynman_limit" placeholder="Name one detail your simple explanation leaves out or risks oversimplifying."></textarea>
-      <label for="mental-model">What changed in your mental model?</label>
-      <textarea id="mental-model" data-reflection-field="mental_model" placeholder="Capture the correction or connection you want to remember."></textarea>
-      <label for="next-step">Next smallest step when you are home</label>
-      <textarea id="next-step" data-reflection-field="next_step" placeholder="Write a concrete, one-session action."></textarea>
+      ${renderReflect(study)}
       <div class="study-complete">
         <button type="button" data-mark-ready>Mark ready to implement</button>
         <p>Use the <a href="../study-workflow.html">Study Workflow</a> when you need the full method or a low-energy version.</p>

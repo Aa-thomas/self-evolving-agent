@@ -40,7 +40,7 @@ function emptyReview(lessonId, kind = "retention") {
   return { lesson_id: lessonId, kind, due_at: null, interval_index: 0, last_reviewed_at: null, answers: {} };
 }
 
-function sanitizeStudy(lessonId, payload, existing = null) {
+export function sanitizeStudy(lessonId, payload, existing = null) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Study payload must be an object.");
   }
@@ -63,7 +63,7 @@ function sanitizeStudy(lessonId, payload, existing = null) {
     };
   }
   const planFields = ["target_function", "smallest_slice", "must_do", "must_not_do", "first_proof", "open_question"];
-  const reflectionFields = ["feynman_explanation", "feynman_limit", "mental_model", "next_step"];
+  const reflectionFields = ["feynman_explanation", "feynman_limit", "prediction_vs_evidence", "mental_model", "next_step"];
   const cleanedPlan = Object.fromEntries(planFields.map((field) => [field, sanitizeText(plan[field])]));
   const cleanedReflection = Object.fromEntries(reflectionFields.map((field) => [field, sanitizeText(reflection[field])]));
   const learning = sanitizeLearning({ ...payload, lesson_id: lessonId }, existing, status, cleanedPlan, cleanedReflection);

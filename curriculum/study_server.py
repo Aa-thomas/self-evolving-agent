@@ -103,6 +103,7 @@ class StudyStore:
                     lesson_id TEXT PRIMARY KEY,
                     feynman_explanation TEXT NOT NULL DEFAULT '',
                     feynman_limit TEXT NOT NULL DEFAULT '',
+                    prediction_vs_evidence TEXT NOT NULL DEFAULT '',
                     mental_model TEXT NOT NULL DEFAULT '',
                     next_step TEXT NOT NULL DEFAULT '',
                     updated_at TEXT NOT NULL,
@@ -147,6 +148,7 @@ class StudyStore:
                 {
                     "feynman_explanation": "TEXT NOT NULL DEFAULT ''",
                     "feynman_limit": "TEXT NOT NULL DEFAULT ''",
+                    "prediction_vs_evidence": "TEXT NOT NULL DEFAULT ''",
                 },
             )
 
@@ -179,7 +181,7 @@ class StudyStore:
                 (lesson_id,),
             ).fetchone()
             reflection = connection.execute(
-                "SELECT feynman_explanation, feynman_limit, mental_model, next_step "
+                "SELECT feynman_explanation, feynman_limit, prediction_vs_evidence, mental_model, next_step "
                 "FROM reflections WHERE lesson_id = ?",
                 (lesson_id,),
             ).fetchone()
@@ -292,15 +294,16 @@ class StudyStore:
             )
             connection.execute(
                 "INSERT INTO reflections "
-                "(lesson_id, feynman_explanation, feynman_limit, mental_model, next_step, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?) "
+                "(lesson_id, feynman_explanation, feynman_limit, prediction_vs_evidence, mental_model, next_step, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(lesson_id) DO UPDATE SET feynman_explanation = excluded.feynman_explanation, "
                 "feynman_limit = excluded.feynman_limit, mental_model = excluded.mental_model, "
-                "next_step = excluded.next_step, updated_at = excluded.updated_at",
+                "prediction_vs_evidence = excluded.prediction_vs_evidence, next_step = excluded.next_step, updated_at = excluded.updated_at",
                 (
                     lesson_id,
                     text_value(reflection.get("feynman_explanation")),
                     text_value(reflection.get("feynman_limit")),
+                    text_value(reflection.get("prediction_vs_evidence")),
                     text_value(reflection.get("mental_model")),
                     text_value(reflection.get("next_step")),
                     timestamp,

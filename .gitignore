@@ -15,6 +15,7 @@ curriculum/data/proof-runs/
 curriculum/data/study-notes/
 curriculum/explainers/generated/
 .playwright-cli/
+output/playwright/
 node_modules/
 
 # Virtual environments

@@ -92,7 +92,7 @@ Every `foundation_build` episode needs at least one inspectable `starting_artifa
 
 ## Study workspace contract
 
-`study_contract` configures the learner's existing Think → Plan → Reflect workspace. It is personal synthesis and implementation intent, never completion evidence or a second lesson. Every `foundation_build` and `integration_build` lesson must define it; other patterns are added as their study defaults are reviewed.
+`study_contract` configures the learner's existing Think → Plan → Reflect workspace. It is personal synthesis and implementation intent, never completion evidence or a second lesson. Every selected episode pattern must define it. The pattern's teaching contract supplies the content; the study contract gives the learner a place to model, plan, and interpret that content.
 
 ```yaml
 study_contract:
@@ -123,6 +123,29 @@ study_contract:
 ```
 
 The jot-notes box and both Feynman prompts are mandatory. `context_cards` resolve from the existing artifact contracts; they do not duplicate source paths. The plan keeps the existing handoff fields and ready-to-implement behavior. A workspace answer cannot satisfy prediction, practice, proof, or recall milestones.
+
+### Operational Drill workspace defaults
+
+`operational_drill` has no active Project 1A lesson yet, so this is a reusable contract rather than a page to publish now. Its `think.prompts` must use these identities:
+
+```yaml
+think:
+  prompts:
+    - id: operational_context
+      label: What is the safe operating context?
+      prompt: Identify the trigger, authority boundary, preflight facts, and no-go condition.
+      kind: evidence
+    - id: next_safe_action
+      label: What is the next authorized action?
+      prompt: Commit to one action, its expected signal, and the record it will produce.
+      kind: judgment
+    - id: safe_stop_evidence
+      label: When must you stop or escalate?
+      prompt: Name the degraded signal that changes the safe response and the evidence needed for handoff.
+      kind: uncertainty
+```
+
+Its plan still uses the six existing handoff fields, configured for one authorized procedure slice: the target procedure or verification, smallest observable action, required evidence, forbidden shortcut, first verification, and open authority or safety question. Its reflection must keep the Feynman prompts and ask the learner to compare the expected signal with the recorded outcome, explain an authority or evidence boundary, and name the next handoff, rollback, or postmortem step. It never lets a checked procedure stand in for verification output.
 
 ## Composite-system episode schema: `integration_build`
 

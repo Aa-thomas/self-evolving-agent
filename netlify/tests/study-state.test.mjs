@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { deriveMilestones, emptyStudy, LOCKED_LESSONS, sanitizeLearning } from "../functions/study-state.mjs";
+import { sanitizeStudy } from "../functions/study.mjs";
 
 const lessonId = "0006-agent-loop-primitive";
 const plan = {
@@ -44,4 +45,20 @@ test("forged milestone flags cannot advance consolidation", () => {
 test("publication status is read from the lesson contract", () => {
   assert.equal(LOCKED_LESSONS.has("0007-trace-logger"), false);
   assert.equal(LOCKED_LESSONS.has("0008-eval-runner"), false);
+});
+
+test("study persistence retains the prediction-versus-evidence reflection", () => {
+  const study = sanitizeStudy("0007-trace-logger", {
+    status: "studying",
+    reflection: {
+      feynman_explanation: "The trace records the moves, not just the ending.",
+      feynman_limit: "The analogy does not identify each responsible boundary.",
+      prediction_vs_evidence: "Assistant output rules out guessing about an unseen request.",
+    },
+  }, emptyStudy("0007-trace-logger"));
+
+  assert.equal(
+    study.reflection.prediction_vs_evidence,
+    "Assistant output rules out guessing about an unseen request.",
+  );
 });
