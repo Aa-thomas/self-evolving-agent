@@ -36,7 +36,7 @@
       "micro_world": {"decision": "optional", "score": 4, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "inspect_message_timeline", "fallback": "annotated_static_trace", "rationale": "A short timeline helps expose accumulation, but a full simulation is unnecessary."}
     },
     "0003-manual-tool-protocol": {
-      "publication": {"status": "draft", "reason": "Rebuild with a parser case set and runnable parser proof."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "requires": ["0002-message-state-primitive"],
       "unlocks": ["0004-schema-validation"],
@@ -53,7 +53,7 @@
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_parser_inputs", "fallback": "input_output_playground", "rationale": "Immediate input and output feedback is useful, but persistent world state is not."}
     },
     "0004-schema-validation": {
-      "publication": {"status": "draft", "reason": "Rebuild around parser guarantees, registry-versus-handler ambiguity, and validation gates."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "requires": ["0003-manual-tool-protocol"],
       "unlocks": ["0005-sandboxed-file-tools"],
@@ -70,7 +70,7 @@
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_validation_inputs", "fallback": "input_output_playground", "rationale": "Validation outcomes are immediate and do not require an evolving simulated world."}
     },
     "0005-sandboxed-file-tools": {
-      "publication": {"status": "draft", "reason": "Rebuild against actual file-tool result codes and regression cases."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "diagnostic_lab",
       "requires": ["0004-schema-validation"],
       "unlocks": ["0006-agent-loop-primitive"],

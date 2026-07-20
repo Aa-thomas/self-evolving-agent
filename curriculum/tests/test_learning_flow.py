@@ -61,6 +61,13 @@ def test_prerequisites_require_demonstrated_learning_and_publication():
         "0004-schema-validation": "learned",
         "0005-sandboxed-file-tools": "learned",
     }
+    assert prerequisites_met("0006-agent-loop-primitive", phases, manifest)
+
+    manifest = deepcopy(manifest)
+    manifest["lessons"]["0005-sandboxed-file-tools"]["publication"] = {
+        "status": "locked",
+        "reason": "A locked lesson cannot satisfy a dependency.",
+    }
     assert not prerequisites_met("0006-agent-loop-primitive", phases, manifest)
 
 
@@ -104,13 +111,20 @@ def test_required_reconstruction_has_proof():
         validate_manifest(manifest)
 
 
-def test_lesson_identifiers_match_bound_source_and_error_codes_do_not_drift():
+def test_lesson_identifiers_match_bound_source_and_error_codes_do_not_drift(tmp_path):
     manifest = deepcopy(load_manifest())
     lesson = manifest["lessons"]["0005-sandboxed-file-tools"]
-    lesson["publication"] = {"status": "published", "reason": None}
     source = Path(__file__).resolve().parents[1] / "lessons" / "0005-sandboxed-file-tools.html"
 
-    errors = lint_lesson("0005-sandboxed-file-tools", lesson, source)
+    assert not lint_lesson("0005-sandboxed-file-tools", lesson, source)
+
+    drifted_source = tmp_path / source.name
+    drifted_source.write_text(
+        source.read_text(encoding="utf-8").replace("FORBIDDEN_PATH", "PATH_OUTSIDE_SANDBOX", 1),
+        encoding="utf-8",
+    )
+
+    errors = lint_lesson("0005-sandboxed-file-tools", lesson, drifted_source)
 
     assert any("PATH_OUTSIDE_SANDBOX" in error for error in errors)
 
