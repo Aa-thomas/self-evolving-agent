@@ -78,7 +78,7 @@ When authoring in Project 1A, inspect implementation, tests, traces, fixtures, a
 
 Teach from the repository's actual decisions. Preserve meaningful ambiguity, including duplicated sources of truth, awkward interfaces, and unresolved design choices. A prediction must be committed before its explanation is revealed. Prefer productive struggle—classification, debugging, modification, or reconstruction—over polished explanation, and never infer meaningful practice from a recognition click.
 
-Do not publish unavailable capabilities. Use a locked specification until implementation and runnable evidence exist. Review the finished lesson against the mission and evidence contract, not merely its HTML structure.
+Do not publish a page that claims an unavailable capability exists. Use a locked specification until a real starter file, failure fixture, and runnable proof exist. A learner-build implementation lab may then publish with an intentionally red proof: make clear that the learner changes the target and that only the green rerun is completion evidence. Review the finished lesson against the mission and evidence contract, not merely its HTML structure.
 
 ## Assets
 

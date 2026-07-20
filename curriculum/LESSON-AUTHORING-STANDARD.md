@@ -66,6 +66,8 @@ Valid lesson types are `briefing`, `implementation_lab`, `diagnostic_lab`, `reco
 - A published Project 1A lesson must include implementation, diagnosis from actual evidence, test/eval construction, or reconstruction.
 - A learner-facing page alone is not a completed lesson. A lesson cannot be published until its implementation, proof, and evidence artifacts exist.
 
+A learner-build implementation lab may publish before the learner's target behavior passes: its starter source, failing test or fixture, and executable proof must already exist. The page must state that the proof starts red and identify the narrow behavior the learner changes. That initial failure never counts as `proof_passed`, consolidation, or completion, and the lesson must not claim that the target capability exists. Use a locked specification only when even this real starter slice and proof do not exist.
+
 ## Practice requirements
 
 Practice must require judgment, not recognition. Classification-oriented concepts require 5–8 or more cases (normally at least 6), including an ambiguous or near-boundary case. Cases must use plausible distractors based on real misconceptions, vary correct-answer positions, require a written rationale where judgment matters, and explain the violated boundary after commitment. A single correct recognition answer never establishes mastery.
@@ -105,4 +107,4 @@ Not every primitive needs the maximum score in every dimension, but no lesson pa
 
 ## Publication checklist
 
-Before publishing, verify that the evidence packet is complete, every referenced artifact resolves, the configured proof passes, practice meets its contract, the learner can make and explain a real intervention, and the manifest and lesson linter both pass. Review against `MISSION.md`, not merely HTML structure.
+Before publishing, verify that the evidence packet is complete, every referenced artifact resolves, practice meets its contract, the learner can make and explain a real intervention, and the manifest and lesson linter both pass. A completed or reconstruction lab's configured proof must pass before publication. A learner-build lab may begin with a deliberately failing implementation proof only when the starter source, failure fixture, and exact green-after-build assertion are present; record that distinction in the lesson and never advance completion from the starting failure. Review against `MISSION.md`, not merely HTML structure.

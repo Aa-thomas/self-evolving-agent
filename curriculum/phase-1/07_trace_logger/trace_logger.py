@@ -35,8 +35,13 @@ class AgentTrace:
 class TraceLogger:
     """Collect causal steps from an agent run and write a replayable JSON trace."""
 
-    initial_messages: list[dict[str, str]]
+    initial_messages: list[dict[str, str]] = field(default_factory=list)
     steps: list[TraceStep] = field(default_factory=list)
+    trace: AgentTrace | None = None
+
+    def start(self, initial_messages: list[dict[str, str]]) -> None:
+        """Record the exact message state supplied to the first model call."""
+        raise NotImplementedError("Implement trace initialization in this lesson.")
 
     def record_step(
         self,
