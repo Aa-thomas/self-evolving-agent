@@ -8,7 +8,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
-from learning_flow import ManifestError, load_manifest, prerequisites_met, validate_manifest
+from learning_flow import (
+    ManifestError,
+    load_manifest,
+    prerequisites_met,
+    validate_manifest,
+    validate_operational_drill_contract,
+)
 from lint_lessons import lint_lesson
 
 
@@ -17,6 +23,55 @@ def published_agent_loop():
     lesson = manifest["lessons"]["0006-agent-loop-primitive"]
     lesson["publication"] = {"status": "published", "reason": None}
     return manifest, lesson
+
+
+def operational_drill_contract():
+    return {
+        "operational_context": {
+            "objective": "Replay a saved trace and record its outcome.",
+            "trigger": "A failed run needs operational review.",
+            "impact_if_wrong": "An unsupported diagnosis could cause an unsafe change.",
+            "constraints": ["Use only the approved replay environment."],
+        },
+        "operating_model": {
+            "first_principle": "Operational work requires authorized actions and evidence.",
+            "system_boundaries": [
+                {"boundary": "replay command", "authority": "operator", "signal": "exit status", "unsafe_assumption": "A command success explains the trace."},
+                {"boundary": "incident escalation", "authority": "reviewer", "signal": "no-go condition", "unsafe_assumption": "The operator may change production state."},
+            ],
+        },
+        "readiness_check": {
+            "required_starting_artifacts": ["A saved trace."],
+            "preflight_checks": ["Trace exists.", "Replay environment is approved."],
+            "no_go_conditions": ["Trace is corrupt."],
+        },
+        "worked_run": {
+            "normal_path": ["Replay the trace.", "Record the result."],
+            "degraded_or_failure_path": ["Detect a corrupt trace.", "Stop and escalate."],
+            "decision_point": "The replay result determines whether to continue.",
+        },
+        "prediction_prompt": "Predict the next safe action.",
+        "execution_contract": {
+            "mode": "replay",
+            "procedure": [
+                {"action": "Check trace", "expected_signal": "File exists", "record": "Preflight note"},
+                {"action": "Replay trace", "expected_signal": "Replay output", "record": "Replay result"},
+            ],
+            "authority_boundary": "Escalate any production change.",
+            "guardrails": ["Do not mutate the original trace."],
+            "forbidden_shortcuts": ["Skip preflight.", "Treat replay as a fix."],
+        },
+        "operational_proof": {
+            "required_evidence": ["Preflight", "Procedure output", "Replay record", "Verification or safe stop"],
+            "establishes": "The saved trace was replayed under the procedure.",
+            "does_not_establish": "The production system is repaired.",
+        },
+        "handoff_or_postmortem": {
+            "required_record": ["Operator handoff."],
+            "explanation_prompt": "Explain the decision and evidence.",
+        },
+        "transfer_prompt": "Choose a response to a changed signal.",
+    }
 
 
 def test_project_manifest_uses_evidence_first_schema_and_publishes_buildable_work():
@@ -197,6 +252,30 @@ def test_experiment_lab_requires_case_coverage_controls_and_failed_case_evidence
 
     with pytest.raises(ManifestError, match="measurement_proof.required_evidence"):
         validate_manifest(manifest)
+
+
+def test_operational_drill_contract_supports_constrained_evidence_backed_procedure():
+    validate_operational_drill_contract("0099-trace-replay", operational_drill_contract())
+
+
+def test_operational_drill_requires_preflight_authority_and_safe_stop_evidence():
+    contract = operational_drill_contract()
+    contract["readiness_check"]["preflight_checks"] = []
+
+    with pytest.raises(ManifestError, match="preflight_checks"):
+        validate_operational_drill_contract("0099-trace-replay", contract)
+
+    contract = operational_drill_contract()
+    contract["execution_contract"].pop("authority_boundary")
+
+    with pytest.raises(ManifestError, match="authority_boundary"):
+        validate_operational_drill_contract("0099-trace-replay", contract)
+
+    contract = operational_drill_contract()
+    contract["operational_proof"]["required_evidence"] = ["command output"]
+
+    with pytest.raises(ManifestError, match="operational_proof.required_evidence"):
+        validate_operational_drill_contract("0099-trace-replay", contract)
 
 
 def test_published_lesson_requires_target():

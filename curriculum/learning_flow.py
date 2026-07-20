@@ -29,7 +29,7 @@ PRACTICE_KINDS = {"case_set", "trace_diagnosis", "code_change", "reconstruction"
 PRODUCTIVE_ACTIONS = {"implement", "diagnose", "test", "reconstruct", "debug"}
 RECONSTRUCTION_MODES = {"annotated", "skeleton", "blank", "none"}
 MICRO_WORLD_DECISIONS = {"none", "optional", "required"}
-EPISODE_PATTERNS = {"foundation_build", "integration_build", "diagnostic_clinic", "experiment_lab"}
+EPISODE_PATTERNS = {"foundation_build", "integration_build", "diagnostic_clinic", "experiment_lab", "operational_drill"}
 FOUNDATION_BUILD_PRIMITIVES = {
     "0001-model-call-primitive",
     "0002-message-state-primitive",
@@ -43,6 +43,7 @@ DIAGNOSTIC_CLINIC_LESSONS = {"0007-trace-logger"}
 DIAGNOSTIC_INTERVENTION_MODES = {"repair", "add_evidence", "add_regression"}
 EXPERIMENT_LAB_LESSONS = {"0008-eval-runner"}
 EXPERIMENT_MODES = {"construct", "compare", "ablate", "calibrate"}
+OPERATIONAL_MODES = {"verify", "replay", "recover", "deploy", "rollback", "audit"}
 
 
 class ManifestError(ValueError):
@@ -313,6 +314,8 @@ def validate_episode_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
         validate_diagnostic_clinic_contract(lesson_id, contract)
     elif pattern == "experiment_lab":
         validate_experiment_lab_contract(lesson_id, contract)
+    elif pattern == "operational_drill":
+        validate_operational_drill_contract(lesson_id, contract)
 
 
 def validate_foundation_build_contract(
@@ -564,6 +567,69 @@ def validate_experiment_lab_contract(lesson_id: str, contract: dict[str, Any]) -
     require_text_list(lesson_id, proof, "required_evidence", "teaching_contract.measurement_proof", 4)
     for key in ("establishes", "does_not_establish"):
         require_text(lesson_id, proof, key, "teaching_contract.measurement_proof")
+
+
+def validate_operational_drill_contract(lesson_id: str, contract: dict[str, Any]) -> None:
+    """Validate a constrained, evidence-backed operating procedure episode."""
+    context = contract.get("operational_context")
+    if not isinstance(context, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operational_context must be an object")
+    for key in ("objective", "trigger", "impact_if_wrong"):
+        require_text(lesson_id, context, key, "teaching_contract.operational_context")
+    require_text_list(lesson_id, context, "constraints", "teaching_contract.operational_context", 1)
+
+    model = contract.get("operating_model")
+    if not isinstance(model, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operating_model must be an object")
+    require_text(lesson_id, model, "first_principle", "teaching_contract.operating_model")
+    boundaries = model.get("system_boundaries")
+    if not isinstance(boundaries, list) or len(boundaries) < 2 or not all(isinstance(entry, dict) for entry in boundaries):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operating_model.system_boundaries needs at least two entries")
+    for entry in boundaries:
+        for key in ("boundary", "authority", "signal", "unsafe_assumption"):
+            require_text(lesson_id, entry, key, "teaching_contract.operating_model.system_boundaries")
+
+    readiness = contract.get("readiness_check")
+    if not isinstance(readiness, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.readiness_check must be an object")
+    require_text_list(lesson_id, readiness, "required_starting_artifacts", "teaching_contract.readiness_check", 1)
+    require_text_list(lesson_id, readiness, "preflight_checks", "teaching_contract.readiness_check", 2)
+    require_text_list(lesson_id, readiness, "no_go_conditions", "teaching_contract.readiness_check", 1)
+
+    worked_run = contract.get("worked_run")
+    if not isinstance(worked_run, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.worked_run must be an object")
+    for key in ("normal_path", "degraded_or_failure_path"):
+        require_text_list(lesson_id, worked_run, key, "teaching_contract.worked_run", 2)
+    require_text(lesson_id, worked_run, "decision_point", "teaching_contract.worked_run")
+
+    require_text(lesson_id, contract, "prediction_prompt", "teaching_contract")
+    execution = contract.get("execution_contract")
+    if not isinstance(execution, dict) or execution.get("mode") not in OPERATIONAL_MODES:
+        raise ManifestError(f"{lesson_id}: teaching_contract.execution_contract.mode is invalid")
+    procedure = execution.get("procedure")
+    if not isinstance(procedure, list) or len(procedure) < 2 or not all(isinstance(entry, dict) for entry in procedure):
+        raise ManifestError(f"{lesson_id}: teaching_contract.execution_contract.procedure needs at least two steps")
+    for entry in procedure:
+        for key in ("action", "expected_signal", "record"):
+            require_text(lesson_id, entry, key, "teaching_contract.execution_contract.procedure")
+    require_text(lesson_id, execution, "authority_boundary", "teaching_contract.execution_contract")
+    require_text_list(lesson_id, execution, "guardrails", "teaching_contract.execution_contract", 1)
+    require_text_list(lesson_id, execution, "forbidden_shortcuts", "teaching_contract.execution_contract", 2)
+
+    proof = contract.get("operational_proof")
+    if not isinstance(proof, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operational_proof must be an object")
+    require_text_list(lesson_id, proof, "required_evidence", "teaching_contract.operational_proof", 4)
+    for key in ("establishes", "does_not_establish"):
+        require_text(lesson_id, proof, key, "teaching_contract.operational_proof")
+
+    handoff = contract.get("handoff_or_postmortem")
+    if not isinstance(handoff, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.handoff_or_postmortem must be an object")
+    require_text_list(lesson_id, handoff, "required_record", "teaching_contract.handoff_or_postmortem", 1)
+    require_text(lesson_id, handoff, "explanation_prompt", "teaching_contract.handoff_or_postmortem")
+    require_text(lesson_id, contract, "transfer_prompt", "teaching_contract")
 
 
 def validate_graph(lessons: dict[str, Any]) -> None:

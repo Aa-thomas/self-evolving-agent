@@ -237,6 +237,55 @@ teaching_contract:
 
 Eval Runner is the first Project 1A use in `construct` mode. Later phases can use `compare` for harness choices, `ablate` for component attribution, and `calibrate` for evaluator behavior.
 
+## Constrained execution episode schema: `operational_drill`
+
+Use `operational_drill` when the learner must carry out a repeatable, authorized procedure under operating constraints. The lesson requires evidence for every important decision and a safe response to a degraded signal. It is not a checklist completed from memory.
+
+```yaml
+episode_pattern: operational_drill
+teaching_contract:
+  operational_context:
+    objective: The outcome to achieve or verify.
+    trigger: The event requiring the procedure.
+    impact_if_wrong: The cost of unsafe or unverifiable action.
+    constraints: [Authority, time, environment, safety, or change-control limits.]
+  operating_model:
+    first_principle: Operational work is authorized decisions plus observable evidence.
+    system_boundaries:
+      - boundary: ...
+        authority: ...
+        signal: ...
+        unsafe_assumption: ...
+  readiness_check:
+    required_starting_artifacts: [Real runbook, trace, configuration, or report.]
+    preflight_checks: [At least two checks required to proceed.]
+    no_go_conditions: [When to stop or escalate before action.]
+  worked_run:
+    normal_path: [Ordered action and expected signal.]
+    degraded_or_failure_path: [Deviation and safe response.]
+    decision_point: Evidence distinguishing continue, stop, rollback, or escalate.
+  prediction_prompt: Commit to the next safe action and expected evidence.
+  execution_contract:
+    mode: verify | replay | recover | deploy | rollback | audit
+    procedure:
+      - action: ...
+        expected_signal: ...
+        record: ...
+    authority_boundary: What the learner may do versus must escalate.
+    guardrails: [...]
+    forbidden_shortcuts: [...]
+  operational_proof:
+    required_evidence: [Preflight, procedure output, state artifact, verification or safe-stop evidence.]
+    establishes: ...
+    does_not_establish: ...
+  handoff_or_postmortem:
+    required_record: [Runbook update, handoff, or incident note.]
+    explanation_prompt: Explain decisions, evidence, and deviations.
+  transfer_prompt: Change a constraint or signal and choose a safe response.
+```
+
+The first appropriate uses are later trace replay and production incident drills. Do not assign this pattern to Project 1A merely because it is available; it needs a real procedure, authority boundary, and evidence-bearing outcome.
+
 ## Lesson types and publication
 
 Valid lesson types are `briefing`, `implementation_lab`, `diagnostic_lab`, `reconstruction_lab`, and `specification`.
