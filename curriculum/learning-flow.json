@@ -17,6 +17,14 @@
         "proof_interpretation": {"establishes": "The focused tests establish the input, output-type, and evidence-record contract for the fake provider cases.", "does_not_establish": "They do not establish that a real provider is reliable, that tools execute safely, or that a multi-step agent can recover."},
         "transfer_prompt": "If a second provider returns a rich response object, decide whether its metadata belongs in the record, the normalized text contract, or a provider adapter."
       },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave with a plain-language model of the provider boundary, a narrow call_model change, and a testable claim about its record.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {"jot_notes": {"label": "Jot notes", "placeholder": "Raw provider shapes, record fields, test output, and questions. Keep this messy."}, "prompts": [{"id": "model", "label": "What is this primitive?", "prompt": "Explain the provider boundary in one sentence.", "kind": "explanation"}, {"id": "decision", "label": "What must it protect?", "prompt": "Name the output contract call_model must enforce.", "kind": "judgment"}, {"id": "evidence_or_uncertainty", "label": "What would prove it?", "prompt": "Name the focused test assertion or uncertainty you still need to inspect.", "kind": "evidence"}]},
+        "plan": {"intro": "Plan only the provider-normalization slice; do not grow an agent loop.", "fields": {"target_function": {"label": "Artifact to change", "placeholder": "call_model or its record type"}, "smallest_slice": {"label": "Smallest behavior", "placeholder": "Reject a non-string completion while preserving the record."}, "must_do": {"label": "Must preserve", "placeholder": "Exact messages, string output, and evidence fields."}, "must_not_do": {"label": "Must not add", "placeholder": "Tools, retries, or message-state policy."}, "first_proof": {"label": "First proof", "placeholder": "The non-string FakeModel test."}, "open_question": {"label": "One uncertainty", "placeholder": "Which provider metadata belongs in the record?"}}},
+        "reflect": {"feynman": {"label": "Explain this to a smart 12-year-old", "subject": "why a harness records and checks model output", "placeholder": "Use plain language and one analogy."}, "feynman_limit": {"label": "Where does that explanation break?", "prompt": "What provider-specific detail does the analogy hide?"}, "prediction_vs_evidence": {"label": "What did the test change or confirm?", "prompt": "Compare your prediction with the exact proof output."}, "mental_model": {"label": "What changed in your mental model?", "prompt": "Capture the boundary between provider data and harness contract."}, "next_step": {"label": "Next smallest step", "prompt": "Name one focused implementation or inspection step."}}
+      },
       "requires": [],
       "unlocks": ["0002-message-state-primitive"],
       "learning_goal": "Preserve an inspectable model-call record while normalizing provider output at one boundary.",
@@ -46,6 +54,14 @@
         "implementation_scope": {"build": ["Implement ordered conversion and appending of user, assistant, and tool messages."], "leave_unchanged": ["Do not call the model again, reorder history, or decide whether a tool request is valid."]},
         "proof_interpretation": {"establishes": "The second-call proof establishes that the model receives the user, assistant, and tool observation in the required order.", "does_not_establish": "It does not prove that every model will stop repeating a request or that the requested tool was safe to run."},
         "transfer_prompt": "When a tool fails instead of succeeding, decide which observation should still be appended and why hiding that failure would make the next decision worse."
+      },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave knowing that message history is agent state, with a narrow plan for appending the next observation in order.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {"jot_notes": {"label": "Jot notes", "placeholder": "Message roles, call order, tool observations, and confusions. Keep this messy."}, "prompts": [{"id": "model", "label": "What is the agent remembering?", "prompt": "Explain why the next model call only knows the messages it receives.", "kind": "explanation"}, {"id": "decision", "label": "Which transition owns the fix?", "prompt": "Name what must happen before the second model call.", "kind": "judgment"}, {"id": "evidence_or_uncertainty", "label": "What would prove the order?", "prompt": "Name the second-call evidence or uncertainty you need to resolve.", "kind": "evidence"}]},
+        "plan": {"intro": "Plan one message-state transition, not model behavior or tool validation.", "fields": {"target_function": {"label": "Artifact to change", "placeholder": "update_message_state or the message helper"}, "smallest_slice": {"label": "Smallest behavior", "placeholder": "Append the tool observation after its assistant request."}, "must_do": {"label": "Must preserve", "placeholder": "User, assistant, tool ordering."}, "must_not_do": {"label": "Must not do", "placeholder": "Call the model again before appending the observation."}, "first_proof": {"label": "First proof", "placeholder": "Inspect model.calls[1] roles."}, "open_question": {"label": "One uncertainty", "placeholder": "How should a failed tool observation be represented?"}}},
+        "reflect": {"feynman": {"label": "Explain this to a smart 12-year-old", "subject": "why an agent needs a written memory of what its tools did", "placeholder": "Use plain language and one analogy."}, "feynman_limit": {"label": "Where does that explanation break?", "prompt": "Which message-shape detail does your explanation hide?"}, "prediction_vs_evidence": {"label": "What did the second call change or confirm?", "prompt": "Compare your expected message order with model.calls[1]."}, "mental_model": {"label": "What changed in your mental model?", "prompt": "Capture why repeated tool calls can be a missing-context problem."}, "next_step": {"label": "Next smallest step", "prompt": "Name one message transition to implement or inspect."}}
       },
       "requires": ["0001-model-call-primitive"],
       "unlocks": ["0003-manual-tool-protocol"],
@@ -77,6 +93,14 @@
         "proof_interpretation": {"establishes": "The parser tests establish behavior for the configured raw-text cases, including valid requests and invalid trailing prose.", "does_not_establish": "They do not prove that a parsed tool exists, that its arguments are safe, or that a handler can execute it."},
         "transfer_prompt": "For a valid JSON array containing one tool-like object, decide whether the parser should accept it and which later lesson, if any, should own multi-action support."
       },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave able to separate raw text from structured tool requests and state exactly what parsing does not prove.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {"jot_notes": {"label": "Jot notes", "placeholder": "Raw outputs, JSON shapes, parser cases, and boundary questions. Keep this messy."}, "prompts": [{"id": "model", "label": "What changes at parsing?", "prompt": "Explain the difference between assistant text and ToolRequest.", "kind": "explanation"}, {"id": "decision", "label": "Where is the first failure?", "prompt": "Name the parser condition that accepts or rejects the current case.", "kind": "judgment"}, {"id": "evidence_or_uncertainty", "label": "What remains unproven?", "prompt": "State one later decision parsing cannot make.", "kind": "uncertainty"}]},
+        "plan": {"intro": "Plan the strict text-to-ToolRequest boundary only.", "fields": {"target_function": {"label": "Artifact to change", "placeholder": "parse_tool_request"}, "smallest_slice": {"label": "Smallest behavior", "placeholder": "Reject one malformed or wrong-shape input."}, "must_do": {"label": "Must preserve", "placeholder": "One complete JSON object and explicit outer shape."}, "must_not_do": {"label": "Must not add", "placeholder": "Registry, schemas, or runtime execution."}, "first_proof": {"label": "First proof", "placeholder": "Run one parser test case."}, "open_question": {"label": "One uncertainty", "placeholder": "Which outer shapes count as a request?"}}},
+        "reflect": {"feynman": {"label": "Explain this to a smart 12-year-old", "subject": "why text must pass a strict parser before it becomes a tool request", "placeholder": "Use plain language and one analogy."}, "feynman_limit": {"label": "Where does that explanation break?", "prompt": "What JSON or schema detail does the analogy hide?"}, "prediction_vs_evidence": {"label": "What did the parser proof change or confirm?", "prompt": "Compare your classification with the test result."}, "mental_model": {"label": "What changed in your mental model?", "prompt": "Capture what parsing proves and what it deliberately leaves open."}, "next_step": {"label": "Next smallest step", "prompt": "Name one parser case to implement or inspect."}}
+      },
       "requires": ["0002-message-state-primitive"],
       "unlocks": ["0004-schema-validation"],
       "learning_goal": "Distinguish valid tool-request JSON from malformed or unsupported model output.",
@@ -107,6 +131,14 @@
         "proof_interpretation": {"establishes": "The validation cases establish the declared protocol's behavior for known tools and their arguments.", "does_not_establish": "They do not establish filesystem permission, handler registration, or successful tool execution."},
         "transfer_prompt": "For submit, decide whether protocol-valid but non-executable control should pass validation, fail dispatch, or terminate before dispatch, and name the evidence needed to decide."
       },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave able to distinguish structured requests from executable requests and plan a narrow validation boundary.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {"jot_notes": {"label": "Jot notes", "placeholder": "ToolRequest facts, schemas, registry decisions, and unresolved ownership. Keep this messy."}, "prompts": [{"id": "model", "label": "What does parsing leave open?", "prompt": "Explain why path=123 can be structured yet not executable.", "kind": "explanation"}, {"id": "decision", "label": "Which boundary owns it?", "prompt": "Choose the owner of known-tool and argument checks.", "kind": "judgment"}, {"id": "evidence_or_uncertainty", "label": "What must stay separate?", "prompt": "Name one question validation cannot answer about runtime execution.", "kind": "uncertainty"}]},
+        "plan": {"intro": "Plan protocol validation without silently moving runtime-dispatch responsibilities into it.", "fields": {"target_function": {"label": "Artifact to change", "placeholder": "validate_tool_args"}, "smallest_slice": {"label": "Smallest behavior", "placeholder": "Reject path=123 for read_file."}, "must_do": {"label": "Must decide", "placeholder": "Known tool and argument schema validity."}, "must_not_do": {"label": "Must not decide", "placeholder": "Filesystem permission or runtime handler availability."}, "first_proof": {"label": "First proof", "placeholder": "Run the wrong-tool-argument test."}, "open_question": {"label": "One uncertainty", "placeholder": "How should submit interact with later dispatch?"}}},
+        "reflect": {"feynman": {"label": "Explain this to a smart 12-year-old", "subject": "why a correctly shaped request is not automatically safe to execute", "placeholder": "Use plain language and one analogy."}, "feynman_limit": {"label": "Where does that explanation break?", "prompt": "Which registry-versus-handler detail does the analogy hide?"}, "prediction_vs_evidence": {"label": "What did validation evidence change or confirm?", "prompt": "Compare your chosen owner with the test result."}, "mental_model": {"label": "What changed in your mental model?", "prompt": "Capture the difference between protocol validity and runtime availability."}, "next_step": {"label": "Next smallest step", "prompt": "Name one validation case to implement or inspect."}}
+      },
       "requires": ["0003-manual-tool-protocol"],
       "unlocks": ["0005-sandboxed-file-tools"],
       "learning_goal": "Validate registered tool arguments at the trust boundary before execution.",
@@ -136,6 +168,14 @@
         "implementation_scope": {"build": ["Implement or extend contained read/write behavior and add one regression case tied to a rejected path."], "leave_unchanged": ["Do not change parser syntax rules or redefine the protocol registry while fixing containment."]},
         "proof_interpretation": {"establishes": "The focused file-tool proof establishes containment and normalized outcomes for its covered path and operation cases.", "does_not_establish": "It does not prove that every filesystem race, symlink policy, or future tool capability is safe."},
         "transfer_prompt": "If a future tool accepts a URL rather than a path, decide which part of the containment reasoning transfers and which new authority boundary it needs."
+      },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave able to explain why valid arguments still need capability containment and plan one real sandbox regression.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {"jot_notes": {"label": "Jot notes", "placeholder": "Paths, result codes, containment sketches, and edge cases. Keep this messy."}, "prompts": [{"id": "model", "label": "What does containment protect?", "prompt": "Explain why a relative-looking path still needs authorization after validation.", "kind": "explanation"}, {"id": "decision", "label": "Which result belongs here?", "prompt": "Choose the contained or rejected outcome for the current path case.", "kind": "judgment"}, {"id": "evidence_or_uncertainty", "label": "What would prove it?", "prompt": "Name the path case and result code that would establish containment.", "kind": "evidence"}]},
+        "plan": {"intro": "Plan one containment behavior and its regression; leave parser and registry rules alone.", "fields": {"target_function": {"label": "Artifact to change", "placeholder": "Sandboxed file-tool function"}, "smallest_slice": {"label": "Smallest behavior", "placeholder": "Reject a parent traversal path."}, "must_do": {"label": "Must preserve", "placeholder": "Allowed nested paths and accurate normalized results."}, "must_not_do": {"label": "Must not change", "placeholder": "Parser syntax or tool registry policy."}, "first_proof": {"label": "First proof", "placeholder": "Run the forbidden-path regression."}, "open_question": {"label": "One uncertainty", "placeholder": "Which filesystem case needs another result code?"}}},
+        "reflect": {"feynman": {"label": "Explain this to a smart 12-year-old", "subject": "why a tool must stay inside its allowed folder", "placeholder": "Use plain language and one analogy."}, "feynman_limit": {"label": "Where does that explanation break?", "prompt": "Which path-resolution detail does the analogy hide?"}, "prediction_vs_evidence": {"label": "What did the path proof change or confirm?", "prompt": "Compare your expected result code with the test output."}, "mental_model": {"label": "What changed in your mental model?", "prompt": "Capture why argument validation is not filesystem authorization."}, "next_step": {"label": "Next smallest step", "prompt": "Name one containment case to implement, inspect, or regress."}}
       },
       "requires": ["0004-schema-validation"],
       "unlocks": ["0006-agent-loop-primitive"],
@@ -200,6 +240,14 @@
         "causal_explanation_prompt": "Explain one real failed trajectory as component transitions and contracts; do not attribute the failure merely to the model behaving strangely.",
         "transfer_prompt": "Change one condition—malformed output, invalid arguments, a missing runtime handler, a tool exception, or exhausted budget—and name the first bad transition, smallest safe intervention, and regression proof."
       },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave able to map an agent trajectory across boundaries, reconstruct one narrow loop slice, and explain proof evidence without blaming the model by default.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {"jot_notes": {"label": "Jot notes", "placeholder": "Transitions, component responsibilities, trace clues, and unresolved causes. Keep this messy."}, "prompts": [{"id": "model", "label": "What owns each transition?", "prompt": "Map parser, validator, dispatch, and loop responsibilities in your own words.", "kind": "explanation"}, {"id": "decision", "label": "What happens next?", "prompt": "Predict the next message when a protocol-valid tool has no runtime handler.", "kind": "judgment"}, {"id": "evidence_or_uncertainty", "label": "What would distinguish the cause?", "prompt": "Name the trace or test evidence that separates protocol failure from runtime drift.", "kind": "evidence"}]},
+        "plan": {"intro": "Plan one ordered loop transition or failure-normalization slice; do not rewrite every prerequisite component.", "fields": {"target_function": {"label": "Artifact to reconstruct", "placeholder": "run_agent control-flow slice"}, "smallest_slice": {"label": "Smallest transition", "placeholder": "Normalize a missing runtime handler into an observation."}, "must_do": {"label": "Must preserve", "placeholder": "Boundary order, message accumulation, submit, and max_steps."}, "must_not_do": {"label": "Must not bypass", "placeholder": "Validation, runtime-handler lookup, or bounded stopping."}, "first_proof": {"label": "First integration proof", "placeholder": "The missing-runtime-handler trajectory test."}, "open_question": {"label": "One uncertainty", "placeholder": "Which failures should remain recoverable observations?"}}},
+        "reflect": {"feynman": {"label": "Explain this to a smart 12-year-old", "subject": "why a model requests actions but the harness owns every step", "placeholder": "Use plain language and one analogy."}, "feynman_limit": {"label": "Where does that explanation break?", "prompt": "Which parser, validation, or runtime distinction does the analogy hide?"}, "prediction_vs_evidence": {"label": "What did the trajectory change or confirm?", "prompt": "Compare your predicted next transition with the trajectory test or trace output."}, "mental_model": {"label": "What changed in your mental model?", "prompt": "Capture how component contracts compose into loop behavior."}, "next_step": {"label": "Next smallest step", "prompt": "Name one reconstruction or causal-explanation step."}}
+      },
       "requires": ["0003-manual-tool-protocol", "0004-schema-validation", "0005-sandboxed-file-tools"],
       "unlocks": ["0007-trace-logger"],
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",
@@ -263,6 +311,89 @@
         },
         "causal_explanation_prompt": "Use one produced trace to explain the incident as evidence gap or first bad transition → owning boundary → intervention → regression, without defaulting to the model as the cause.",
         "transfer_prompt": "Given a trace that records validation but omits runtime-handler and tool-result fields, decide which hypotheses remain ambiguous, the smallest additional event needed, and the regression proof you would add."
+      },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave able to separate an observed outcome from an explained cause, add the smallest causal trace, and use the resulting evidence without blaming the model by default.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {
+          "jot_notes": {
+            "label": "Jot notes",
+            "placeholder": "Facts, candidate causes, missing fields, boundary owners, and questions. Keep this messy."
+          },
+          "prompts": [
+            {
+              "id": "incident_facts",
+              "label": "What can this run actually tell you?",
+              "prompt": "From partial-run.json alone, separate the facts you can state from causes you cannot yet claim.",
+              "kind": "evidence"
+            },
+            {
+              "id": "next_evidence",
+              "label": "What is the next useful evidence?",
+              "prompt": "Choose the first causal field that would distinguish a rejected request from repeated valid work, and name the loop boundary that first knows it.",
+              "kind": "judgment"
+            },
+            {
+              "id": "rejected_hypothesis",
+              "label": "Which tempting diagnosis must wait?",
+              "prompt": "Name one plausible explanation that the partial result cannot support yet, and the trace field that could test it.",
+              "kind": "uncertainty"
+            }
+          ]
+        },
+        "plan": {
+          "intro": "Plan the smallest instrumentation slice that turns one future trajectory into causal evidence; do not repair the loop speculatively.",
+          "fields": {
+            "target_function": {
+              "label": "Artifact to build or change",
+              "placeholder": "TraceLogger plus the narrow run_agent hooks that emit causal records."
+            },
+            "smallest_slice": {
+              "label": "Smallest evidence slice",
+              "placeholder": "Record initial messages, one ordered step fact, and the terminal result."
+            },
+            "must_do": {
+              "label": "Must preserve",
+              "placeholder": "Existing loop behavior while recording authoritative causal fields and replayable JSON."
+            },
+            "must_not_do": {
+              "label": "Must not do",
+              "placeholder": "Infer a trace after the run, change control flow to fit a story, or claim a model cause without evidence."
+            },
+            "first_proof": {
+              "label": "First diagnostic proof",
+              "placeholder": "test_trace_logger_records_causal_fields_and_writes_replayable_json"
+            },
+            "open_question": {
+              "label": "One evidence question",
+              "placeholder": "At which boundary does each trace field first become authoritative?"
+            }
+          }
+        },
+        "reflect": {
+          "feynman": {
+            "label": "Explain this to a smart 12-year-old",
+            "subject": "why a final result is not enough to explain how an agent run went wrong",
+            "placeholder": "Use plain language and follow one decision from the loop into the trace."
+          },
+          "feynman_limit": {
+            "label": "Where does that explanation break?",
+            "prompt": "Which difference between missing evidence, a parser rejection, validation failure, and runtime failure does your explanation hide?"
+          },
+          "prediction_vs_evidence": {
+            "label": "What did the new trace confirm or rule out?",
+            "prompt": "Compare the causal field you predicted with the produced trace and state which candidate cause it supports, weakens, or still leaves unresolved."
+          },
+          "mental_model": {
+            "label": "What changed in your mental model?",
+            "prompt": "Capture how a loop boundary becomes responsible for evidence when it is the first place to know a fact."
+          },
+          "next_step": {
+            "label": "Next smallest step",
+            "prompt": "Name one trace field, regression assertion, or changed-symptom diagnosis to do next."
+          }
+        }
       },
       "requires": ["0006-agent-loop-primitive"],
       "unlocks": ["0008-eval-runner"],
@@ -330,6 +461,89 @@
         },
         "interpretation_prompt": "State whether the result supports the configured behavioral claim, then connect one pass or failure to its expected-versus-actual record and causal trace path.",
         "transfer_prompt": "When adding a new failure mode, decide which variables must stay fixed, whether it needs a new eval case, a unit regression, or both, and what evidence a failed result must preserve."
+      },
+      "study_contract": {
+        "version": 1,
+        "objective": "Leave able to turn a narrow behavioral claim into a controlled evaluation, interpret each case's evidence, and state the limits of the resulting report.",
+        "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
+        "think": {
+          "jot_notes": {
+            "label": "Jot notes",
+            "placeholder": "Claims, cases, controlled variables, expected-versus-actual differences, and limits. Keep this messy."
+          },
+          "prompts": [
+            {
+              "id": "behavioral_claim",
+              "label": "What are we actually claiming?",
+              "prompt": "State the narrow copy-file behavior this eval can support, then name one broader production claim it cannot support.",
+              "kind": "explanation"
+            },
+            {
+              "id": "controlled_conditions",
+              "label": "What must stay fixed?",
+              "prompt": "Choose the model outputs, tools, budget, and expected behavior that must remain fixed before a changed result can be attributed to the runner or harness.",
+              "kind": "judgment"
+            },
+            {
+              "id": "failure_evidence",
+              "label": "What makes a failed case useful?",
+              "prompt": "Name the expected-versus-actual field, specific failure reason, and trace linkage needed to investigate a wrong-answer result.",
+              "kind": "evidence"
+            }
+          ]
+        },
+        "plan": {
+          "intro": "Plan one controlled evaluation slice: compare a declared case with its actual trajectory and retain enough evidence to inspect a failure.",
+          "fields": {
+            "target_function": {
+              "label": "Artifact to build or change",
+              "placeholder": "Eval runner case evaluation and report aggregation."
+            },
+            "smallest_slice": {
+              "label": "Smallest measurement slice",
+              "placeholder": "Grade one deterministic case against expected fields and retain its actual record."
+            },
+            "must_do": {
+              "label": "Must preserve",
+              "placeholder": "Fixed case conditions, declared expected behavior, per-case evidence, and a causal trace path for failure."
+            },
+            "must_not_do": {
+              "label": "Must not do",
+              "placeholder": "Call one passing trajectory an evaluation, change inputs and expectations together, or collapse failures into only an aggregate score."
+            },
+            "first_proof": {
+              "label": "First measurement proof",
+              "placeholder": "test_eval_runner_reports_each_case_and_causal_trace"
+            },
+            "open_question": {
+              "label": "One measurement question",
+              "placeholder": "Which expected field should decide a case whose tools all succeeded but final answer is wrong?"
+            }
+          }
+        },
+        "reflect": {
+          "feynman": {
+            "label": "Explain this to a smart 12-year-old",
+            "subject": "why one passing run is not yet evidence that an agent behavior works",
+            "placeholder": "Use a simple comparison and explain why each case needs its own result."
+          },
+          "feynman_limit": {
+            "label": "Where does that explanation break?",
+            "prompt": "Which difference between a unit assertion, a deterministic behavioral eval, and real production reliability does your explanation hide?"
+          },
+          "prediction_vs_evidence": {
+            "label": "What did the report confirm or weaken?",
+            "prompt": "Compare your predicted wrong-answer outcome with its per-case expected-versus-actual result, failure reason, and trace path."
+          },
+          "mental_model": {
+            "label": "What changed in your mental model?",
+            "prompt": "Capture how controlled conditions and per-case evidence make a behavioral claim interpretable."
+          },
+          "next_step": {
+            "label": "Next smallest step",
+            "prompt": "Name one new case category, regression, or confounder check to add next."
+          }
+        }
       },
       "requires": ["0007-trace-logger"],
       "unlocks": [],

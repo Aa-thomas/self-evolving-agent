@@ -59,6 +59,7 @@ def test_study_store_migrates_legacy_reflections(tmp_path):
     assert migrated["reflection"] == {
         "feynman_explanation": "",
         "feynman_limit": "",
+        "prediction_vs_evidence": "",
         "mental_model": "Keep the boundary thin.",
         "next_step": "Write the focused proof.",
     }
@@ -82,6 +83,7 @@ def test_study_store_round_trip(tmp_path):
             "reflection": {
                 "feynman_explanation": "The model suggests moves, but the harness is the referee.",
                 "feynman_limit": "The analogy hides JSON parsing and validation details.",
+                "prediction_vs_evidence": "The trace confirms which boundary made the decision.",
                 "mental_model": "The model proposes; the harness decides.",
                 "next_step": "Implement submit handling at home.",
             },
@@ -97,6 +99,9 @@ def test_study_store_round_trip(tmp_path):
     )
     assert saved["reflection"]["feynman_limit"] == (
         "The analogy hides JSON parsing and validation details."
+    )
+    assert saved["reflection"]["prediction_vs_evidence"] == (
+        "The trace confirms which boundary made the decision."
     )
     assert saved["reflection"]["next_step"] == "Implement submit handling at home."
     assert saved["phase"] == "ready_to_implement"

@@ -14,6 +14,7 @@ from learning_flow import (
     prerequisites_met,
     validate_manifest,
     validate_operational_drill_contract,
+    validate_study_contract,
 )
 from lint_lessons import lint_lesson
 
@@ -108,6 +109,47 @@ def test_project_1a_primitives_use_the_foundation_build_episode_contract():
         assert contract["proof_interpretation"]["does_not_establish"]
 
 
+def test_foundation_build_lessons_have_a_pattern_aware_study_contract():
+    manifest = load_manifest()
+    for lesson_id in (
+        "0001-model-call-primitive",
+        "0002-message-state-primitive",
+        "0003-manual-tool-protocol",
+        "0004-schema-validation",
+        "0005-sandboxed-file-tools",
+    ):
+        study = manifest["lessons"][lesson_id]["study_contract"]
+        assert study["version"] == 1
+        assert len(study["think"]["prompts"]) == 3
+        assert "prediction_vs_evidence" in study["reflect"]
+        assert set(study["plan"]["fields"]) == {
+            "target_function", "smallest_slice", "must_do", "must_not_do", "first_proof", "open_question"
+        }
+
+
+def test_study_contract_cannot_remove_jot_notes_feynman_or_existing_handoff():
+    manifest = deepcopy(load_manifest())
+    study = manifest["lessons"]["0001-model-call-primitive"]["study_contract"]
+    study["think"].pop("jot_notes")
+
+    with pytest.raises(ManifestError, match="jot_notes"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    study = manifest["lessons"]["0001-model-call-primitive"]["study_contract"]
+    study["reflect"].pop("feynman_limit")
+
+    with pytest.raises(ManifestError, match="feynman_limit"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    study = manifest["lessons"]["0001-model-call-primitive"]["study_contract"]
+    study["plan"]["fields"].pop("first_proof")
+
+    with pytest.raises(ManifestError, match="existing handoff fields"):
+        validate_manifest(manifest)
+
+
 def test_foundation_build_requires_explanation_and_inspectable_starting_artifact():
     manifest = deepcopy(load_manifest())
     lesson = manifest["lessons"]["0001-model-call-primitive"]
@@ -152,6 +194,9 @@ def test_agent_loop_uses_reusable_integration_build_contract():
     assert contract["intervention_strategy"]["mode"] == "reconstruct"
     assert len(contract["prerequisite_bridge"]["existing_components"]) >= 2
     assert len(contract["integration_proof"]["required_evidence"]) >= 2
+    study = lesson["study_contract"]
+    assert study["think"]["prompts"][0]["id"] == "model"
+    assert "trajectory" in study["reflect"]["prediction_vs_evidence"]["prompt"]
 
 
 def test_integration_build_reconstruction_requires_scaffold_and_matching_lab_type():
@@ -195,6 +240,17 @@ def test_trace_logger_uses_diagnostic_clinic_with_evidence_gap():
     assert contract["worked_investigation"]["current_conclusion"].startswith("The incident is evidence-insufficient")
     assert contract["intervention_strategy"]["mode"] == "add_evidence"
     assert len(contract["diagnostic_model"]["candidate_causes"]) >= 2
+    study = lesson["study_contract"]
+    assert study["think"]["prompts"][0]["id"] == "incident_facts"
+    assert "candidate cause" in study["reflect"]["prediction_vs_evidence"]["prompt"]
+
+
+def test_diagnostic_clinic_requires_a_pattern_aware_study_contract():
+    manifest = deepcopy(load_manifest())
+    manifest["lessons"]["0007-trace-logger"].pop("study_contract")
+
+    with pytest.raises(ManifestError, match="selected episode pattern requires a study_contract"):
+        validate_manifest(manifest)
 
 
 def test_diagnostic_clinic_requires_competing_causes_inspection_and_regression_evidence():
@@ -229,6 +285,17 @@ def test_eval_runner_uses_experiment_lab_with_repeatable_measurement():
     assert contract["experiment_strategy"]["mode"] == "construct"
     assert len(contract["measurement_model"]["outcome_contract"]) >= 2
     assert len(contract["measurement_proof"]["required_evidence"]) >= 4
+    study = lesson["study_contract"]
+    assert study["think"]["prompts"][0]["id"] == "behavioral_claim"
+    assert "wrong-answer" in study["reflect"]["prediction_vs_evidence"]["prompt"]
+
+
+def test_experiment_lab_requires_a_pattern_aware_study_contract():
+    manifest = deepcopy(load_manifest())
+    manifest["lessons"]["0008-eval-runner"].pop("study_contract")
+
+    with pytest.raises(ManifestError, match="selected episode pattern requires a study_contract"):
+        validate_manifest(manifest)
 
 
 def test_experiment_lab_requires_case_coverage_controls_and_failed_case_evidence():
@@ -256,6 +323,24 @@ def test_experiment_lab_requires_case_coverage_controls_and_failed_case_evidence
 
 def test_operational_drill_contract_supports_constrained_evidence_backed_procedure():
     validate_operational_drill_contract("0099-trace-replay", operational_drill_contract())
+
+
+def test_operational_drill_requires_a_pattern_aware_study_contract():
+    lesson = {"episode_pattern": "operational_drill"}
+
+    with pytest.raises(ManifestError, match="selected episode pattern requires a study_contract"):
+        validate_study_contract("0099-trace-replay", lesson)
+
+    lesson["study_contract"] = deepcopy(load_manifest()["lessons"]["0001-model-call-primitive"]["study_contract"])
+    with pytest.raises(ManifestError, match="operational_drill workspace"):
+        validate_study_contract("0099-trace-replay", lesson)
+
+    lesson["study_contract"]["think"]["prompts"] = [
+        {"id": "operational_context", "label": "Context", "prompt": "State the trigger and authority.", "kind": "evidence"},
+        {"id": "next_safe_action", "label": "Action", "prompt": "Commit to the next authorized action.", "kind": "judgment"},
+        {"id": "safe_stop_evidence", "label": "Stop", "prompt": "Name the no-go signal and handoff evidence.", "kind": "uncertainty"},
+    ]
+    validate_study_contract("0099-trace-replay", lesson)
 
 
 def test_operational_drill_requires_preflight_authority_and_safe_stop_evidence():

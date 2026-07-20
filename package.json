@@ -1,9 +1,13 @@
 {
   "private": true,
   "scripts": {
-    "test:netlify": "node --test netlify/tests/*.test.mjs"
+    "test:netlify": "node --test netlify/tests/*.test.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.9"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
   }
 }

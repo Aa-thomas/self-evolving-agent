@@ -44,6 +44,15 @@ DIAGNOSTIC_INTERVENTION_MODES = {"repair", "add_evidence", "add_regression"}
 EXPERIMENT_LAB_LESSONS = {"0008-eval-runner"}
 EXPERIMENT_MODES = {"construct", "compare", "ablate", "calibrate"}
 OPERATIONAL_MODES = {"verify", "replay", "recover", "deploy", "rollback", "audit"}
+STUDY_CONTRACT_VERSION = 1
+STUDY_CONTEXT_CARDS = {"starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"}
+STUDY_PROMPT_KINDS = {"retrieval", "explanation", "judgment", "evidence", "uncertainty"}
+STUDY_PLAN_FIELDS = {"target_function", "smallest_slice", "must_do", "must_not_do", "first_proof", "open_question"}
+STUDY_PROMPT_IDS_BY_PATTERN = {
+    "diagnostic_clinic": {"incident_facts", "next_evidence", "rejected_hypothesis"},
+    "experiment_lab": {"behavioral_claim", "controlled_conditions", "failure_evidence"},
+    "operational_drill": {"operational_context", "next_safe_action", "safe_stop_evidence"},
+}
 
 
 class ManifestError(ValueError):
@@ -95,6 +104,7 @@ def validate_manifest(manifest: object) -> None:
         validate_completion_contract(lesson_id, lesson)
         validate_micro_world(lesson_id, lesson.get("micro_world"))
         validate_episode_contract(lesson_id, lesson)
+        validate_study_contract(lesson_id, lesson)
 
     validate_graph(lessons)
 
@@ -630,6 +640,74 @@ def validate_operational_drill_contract(lesson_id: str, contract: dict[str, Any]
     require_text_list(lesson_id, handoff, "required_record", "teaching_contract.handoff_or_postmortem", 1)
     require_text(lesson_id, handoff, "explanation_prompt", "teaching_contract.handoff_or_postmortem")
     require_text(lesson_id, contract, "transfer_prompt", "teaching_contract")
+
+
+def validate_study_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
+    """Validate workspace prompts without turning notes into completion evidence."""
+    contract = lesson.get("study_contract")
+    if lesson.get("episode_pattern") in EPISODE_PATTERNS and not isinstance(contract, dict):
+        raise ManifestError(f"{lesson_id}: selected episode pattern requires a study_contract")
+    if contract is None:
+        return
+    if not isinstance(contract, dict) or contract.get("version") != STUDY_CONTRACT_VERSION:
+        raise ManifestError(f"{lesson_id}: study_contract.version must be {STUDY_CONTRACT_VERSION}")
+    require_text(lesson_id, contract, "objective", "study_contract")
+    cards = string_list(lesson_id, contract.get("context_cards"), "study_contract.context_cards")
+    if not cards or not set(cards) <= STUDY_CONTEXT_CARDS:
+        raise ManifestError(f"{lesson_id}: study_contract.context_cards must use known artifact contracts")
+
+    think = contract.get("think")
+    if not isinstance(think, dict):
+        raise ManifestError(f"{lesson_id}: study_contract.think must be an object")
+    jot = think.get("jot_notes")
+    if not isinstance(jot, dict):
+        raise ManifestError(f"{lesson_id}: study_contract.think.jot_notes must be an object")
+    for key in ("label", "placeholder"):
+        require_text(lesson_id, jot, key, "study_contract.think.jot_notes")
+    prompts = think.get("prompts")
+    if not isinstance(prompts, list) or len(prompts) != 3 or not all(isinstance(prompt, dict) for prompt in prompts):
+        raise ManifestError(f"{lesson_id}: study_contract.think.prompts needs exactly three prompts")
+    prompt_ids: set[str] = set()
+    for prompt in prompts:
+        for key in ("id", "label", "prompt"):
+            require_text(lesson_id, prompt, key, "study_contract.think.prompts")
+        if prompt["kind"] not in STUDY_PROMPT_KINDS:
+            raise ManifestError(f"{lesson_id}: study_contract.think prompt kind is invalid")
+        prompt_ids.add(prompt["id"])
+    if len(prompt_ids) != len(prompts):
+        raise ManifestError(f"{lesson_id}: study_contract.think prompt ids must be unique")
+    required_prompt_ids = STUDY_PROMPT_IDS_BY_PATTERN.get(lesson.get("episode_pattern"))
+    if required_prompt_ids and prompt_ids != required_prompt_ids:
+        raise ManifestError(f"{lesson_id}: study_contract.think prompts must match the {lesson['episode_pattern']} workspace")
+
+    plan = contract.get("plan")
+    if not isinstance(plan, dict):
+        raise ManifestError(f"{lesson_id}: study_contract.plan must be an object")
+    require_text(lesson_id, plan, "intro", "study_contract.plan")
+    fields = plan.get("fields")
+    if not isinstance(fields, dict) or set(fields) != STUDY_PLAN_FIELDS:
+        raise ManifestError(f"{lesson_id}: study_contract.plan.fields must configure the existing handoff fields")
+    for field in fields.values():
+        if not isinstance(field, dict):
+            raise ManifestError(f"{lesson_id}: study_contract.plan fields must be objects")
+        for key in ("label", "placeholder"):
+            require_text(lesson_id, field, key, "study_contract.plan.fields")
+
+    reflect = contract.get("reflect")
+    if not isinstance(reflect, dict):
+        raise ManifestError(f"{lesson_id}: study_contract.reflect must be an object")
+    for section, keys in {
+        "feynman": ("label", "subject", "placeholder"),
+        "feynman_limit": ("label", "prompt"),
+        "prediction_vs_evidence": ("label", "prompt"),
+        "mental_model": ("label", "prompt"),
+        "next_step": ("label", "prompt"),
+    }.items():
+        value = reflect.get(section)
+        if not isinstance(value, dict):
+            raise ManifestError(f"{lesson_id}: study_contract.reflect.{section} must be an object")
+        for key in keys:
+            require_text(lesson_id, value, key, f"study_contract.reflect.{section}")
 
 
 def validate_graph(lessons: dict[str, Any]) -> None:
