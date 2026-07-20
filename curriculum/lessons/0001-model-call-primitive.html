@@ -39,7 +39,7 @@ record.input_tokens
 record.output_tokens
 record.usage_source</code></pre>
         <p>The model object only needs <code>.complete(messages)</code>. The primitive builds one message list, calls the model, measures latency, confirms the return value is a string, and stores provider token usage or a clear estimate.</p>
-        <p>Implementation and proof live in <a href="../phase-1/01_model_call/01_model_call.py"><code>01_model_call.py</code></a> and <a href="../phase-1/01_model_call/tests_01_model_call.py"><code>tests_01_model_call.py</code></a>. The key proof is that a fake model receives exactly one user message and returns a <code>ModelCallRecord</code>.</p>
+        <p>Implementation and proof live in <a href="../phase-1/01_model_call/model_call.py"><code>model_call.py</code></a> and <a href="../phase-1/01_model_call/tests_01_model_call.py"><code>tests_01_model_call.py</code></a>. The key proof is that a fake model receives exactly one user message and returns a <code>ModelCallRecord</code>.</p>
       </section>
 
       <section>
