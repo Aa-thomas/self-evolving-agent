@@ -10,7 +10,7 @@ lesson practice → implementation handoff → configured proof
 ## Sources of truth
 
 - `curriculum/MISSION.md` defines the outcome that teaching serves.
-- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, micro-world decisions, and the selected episode pattern. `foundation_build` teaches isolated Project 1A primitives (Lessons 1–5); `integration_build` teaches composed behavior across real components and currently governs Agent Loop. Both record explanation, walkthrough, tradeoff, intervention scope, proof limits, and transfer without changing study-state milestones.
+- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, micro-world decisions, and the selected episode pattern. `foundation_build` teaches isolated Project 1A primitives (Lessons 1–5); `integration_build` teaches composed behavior across real components (Agent Loop); `diagnostic_clinic` teaches evidence-first failure analysis and targeted repair (Trace Logger). These contracts record explanation, walkthrough, tradeoff, intervention scope, proof limits, and transfer without changing study-state milestones.
 - `curriculum/learning-records/` defines understanding that future teaching may assume.
 - The local or remote learner store defines the current phase, milestones, evidence references, and review schedule.
 - Tests, diffs, and canonical traces provide executable evidence.

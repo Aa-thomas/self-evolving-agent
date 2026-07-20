@@ -217,6 +217,53 @@
     "0007-trace-logger": {
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
+      "episode_pattern": "diagnostic_clinic",
+      "teaching_contract": {
+        "incident": {
+          "symptom": "A completed run reports final_answer=null and exit_reason=max_steps, but contains no causal fields explaining how it reached that result.",
+          "available_evidence": ["The real partial-run.json fixture.", "The existing run_agent control flow and its focused tests."],
+          "impact": "The learner cannot decide whether the model repeated work, parsing failed, validation rejected a request, runtime dispatch failed, a tool raised, or the budget was exhausted for a legitimate trajectory."
+        },
+        "diagnostic_model": {
+          "first_principle": "A symptom is not a root cause; the earliest violated contract must be supported by recorded evidence, and missing evidence is itself a valid diagnosis.",
+          "candidate_causes": [
+            {"cause": "The model repeatedly requested a tool until max_steps.", "would_explain": "A max-steps result with no final answer.", "distinguishing_evidence": "Assistant output and ordered step records."},
+            {"cause": "A parser, validator, or runtime boundary rejected work before it could complete.", "would_explain": "A max-steps result after repeated normalized observations.", "distinguishing_evidence": "Per-step parse, validation, runtime-handler, and tool-result fields."},
+            {"cause": "The run has no causal record at all.", "would_explain": "Why the supplied final result cannot distinguish either prior cause.", "distinguishing_evidence": "A trace schema produced at the loop boundaries where each fact becomes authoritative."}
+          ],
+          "ownership_rule": "When existing output cannot distinguish plausible first bad transitions, the owning intervention is the boundary that first knows the missing fact—not an invented guess about model behavior."
+        },
+        "worked_investigation": {
+          "observations": ["partial-run.json contains only final_answer and exit_reason.", "The current agent loop already knows assistant output, validation results, runtime handler availability, tool results, and stopping decisions while it executes."],
+          "elimination_steps": ["The final result cannot rule in malformed output, an unavailable handler, a tool exception, or repeated valid work.", "Because no recorded artifact distinguishes those causes, claiming one would be speculation rather than diagnosis."],
+          "current_conclusion": "The incident is evidence-insufficient: causal loop transitions must be recorded before this run can be explained.",
+          "confidence_limit": "The partial fixture proves neither that the model was at fault nor which loop boundary first changed the trajectory."
+        },
+        "prediction_prompt": "Before opening the logger starter, choose the first missing causal field needed to distinguish a rejected request from a repeated valid request, and explain which loop boundary owns it.",
+        "artifact_inspection_sequence": [
+          {"artifact": "curriculum/phase-1/07_trace_logger/fixtures/partial-run.json", "question": "Which concrete diagnostic questions can this output answer?", "fact_established": "It records the terminal outcome but no causal transition."},
+          {"artifact": "curriculum/phase-1/06_agent_loop/agent_loop.py", "question": "Where do assistant output, validation, dispatch, tool result, and exit reason first become authoritative?", "fact_established": "The loop has the required facts at ordered decision boundaries."},
+          {"artifact": "curriculum/phase-1/07_trace_logger/tests_trace_logger.py", "question": "Which fields must one replayable trace preserve?", "fact_established": "The intended proof requires initial messages, causal steps, and terminal outcome."}
+        ],
+        "diagnosis_commitment": {
+          "required_claims": ["first_bad_transition_or_evidence_gap", "responsible_boundary", "rejected_alternative", "evidence_rationale"],
+          "ambiguity_rule": "The learner must conclude evidence is insufficient when the available artifacts cannot distinguish the plausible causes; confidence is not a substitute for a trace."
+        },
+        "intervention_strategy": {
+          "mode": "add_evidence",
+          "smallest_safe_intervention": "Implement TraceLogger and add only the hooks needed for run_agent to capture initial messages, one causal record per step, and the terminal result without changing loop behavior.",
+          "leave_unchanged": ["Parser, validator, runtime dispatch, tool behavior, and max_steps policy unless the new trace actually identifies one as responsible."],
+          "regression_target": "test_trace_logger_records_causal_fields_and_writes_replayable_json",
+          "forbidden_shortcuts": ["Synthesizing a trace after the run from the final result.", "Logging only final_answer and calling it diagnosis.", "Changing loop control flow solely to make output easier to explain."]
+        },
+        "diagnostic_proof": {
+          "required_evidence": ["The original non-diagnostic partial fixture.", "A real agent-loop trajectory that produces a structured JSON trace.", "The trace test that asserts each required causal field and replayable serialization."],
+          "establishes": "The covered run records the fields needed to distinguish its assistant output, validation, runtime dispatch, tool outcome, and terminal decision.",
+          "does_not_establish": "The trace does not prove the model chose the best action, capture every external cause, or make an untested trajectory diagnosable."
+        },
+        "causal_explanation_prompt": "Use one produced trace to explain the incident as evidence gap or first bad transition → owning boundary → intervention → regression, without defaulting to the model as the cause.",
+        "transfer_prompt": "Given a trace that records validation but omits runtime-handler and tool-result fields, decide which hypotheses remain ambiguous, the smallest additional event needed, and the regression proof you would add."
+      },
       "requires": ["0006-agent-loop-primitive"],
       "unlocks": ["0008-eval-runner"],
       "learning_goal": "Use a causal trace to separate model behavior from harness behavior.",

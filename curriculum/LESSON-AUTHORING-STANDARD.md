@@ -137,7 +137,54 @@ teaching_contract:
 
 `reconstruct` mode requires a `reconstruction_lab`, a real scaffold, and the existing reconstruction proof contract. `assemble`, `extend`, and `repair` do not require a scaffold. This keeps reconstruction as a deliberate mode, rather than forcing every system lesson to pretend the learner is rebuilding existing code.
 
-Agent Loop is the first use of this pattern. Trace Logger and Eval Runner deliberately remain unassigned until their more specific episode patterns are reviewed.
+Agent Loop is the first use of this pattern. Eval Runner remains unassigned until the experiment-lab pattern is reviewed.
+
+## Evidence-first failure episode schema: `diagnostic_clinic`
+
+Use `diagnostic_clinic` when the lesson begins with an actual failure, ambiguous outcome, or incomplete evidence record. The learner must investigate rather than guess. A valid conclusion may be **evidence insufficient**; in that case, adding the smallest causal evidence is the intervention rather than a speculative code change.
+
+```yaml
+episode_pattern: diagnostic_clinic
+teaching_contract:
+  incident:
+    symptom: The observable failure or ambiguity.
+    available_evidence: [At least two real artifacts or outputs.]
+    impact: The unsafe or blocked decision created by the uncertainty.
+  diagnostic_model:
+    first_principle: A symptom is not a root cause.
+    candidate_causes:
+      - cause: ...
+        would_explain: ...
+        distinguishing_evidence: ...
+    ownership_rule: How the first bad transition or evidence gap finds its owner.
+  worked_investigation:
+    observations: [Facts supported by the artifacts.]
+    elimination_steps: [Why plausible causes are ruled in or out.]
+    current_conclusion: A responsible boundary or evidence-insufficient finding.
+    confidence_limit: What cannot be concluded.
+  prediction_prompt: Commit to the next useful evidence or first bad transition.
+  artifact_inspection_sequence:
+    - artifact: ...
+      question: ...
+      fact_established: ...
+  diagnosis_commitment:
+    required_claims: [first bad transition or gap, owner, rejected alternative, rationale]
+    ambiguity_rule: When insufficient evidence is the only justified conclusion.
+  intervention_strategy:
+    mode: repair | add_evidence | add_regression
+    smallest_safe_intervention: ...
+    leave_unchanged: [...]
+    regression_target: ...
+    forbidden_shortcuts: [...]
+  diagnostic_proof:
+    required_evidence: [Original incident, post-intervention evidence, regression proof.]
+    establishes: ...
+    does_not_establish: ...
+  causal_explanation_prompt: Explain evidence → diagnosis → intervention → regression.
+  transfer_prompt: Diagnose a changed symptom from changed evidence.
+```
+
+This pattern works for trace review, flaky tests, permission failures, benchmark failure analysis, and incident triage. Trace Logger is its first Project 1A use: the partial run is intentionally non-diagnostic, so the learner builds the minimum trace needed to turn a future run into evidence.
 
 ## Lesson types and publication
 

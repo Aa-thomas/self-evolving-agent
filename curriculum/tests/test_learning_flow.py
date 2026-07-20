@@ -131,6 +131,40 @@ def test_integration_build_requires_component_model_and_multiple_proof_outcomes(
         validate_manifest(manifest)
 
 
+def test_trace_logger_uses_diagnostic_clinic_with_evidence_gap():
+    manifest = load_manifest()
+    lesson = manifest["lessons"]["0007-trace-logger"]
+    contract = lesson["teaching_contract"]
+
+    assert lesson["episode_pattern"] == "diagnostic_clinic"
+    assert contract["worked_investigation"]["current_conclusion"].startswith("The incident is evidence-insufficient")
+    assert contract["intervention_strategy"]["mode"] == "add_evidence"
+    assert len(contract["diagnostic_model"]["candidate_causes"]) >= 2
+
+
+def test_diagnostic_clinic_requires_competing_causes_inspection_and_regression_evidence():
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0007-trace-logger"]["teaching_contract"]
+    contract["diagnostic_model"]["candidate_causes"] = []
+
+    with pytest.raises(ManifestError, match="candidate_causes"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0007-trace-logger"]["teaching_contract"]
+    contract["artifact_inspection_sequence"] = []
+
+    with pytest.raises(ManifestError, match="artifact_inspection_sequence"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0007-trace-logger"]["teaching_contract"]
+    contract["diagnostic_proof"]["required_evidence"] = ["partial fixture"]
+
+    with pytest.raises(ManifestError, match="diagnostic_proof.required_evidence"):
+        validate_manifest(manifest)
+
+
 def test_published_lesson_requires_target():
     manifest, lesson = published_agent_loop()
     lesson["target_artifacts"]["source_files"] = []
