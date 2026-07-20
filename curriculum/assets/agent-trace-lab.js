@@ -3,7 +3,7 @@ class AgentTraceLab {
     this.root = root;
     this.mode = root.dataset.mode || "predict";
     this.scenarioIndex = 0;
-    this.stepIndex = 0;
+    this.questionIndex = 0;
     this.scenarios = [];
   }
 
@@ -20,71 +20,72 @@ class AgentTraceLab {
 
   render() {
     const scenario = this.scenarios[this.scenarioIndex];
-    const step = scenario.steps[this.stepIndex];
-    const modePrompt = this.mode === "trace"
-      ? "Use the visible trace fields to diagnose the next decision."
-      : this.mode === "eval"
-        ? "Decide whether this trajectory preserves the harness contract."
-        : "Predict before revealing the harness transition.";
+    const question = scenario.questions[this.questionIndex];
+    const choices = this.shuffle(question.choices, `${scenario.id}:${question.id}`);
     this.root.innerHTML = `
-      <div class="trace-lab-header">
-        <div><p class="trace-lab-kicker">Trace Lab · ${this.scenarioIndex + 1} of ${this.scenarios.length}</p><h3>${this.escape(scenario.title)}</h3></div>
-        <select data-scenario aria-label="Choose trace scenario">
-          ${this.scenarios.map((item, index) => `<option value="${index}" ${index === this.scenarioIndex ? "selected" : ""}>${this.escape(item.title)}</option>`).join("")}
-        </select>
-      </div>
-      <p>${modePrompt}</p>
-      <ol class="trace-timeline" aria-label="Agent trace timeline">
-        ${scenario.steps.map((item, index) => `<li class="${index === this.stepIndex ? "current" : index < this.stepIndex ? "complete" : "pending"}"><span>${index + 1}</span>${this.escape(index <= this.stepIndex ? item.label : "Hidden next state")}</li>`).join("")}
-      </ol>
-      <div class="trace-state"><p>${this.escape(step.stage.replaceAll("_", " "))}</p><code>${this.escape(step.detail)}</code></div>
-      <fieldset><legend>${this.escape(step.question)}</legend>
-        ${step.choices.map((choice, index) => `<label><input type="radio" name="trace-choice-${this.scenarioIndex}-${this.stepIndex}" value="${index}"> ${this.escape(choice)}</label>`).join("")}
+      <div class="trace-lab-header"><div><p class="trace-lab-kicker">Trace Lab · ${this.scenarioIndex + 1} of ${this.scenarios.length}</p><h3>${this.escape(scenario.title)}</h3></div>
+      <select data-scenario aria-label="Choose trace scenario">${this.scenarios.map((item, index) => `<option value="${index}" ${index === this.scenarioIndex ? "selected" : ""}>${this.escape(item.title)}</option>`).join("")}</select></div>
+      <p>Inspect this causal artifact before committing a diagnosis.</p>
+      <dl class="trace-artifact">
+        <dt>Assistant output</dt><dd><code>${this.escape(scenario.assistant_output)}</code></dd>
+        <dt>Parse result</dt><dd><code>${this.escape(JSON.stringify(scenario.parse_result))}</code></dd>
+        <dt>Validation result</dt><dd><code>${this.escape(JSON.stringify(scenario.validation_result))}</code></dd>
+        <dt>Protocol registry</dt><dd><code>${this.escape(scenario.protocol_registry.join(", "))}</code></dd>
+        <dt>Runtime handlers</dt><dd><code>${this.escape(scenario.runtime_handlers.join(", ") || "none")}</code></dd>
+        <dt>Harness decision</dt><dd><code>${this.escape(JSON.stringify(scenario.harness_decision))}</code></dd>
+      </dl>
+      <fieldset data-case-id="${this.escape(`${scenario.id}:${question.id}`)}" data-answer="${this.escape(question.answer)}"><legend>${this.escape(question.question)}</legend>
+        ${choices.map((choice) => `<label><input type="radio" name="trace-choice" value="${this.escape(choice)}"> ${this.escape(choice)}</label>`).join("")}
+        <label>Why? <textarea data-rationale placeholder="Name the evidence and responsible boundary."></textarea></label>
       </fieldset>
-      <div class="trace-lab-actions"><button type="button" data-check>Check prediction</button><button type="button" data-next disabled>${this.stepIndex === scenario.steps.length - 1 ? "Next scenario" : "Next transition"}</button></div>
+      <div class="trace-lab-actions"><button type="button" data-check>Commit diagnosis</button><button type="button" data-next disabled>${this.questionIndex === scenario.questions.length - 1 ? "Next scenario" : "Next question"}</button></div>
       <p class="trace-feedback" data-feedback aria-live="polite"></p>
-      <p class="trace-source">Grounded in <code>${this.escape(scenario.source)}</code></p>
-      <details class="trace-static"><summary>Static scenario summary</summary><ol>${scenario.steps.map((item) => `<li><strong>${this.escape(item.label)}</strong> — ${this.escape(item.explanation)}</li>`).join("")}</ol></details>`;
+      <p class="trace-source">Grounded in <code>${this.escape(scenario.source_test)}</code></p>`;
     this.root.querySelector("[data-scenario]").addEventListener("change", (event) => {
       this.scenarioIndex = Number(event.target.value);
-      this.stepIndex = 0;
+      this.questionIndex = 0;
       this.render();
     });
-    this.root.querySelector("[data-check]").addEventListener("click", () => this.check(step));
+    this.root.querySelector("[data-check]").addEventListener("click", () => this.check(scenario, question));
     this.root.querySelector("[data-next]").addEventListener("click", () => this.next());
   }
 
-  check(step) {
+  check(scenario, question) {
     const selected = this.root.querySelector('input[type="radio"]:checked');
+    const rationale = this.root.querySelector("[data-rationale]");
     const feedback = this.root.querySelector("[data-feedback]");
-    if (!selected) {
-      feedback.textContent = "Choose a transition before checking.";
+    if (!selected || !rationale.value.trim()) {
+      feedback.textContent = "Choose a diagnosis and explain the evidence before committing.";
       return;
     }
-    const passed = Number(selected.value) === step.answer;
-    feedback.textContent = `${passed ? "Correct. " : "Revisit the harness boundary. "}${step.explanation}`;
+    const passed = selected.value === question.answer;
+    feedback.textContent = `${passed ? "Correct. " : "Revisit the first responsible boundary. "}${question.explanation}`;
     feedback.classList.toggle("good", passed);
-    this.root.querySelector("[data-next]").disabled = !passed;
-    document.dispatchEvent(new CustomEvent("learning:practice-attempt", {
-      detail: {
-        passed,
-        kind: "trace-lab",
-        scenario: this.scenarios[this.scenarioIndex].id,
-        step: this.stepIndex,
-        selected: Number(selected.value),
-        expected: step.answer,
-      },
+    this.root.querySelector("[data-next]").disabled = false;
+    document.dispatchEvent(new CustomEvent("learning:case-attempt", {
+      detail: { kind: "case", case_id: `${scenario.id}:${question.id}`, selected: selected.value, expected: question.answer, rationale: rationale.value.trim(), passed },
     }));
   }
 
   next() {
     const scenario = this.scenarios[this.scenarioIndex];
-    if (this.stepIndex < scenario.steps.length - 1) this.stepIndex += 1;
+    if (this.questionIndex < scenario.questions.length - 1) this.questionIndex += 1;
     else {
       this.scenarioIndex = (this.scenarioIndex + 1) % this.scenarios.length;
-      this.stepIndex = 0;
+      this.questionIndex = 0;
     }
     this.render();
+  }
+
+  shuffle(choices, seed) {
+    const result = [...choices];
+    let state = [...seed].reduce((value, char) => value + char.charCodeAt(0), 1);
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      const swap = state % (index + 1);
+      [result[index], result[swap]] = [result[swap], result[index]];
+    }
+    return result;
   }
 
   escape(value) {

@@ -10,7 +10,7 @@ lesson practice → implementation handoff → configured proof
 ## Sources of truth
 
 - `curriculum/MISSION.md` defines the outcome that teaching serves.
-- `curriculum/learning-flow.json` defines prerequisites, implementation targets, proofs, and micro-world decisions.
+- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, and micro-world decisions.
 - `curriculum/learning-records/` defines understanding that future teaching may assume.
 - The local or remote learner store defines the current phase, milestones, evidence references, and review schedule.
 - Tests, diffs, and canonical traces provide executable evidence.
@@ -46,10 +46,19 @@ The Agent Trace Lab is shared by Agent Loop, Trace Logger, and Eval Runner. Its 
 
 ## Adding or changing a lesson
 
-1. Update the lesson HTML and `curriculum/learning-flow.json` together.
-2. Reuse components in `curriculum/assets/`.
-3. Run `python3 tools/build_lessons_site.py`; manifest or lesson mismatches fail the build.
-4. Run `uv run pytest`.
-5. Verify interactive changes in a real browser at desktop and mobile sizes.
+1. Identify a real learner decision or failure.
+2. Create the evidence packet, separating existing starting artifacts from target and proof artifacts.
+3. Implement or locate the runnable artifact.
+4. Make the configured proof pass.
+5. Design learner actions around the real artifact.
+6. Write the lesson.
+7. Add its manifest contracts.
+8. Run `python3 tools/lint_lessons.py`.
+9. Run the configured proof.
+10. Review instructional quality with the authoring rubric.
+11. Test the full study → implement → prove → explain path, including the milestone gates.
+12. Publish only after every gate passes.
+
+`python3 tools/build_lessons_site.py` runs the lesson linter before generating `site/`. It builds only published lessons into the active course, presents locked specifications separately as upcoming work, and never allows a locked lesson to unlock later learning.
 
 The detailed delivery design and deferred scope remain in [Learning System Implementation Plan](learning-system-implementation-plan.md).

@@ -72,6 +72,14 @@ Before authoring a new lesson, look for a workspace-level lesson-authoring stand
 
 A lesson is not complete merely because it explains a concept accurately. It must give the learner a way to apply the concept, receive meaningful feedback, and connect it to the mission's real-world outcome. When the mission is career-oriented, make the operational failure prevented, the observable evidence, and the engineering tradeoff explicit.
 
+### Evidence-first author workflow
+
+When authoring in Project 1A, inspect implementation, tests, traces, fixtures, and recent failures before writing prose. Create the repository's evidence packet first, separating `starting_artifacts` (already inspectable), `target_artifacts` (what the learner builds or changes), and `proof_artifacts` (what proves the result). Do not generate lesson prose until that packet is complete.
+
+Teach from the repository's actual decisions. Preserve meaningful ambiguity, including duplicated sources of truth, awkward interfaces, and unresolved design choices. A prediction must be committed before its explanation is revealed. Prefer productive struggle—classification, debugging, modification, or reconstruction—over polished explanation, and never infer meaningful practice from a recognition click.
+
+Do not publish unavailable capabilities. Use a locked specification until implementation and runnable evidence exist. Review the finished lesson against the mission and evidence contract, not merely its HTML structure.
+
 ## Assets
 
 Lessons are built from reusable **components**, stored in `./assets/`: stylesheets, quiz widgets, simulators, diagram helpers — anything a second lesson could reuse.

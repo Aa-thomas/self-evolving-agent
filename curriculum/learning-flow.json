@@ -1,210 +1,141 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "lessons": {
     "0001-model-call-primitive": {
+      "publication": {"status": "draft", "reason": "Rebuild as an implementation lab with a committed prediction and provider-output failure."},
+      "lesson_type": "implementation_lab",
       "requires": [],
       "unlocks": ["0002-message-state-primitive"],
-      "learning_goal": "Explain the model completion boundary and preserve an inspectable call record.",
-      "established_by": [
-        "curriculum/learning-records/0001-ready-for-agent-loop.md"
-      ],
-      "implementation": {
-        "targets": ["curriculum/phase-1/01_model_call/model_call.py"],
-        "proof_command": [
-          "uv",
-          "run",
-          "pytest",
-          "curriculum/phase-1/01_model_call/tests_01_model_call.py"
-        ],
-        "first_proof": "Model call record test"
-      },
-      "micro_world": {
-        "decision": "none",
-        "score": 1,
-        "component": null,
-        "scenario_source": null,
-        "learner_action": "inspect_request_response",
-        "fallback": "annotated_example",
-        "rationale": "One annotated request and response exposes the complete boundary."
-      }
+      "learning_goal": "Preserve an inspectable model-call record while normalizing provider output at one boundary.",
+      "learner_decision": "Decide which provider response data belongs in ModelCallRecord and reject a non-string completion.",
+      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "starting_artifacts": {"source_files": [], "symbols": [], "tests": [], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call.py"], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "expected_artifact": "A ModelCallRecord with exact messages, string output, and evidence fields."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/01_model_call/tests_01_model_call.py"], "assertions": ["test_call_model_rejects_non_string_model_output"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/01_model_call/tests_01_model_call.py", "symptom": "A provider response contains a non-string completion.", "responsible_boundary": "call_model provider normalization", "regression_target": "test_call_model_rejects_non_string_model_output"},
+      "practice_contract": {"kind": "code_change", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "implement"},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/01_model_call/model_call.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/01_model_call/tests_01_model_call.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "none", "score": 1, "component": null, "scenario_source": null, "learner_action": "inspect_request_response", "fallback": "annotated_example", "rationale": "One annotated request and response exposes the complete boundary."}
     },
     "0002-message-state-primitive": {
+      "publication": {"status": "draft", "reason": "Rebuild around the repeated-tool-call failure and a second-call proof."},
+      "lesson_type": "implementation_lab",
       "requires": ["0001-model-call-primitive"],
       "unlocks": ["0003-manual-tool-protocol"],
-      "learning_goal": "Explain how ordered messages become the state supplied to the next model call.",
-      "established_by": [
-        "curriculum/learning-records/0001-ready-for-agent-loop.md"
-      ],
-      "implementation": {
-        "targets": ["curriculum/phase-1/02_message_state/message_state.py"],
-        "proof_command": [
-          "uv",
-          "run",
-          "pytest",
-          "curriculum/phase-1/02_message_state/tests_02_message_state.py"
-        ],
-        "first_proof": "Second-call message-state proof"
-      },
-      "micro_world": {
-        "decision": "optional",
-        "score": 4,
-        "component": "agent-trace-lab",
-        "scenario_source": "curriculum/traces/agent-loop-scenarios.json",
-        "learner_action": "inspect_message_timeline",
-        "fallback": "annotated_static_trace",
-        "rationale": "A short timeline helps expose accumulation, but a full simulation is unnecessary."
-      }
+      "learning_goal": "Preserve ordered messages so a tool observation reaches the next model call.",
+      "learner_decision": "Diagnose whether a repeated tool request is model behavior or missing message-state context.",
+      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call.py"], "symbols": ["ModelCallRecord"], "tests": [], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/02_message_state/message_state.py"], "tests": ["curriculum/phase-1/02_message_state/tests_02_message_state.py"], "expected_artifact": "A second model call that includes the prior tool observation."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/02_message_state/tests_02_message_state.py"], "assertions": ["test_tool_result_is_appended_before_next_model_call"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "The agent repeats read_file after it already succeeded.", "responsible_boundary": "message-state accumulation", "regression_target": "test_tool_result_is_appended_before_next_model_call"},
+      "practice_contract": {"kind": "trace_diagnosis", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "diagnose"},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/02_message_state/message_state.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/02_message_state/tests_02_message_state.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "optional", "score": 4, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "inspect_message_timeline", "fallback": "annotated_static_trace", "rationale": "A short timeline helps expose accumulation, but a full simulation is unnecessary."}
     },
     "0003-manual-tool-protocol": {
+      "publication": {"status": "draft", "reason": "Rebuild with a parser case set and runnable parser proof."},
+      "lesson_type": "implementation_lab",
       "requires": ["0002-message-state-primitive"],
       "unlocks": ["0004-schema-validation"],
       "learning_goal": "Distinguish valid tool-request JSON from malformed or unsupported model output.",
-      "established_by": [
-        "curriculum/learning-records/0001-ready-for-agent-loop.md"
-      ],
-      "implementation": {
-        "targets": ["curriculum/phase-1/03_parse_tool_request.py"],
-        "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "-k", "malformed_json"],
-        "first_proof": "Valid and invalid request cases"
-      },
-      "micro_world": {
-        "decision": "optional",
-        "score": 3,
-        "component": null,
-        "scenario_source": null,
-        "learner_action": "try_parser_inputs",
-        "fallback": "input_output_playground",
-        "rationale": "Immediate input and output feedback is useful, but persistent world state is not."
-      }
+      "learner_decision": "Locate the parser boundary without assigning schema or registry failures to it.",
+      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/02_message_state/message_state.py"], "symbols": [], "tests": [], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py"], "tests": ["curriculum/phase-1/03_parse_tool_request_tests.py"], "expected_artifact": "A structured ToolRequest or a parse/outer-shape error, without tool-registry or argument validation."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request_tests.py"], "assertions": ["test_valid_request_produces_tool_request", "test_trailing_prose_is_not_json"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/03_parse_tool_request_tests.py", "symptom": "Assistant output is malformed JSON or not a ToolRequest-shaped object.", "responsible_boundary": "tool-request parser", "regression_target": "test_trailing_prose_is_not_json"},
+      "practice_contract": {"kind": "case_set", "minimum_cases": 8, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "test"},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/03_parse_tool_request.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request_tests.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_parser_inputs", "fallback": "input_output_playground", "rationale": "Immediate input and output feedback is useful, but persistent world state is not."}
     },
     "0004-schema-validation": {
+      "publication": {"status": "draft", "reason": "Rebuild around parser guarantees, registry-versus-handler ambiguity, and validation gates."},
+      "lesson_type": "implementation_lab",
       "requires": ["0003-manual-tool-protocol"],
       "unlocks": ["0005-sandboxed-file-tools"],
-      "learning_goal": "Apply schema validation at the trust boundary before any tool executes.",
-      "established_by": [
-        "curriculum/learning-records/0001-ready-for-agent-loop.md"
-      ],
-      "implementation": {
-        "targets": [
-          "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py"
-        ],
-        "proof_command": [
-          "uv",
-          "run",
-          "pytest",
-          "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"
-        ],
-        "first_proof": "One validation gate test"
-      },
-      "micro_world": {
-        "decision": "optional",
-        "score": 3,
-        "component": null,
-        "scenario_source": null,
-        "learner_action": "try_validation_inputs",
-        "fallback": "input_output_playground",
-        "rationale": "Validation outcomes are immediate and do not require an evolving simulated world."
-      }
+      "learning_goal": "Validate registered tool arguments at the trust boundary before execution.",
+      "learner_decision": "Consume Primitive 3's ToolRequest and assign protocol registry, argument schema, and runtime-handler availability to their responsible source of truth.",
+      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py"], "symbols": ["ToolRequest"], "tests": [], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py"], "tests": ["curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"], "expected_artifact": "Validation that accepts a Primitive 3 ToolRequest only when its tool and arguments are executable by the protocol contract."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"], "assertions": ["test_wrong_tool_arg_type_is_rejected"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py", "symptom": "A parsed read_file request has path=123.", "responsible_boundary": "tool argument validation", "regression_target": "test_wrong_tool_arg_type_is_rejected"},
+      "practice_contract": {"kind": "case_set", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "implement"},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_validation_inputs", "fallback": "input_output_playground", "rationale": "Validation outcomes are immediate and do not require an evolving simulated world."}
     },
     "0005-sandboxed-file-tools": {
+      "publication": {"status": "draft", "reason": "Rebuild against actual file-tool result codes and regression cases."},
+      "lesson_type": "diagnostic_lab",
       "requires": ["0004-schema-validation"],
       "unlocks": ["0006-agent-loop-primitive"],
-      "learning_goal": "Enforce filesystem containment while providing useful file-tool observations.",
-      "established_by": [
-        "curriculum/learning-records/0001-ready-for-agent-loop.md"
-      ],
-      "implementation": {
-        "targets": [
-          "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"
-        ],
-        "proof_command": [
-          "uv",
-          "run",
-          "pytest",
-          "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"
-        ],
-        "first_proof": "Sandbox path test"
-      },
-      "micro_world": {
-        "decision": "optional",
-        "score": 5,
-        "component": null,
-        "scenario_source": null,
-        "learner_action": "explore_path_containment",
-        "fallback": "annotated_path_diagram",
-        "rationale": "Spatial containment can benefit from manipulation, but existing path cases may teach it sufficiently."
-      }
+      "learning_goal": "Enforce filesystem containment while returning useful file-tool observations.",
+      "learner_decision": "Decide which path failures the tool boundary must reject and why validation alone is insufficient.",
+      "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py"], "symbols": [], "tests": [], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "tests": ["curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "expected_artifact": "File tools that reject forbidden paths with FORBIDDEN_PATH."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "assertions": ["test_read_forbidden_parent_path_rejected"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py", "symptom": "A request traverses out of the configured sandbox.", "responsible_boundary": "sandboxed file tool", "regression_target": "test_read_forbidden_parent_path_rejected"},
+      "practice_contract": {"kind": "case_set", "minimum_cases": 8, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "test"},
+      "reconstruction_contract": {"mode": "annotated", "target": "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "regression_added", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "optional", "score": 5, "component": null, "scenario_source": null, "learner_action": "explore_path_containment", "fallback": "annotated_path_diagram", "rationale": "Spatial containment can benefit from manipulation, but existing path cases may teach it sufficiently."}
     },
     "0006-agent-loop-primitive": {
-      "requires": [
-        "0003-manual-tool-protocol",
-        "0004-schema-validation",
-        "0005-sandboxed-file-tools"
-      ],
+      "publication": {"status": "draft", "reason": "Vertical-slice rebuild required before publication."},
+      "lesson_type": "reconstruction_lab",
+      "requires": ["0003-manual-tool-protocol", "0004-schema-validation", "0005-sandboxed-file-tools"],
       "unlocks": ["0007-trace-logger"],
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",
-      "established_by": [
-        "curriculum/learning-records/0002-agent-loop-contract.md"
-      ],
-      "implementation": {
-        "targets": ["curriculum/phase-1/06_agent_loop/agent_loop.py"],
-        "proof_command": [
-          "uv",
-          "run",
-          "pytest",
-          "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"
-        ],
-        "first_proof": "test_submit_stops_loop"
-      },
-      "micro_world": {
-        "decision": "required",
-        "score": 9,
-        "component": "agent-trace-lab",
-        "scenario_source": "curriculum/traces/agent-loop-scenarios.json",
-        "learner_action": "predict_next_transition",
-        "fallback": "annotated_static_trace",
-        "rationale": "Harness decisions evolve through hidden, branching state and are best learned causally."
-      }
+      "learner_decision": "Diagnose the first bad transition and choose the smallest safe correction across parser, validator, runtime registry, and loop control.",
+      "established_by": ["curriculum/learning-records/0002-agent-loop-contract.md"],
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": ["TOOL_REGISTRY"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "expected_artifact": "A bounded loop that normalizes failures and preserves message-state observations."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "assertions": ["test_submit_stops_loop", "test_unregistered_runtime_tool_is_rejected_without_execution"], "traces_or_output": ["curriculum/traces/agent-loop-scenarios.json"]},
+      "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "A protocol-valid tool can be absent from the runtime handlers.", "responsible_boundary": "agent-loop runtime dispatch", "regression_target": "test_unregistered_runtime_tool_is_rejected_without_execution"},
+      "practice_contract": {"kind": "trace_diagnosis", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "reconstruct"},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/06_agent_loop/agent_loop.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "required", "score": 9, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "diagnose_first_bad_transition", "fallback": "annotated_static_trace", "rationale": "Harness decisions evolve through hidden, branching state and are best learned causally."}
     },
     "0007-trace-logger": {
+      "publication": {"status": "locked", "reason": "Trace logger is not implemented; implementation and replayable evidence must exist first."},
+      "lesson_type": "specification",
       "requires": ["0006-agent-loop-primitive"],
-      "unlocks": ["0008-eval-runner"],
+      "unlocks": [],
       "learning_goal": "Use a causal trace to separate model behavior from harness behavior.",
+      "learner_decision": "Specify which missing fields prevent diagnosis before trace capture is implemented.",
       "established_by": [],
-      "implementation": {
-        "targets": [],
-        "proof_command": null,
-        "first_proof": "One replayable trace case"
-      },
-      "micro_world": {
-        "decision": "required",
-        "score": 8,
-        "component": "agent-trace-lab",
-        "scenario_source": "curriculum/traces/agent-loop-scenarios.json",
-        "learner_action": "diagnose_trace_fields",
-        "fallback": "annotated_static_trace",
-        "rationale": "Reusing real trajectories makes missing causal evidence directly visible."
-      }
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": []},
+      "target_artifacts": {"source_files": [], "tests": [], "expected_artifact": "Trace logger implementation is not available yet."},
+      "proof_artifacts": {"proof_command": [], "assertions": [], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/agent_loop.py", "symptom": "A final answer without causal fields cannot diagnose the run.", "responsible_boundary": "future trace logger", "regression_target": "replayable trace case to be added"},
+      "practice_contract": {"kind": "trace_diagnosis", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "diagnose"},
+      "reconstruction_contract": {"mode": "none", "target": "", "proof_command": []},
+      "completion_contract": {"required_milestones": []},
+      "micro_world": {"decision": "required", "score": 8, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "diagnose_trace_fields", "fallback": "annotated_static_trace", "rationale": "Reusing real trajectories makes missing causal evidence directly visible."}
     },
     "0008-eval-runner": {
+      "publication": {"status": "locked", "reason": "Eval runner is not implemented; composed cases and eval output must exist first."},
+      "lesson_type": "specification",
       "requires": ["0007-trace-logger"],
       "unlocks": [],
       "learning_goal": "Evaluate multiple trajectories against explicit behavioral assertions.",
+      "learner_decision": "Specify how composed behavioral evaluation differs from focused unit assertions.",
       "established_by": [],
-      "implementation": {
-        "targets": [],
-        "proof_command": null,
-        "first_proof": "One local evaluation case"
-      },
-      "micro_world": {
-        "decision": "required",
-        "score": 7,
-        "component": "agent-trace-lab",
-        "scenario_source": "curriculum/traces/agent-loop-scenarios.json",
-        "learner_action": "classify_trajectory_outcomes",
-        "fallback": "annotated_eval_table",
-        "rationale": "Comparing branching trajectories makes assertion coverage and aggregate outcomes concrete."
-      }
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": []},
+      "target_artifacts": {"source_files": [], "tests": [], "expected_artifact": "Eval runner implementation is not available yet."},
+      "proof_artifacts": {"proof_command": [], "assertions": [], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "Focused tests do not establish a composed user workflow.", "responsible_boundary": "future eval runner", "regression_target": "multi-case evaluation to be added"},
+      "practice_contract": {"kind": "case_set", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "test"},
+      "reconstruction_contract": {"mode": "none", "target": "", "proof_command": []},
+      "completion_contract": {"required_milestones": []},
+      "micro_world": {"decision": "required", "score": 7, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "classify_trajectory_outcomes", "fallback": "annotated_eval_table", "rationale": "Comparing branching trajectories makes assertion coverage and aggregate outcomes concrete."}
     }
   }
 }

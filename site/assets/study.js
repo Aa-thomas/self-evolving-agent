@@ -4,8 +4,8 @@ async function loadLessonContext(lessonId) {
     if (!response.ok) throw new Error("Manifest unavailable");
     const lesson = (await response.json()).lessons?.[lessonId];
     return {
-      target: lesson?.implementation?.targets?.join(", ") || "No implementation target yet",
-      proof: lesson?.implementation?.first_proof || "No proof configured yet",
+      target: lesson?.target_artifacts?.source_files?.join(", ") || "No implementation target yet",
+      proof: lesson?.proof_artifacts?.proof_command?.join(" ") || "No proof configured yet",
     };
   } catch {
     return { target: "Check the lesson implementation target", proof: "Choose one executable proof" };
@@ -127,7 +127,7 @@ function renderStudyPanel(lessonId, context) {
   panel.learningState = {
     phase: "not_started",
     milestones: {},
-    evidence: { practice_attempts: [], proof_runs: [], trace_paths: [], recall_attempts: [] },
+    evidence: { practice_attempts: [], artifact_inspections: [], proof_runs: [], trace_paths: [], failure_explanations: [], regression_paths: [], reconstruction_attempts: [], recall_attempts: [] },
   };
 
   const launcher = document.createElement("button");
@@ -154,7 +154,6 @@ function renderStudyPanel(lessonId, context) {
     }
     panel.querySelector("[data-study-status]").value = "ready_to_implement";
     panel.learningState.phase = "ready_to_implement";
-    panel.learningState.milestones.implementation_plan_ready = true;
     scheduleSave(panel, lessonId, 0);
   });
   panel.querySelectorAll("[data-study-tab]").forEach((button) => {
@@ -185,16 +184,22 @@ function renderStudyPanel(lessonId, context) {
     textarea.addEventListener("input", () => scheduleSave(panel, lessonId));
   });
 
-  document.addEventListener("learning:practice-attempt", (event) => {
+  document.addEventListener("learning:prediction-committed", (event) => {
     const attempt = { ...event.detail, occurred_at: new Date().toISOString() };
     panel.learningState.evidence.practice_attempts = [
       ...(panel.learningState.evidence.practice_attempts || []), attempt,
     ].slice(-50);
-    if (attempt.passed) panel.learningState.milestones.meaningful_practice_passed = true;
     if (panel.querySelector("[data-study-status]").value === "not_started") {
       panel.querySelector("[data-study-status]").value = "studying";
       panel.learningState.phase = "studying";
     }
+    scheduleSave(panel, lessonId, 0);
+  });
+  document.addEventListener("learning:case-attempt", (event) => {
+    const attempt = { ...event.detail, occurred_at: new Date().toISOString() };
+    panel.learningState.evidence.practice_attempts = [
+      ...(panel.learningState.evidence.practice_attempts || []), attempt,
+    ].slice(-50);
     scheduleSave(panel, lessonId, 0);
   });
 
@@ -236,7 +241,7 @@ function hydrate(panel, data) {
   panel.learningState = {
     phase: data.phase || "not_started",
     milestones: data.milestones || {},
-    evidence: data.evidence || { practice_attempts: [], proof_runs: [], trace_paths: [], recall_attempts: [] },
+    evidence: data.evidence || { practice_attempts: [], artifact_inspections: [], proof_runs: [], trace_paths: [], failure_explanations: [], regression_paths: [], reconstruction_attempts: [], recall_attempts: [] },
   };
 }
 

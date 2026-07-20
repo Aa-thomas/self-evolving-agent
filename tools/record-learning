@@ -15,6 +15,7 @@ CURRICULUM = ROOT / "curriculum"
 sys.path.insert(0, str(CURRICULUM))
 
 from learning_state import state_backend  # noqa: E402
+from learning_flow import lesson_config, load_manifest  # noqa: E402
 from study_server import DEFAULT_DATABASE  # noqa: E402
 
 
@@ -33,6 +34,8 @@ def main() -> None:
     parser.add_argument("--summary", required=True, help="What was demonstrated and why it matters next")
     parser.add_argument("--recall", required=True, help="Learner's causal explanation from memory")
     parser.add_argument("--evidence", required=True, help="Specific proof and scenario used to assess recall")
+    parser.add_argument("--failure-explanation", required=True, help="Causal explanation of the failure or decision")
+    parser.add_argument("--reconstruction-evidence", help="Proof or review evidence for required reconstruction")
     parser.add_argument("--confirm", action="store_true", help="Confirm the record matches demonstrated understanding")
     parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE)
     parser.add_argument("--local", action="store_true", help="Use local SQLite even when remote sync is configured")
@@ -41,6 +44,14 @@ def main() -> None:
         raise SystemExit("Review the candidate with the learner, then rerun with --confirm.")
     if min(len(args.summary.strip()), len(args.recall.strip()), len(args.evidence.strip())) < 20:
         raise SystemExit("Summary, recall, and evidence must be specific enough to audit.")
+    if len(args.failure_explanation.strip()) < 20:
+        raise SystemExit("Failure explanation must identify a causal boundary.")
+
+    lesson = lesson_config(args.lesson_id, load_manifest())
+    if lesson["publication"]["status"] != "published":
+        raise SystemExit("Only a published lesson can create a learning record.")
+    if lesson["reconstruction_contract"]["mode"] != "none" and not args.reconstruction_evidence:
+        raise SystemExit("This lesson requires reconstruction evidence before it can be learned.")
 
     store = state_backend(args.database, prefer_remote=not args.local)
     state = store.load(args.lesson_id)
@@ -56,12 +67,17 @@ def main() -> None:
         encoding="utf-8",
     )
     milestones = dict(state["milestones"])
-    milestones.update({
-        "explainer_reviewed": True,
-        "recall_passed": True,
-        "learning_record_written": True,
-    })
     evidence = dict(state["evidence"])
+    evidence["failure_explanations"] = [*evidence.get("failure_explanations", []), {
+        "explanation": args.failure_explanation.strip(),
+        "assessed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }][-50:]
+    if args.reconstruction_evidence:
+        evidence["reconstruction_attempts"] = [*evidence.get("reconstruction_attempts", []), {
+            "passed": True,
+            "evidence": args.reconstruction_evidence.strip(),
+            "assessed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        }][-50:]
     evidence["recall_attempts"] = [*evidence.get("recall_attempts", []), {
         "answer": args.recall.strip(),
         "assessed_as": "passed",

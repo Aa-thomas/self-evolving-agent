@@ -1,93 +1,120 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "scenarios": [
     {
-      "id": "valid-tool-observation",
-      "title": "Allowed tool becomes an observation",
-      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
-      "steps": [
-        {
-          "stage": "model_output",
-          "label": "The model proposes read_file",
-          "detail": "{\"tool\":\"read_file\",\"args\":{\"path\":\"notes.txt\"}}",
-          "question": "What does the harness do next?",
-          "choices": ["Validate proposed request", "Trust assistant text", "Stop with submission"],
-          "answer": 0,
-          "explanation": "The assistant output is untrusted text until parsing and validation succeed."
-        },
-        {
-          "stage": "harness_decision",
-          "label": "The request is valid and registered",
-          "detail": "tool=read_file; args are valid; tool is registered",
-          "question": "What enters message state after execution?",
-          "choices": ["Append tool observation", "Return Python object", "Append no observation"],
-          "answer": 0,
-          "explanation": "The result is serialized into a tool observation before the next model call."
-        }
+      "id": "runtime-handler-drift",
+      "title": "Protocol-valid request, missing runtime handler",
+      "initial_messages": [{"role": "user", "content": "Read notes.txt."}],
+      "assistant_output": "{\"tool\": \"read_file\", \"args\": {\"path\": \"notes.txt\"}}",
+      "parse_result": {"ok": true, "value_type": "object"},
+      "validation_result": {"ok": true, "tool": "read_file", "args": {"path": "notes.txt"}},
+      "protocol_registry": ["read_file", "write_file", "list_files", "submit"],
+      "runtime_handlers": [],
+      "harness_decision": {"action": "append_observation", "result": {"ok": false, "error_code": "UNKNOWN_TOOL", "error": "Unknown tool: read_file"}},
+      "tool_result": null,
+      "next_messages": [{"role": "tool", "content": "{\"error\": \"Unknown tool: read_file\", \"error_code\": \"UNKNOWN_TOOL\", \"ok\": false}"}],
+      "exit_reason": null,
+      "source_test": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_unregistered_runtime_tool_is_rejected_without_execution",
+      "source_trace": "curriculum/traces/agent-loop-scenarios.json",
+      "questions": [
+        {"id": "first-transition", "question": "Where is the first incorrect transition?", "choices": ["Runtime dispatch assumes registry membership guarantees a handler", "JSON parsing rejects valid object text", "The submit control stops before validation", "The file tool escapes its sandbox"], "answer": "Runtime dispatch assumes registry membership guarantees a handler", "explanation": "The protocol registry accepts read_file; the distinct runtime tools dictionary lacks its handler."},
+        {"id": "smallest-intervention", "question": "What is the smallest safe intervention?", "choices": ["Execute read_file through an implicit fallback", "Return success because validation passed", "Normalize missing handler as an observation and continue", "Move all path checks into the model prompt"], "answer": "Normalize missing handler as an observation and continue", "explanation": "Runtime availability is checked at dispatch. The loop turns that failure into context rather than executing an unregistered capability."}
       ]
     },
     {
-      "id": "invalid-json-recovery",
-      "title": "Malformed JSON gets bounded recovery",
-      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
-      "steps": [
-        {
-          "stage": "model_output",
-          "label": "The model emits malformed JSON",
-          "detail": "{tool: read_file}",
-          "question": "What is the safe next transition?",
-          "choices": ["Append rejection observation", "Infer requested action", "Execute requested tool"],
-          "answer": 0,
-          "explanation": "The failure becomes visible context, and max_steps keeps recovery bounded."
-        }
+      "id": "malformed-output-recovery",
+      "title": "Malformed output gets bounded recovery",
+      "initial_messages": [{"role": "user", "content": "Read notes.txt."}],
+      "assistant_output": "{\"tool\": \"read_file\", \"args\": ",
+      "parse_result": {"ok": false, "error_code": "INVALID_JSON"},
+      "validation_result": null,
+      "protocol_registry": ["read_file", "write_file", "list_files", "submit"],
+      "runtime_handlers": ["read_file"],
+      "harness_decision": {"action": "append_observation", "result": {"ok": false, "error_code": "INVALID_JSON"}},
+      "tool_result": null,
+      "next_messages": [{"role": "tool", "content": "{\"error_code\": \"INVALID_JSON\", \"ok\": false}"}],
+      "exit_reason": null,
+      "source_test": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_malformed_json_is_rejected_without_execution",
+      "source_trace": "curriculum/traces/agent-loop-scenarios.json",
+      "questions": [
+        {"id": "owner", "question": "Which component owns the correction?", "choices": ["The parser boundary", "The runtime file handler", "The submit control", "The model provider adapter"], "answer": "The parser boundary", "explanation": "No request exists yet. The parser produces INVALID_JSON and the harness records the rejection."},
+        {"id": "regression", "question": "What regression evidence distinguishes recovery from unsafe execution?", "choices": ["A test proving the runtime handler is called", "A test proving two model calls occur and no tool executes", "A test proving JSON is formatted prettily", "A test proving the user task is short"], "answer": "A test proving two model calls occur and no tool executes", "explanation": "The relevant proof observes both the rejection observation and the absence of tool execution."}
       ]
     },
     {
-      "id": "submit-stop",
-      "title": "Submit is internal loop control",
-      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_submit_stops_loop",
-      "steps": [
-        {
-          "stage": "validated_request",
-          "label": "The validated request is submit",
-          "detail": "{\"tool\":\"submit\",\"args\":{\"answer\":\"done\"}}",
-          "question": "What does the harness do next?",
-          "choices": ["Return submitted answer", "Call registered submit", "Request another completion"],
-          "answer": 0,
-          "explanation": "Submit is protocol-shaped internal control. It is never dispatched as an external tool."
-        }
+      "id": "submit-is-control",
+      "title": "Submit is protocol-shaped internal control",
+      "initial_messages": [{"role": "user", "content": "Finish the task."}],
+      "assistant_output": "{\"tool\": \"submit\", \"args\": {\"answer\": \"done\"}}",
+      "parse_result": {"ok": true},
+      "validation_result": {"ok": true, "tool": "submit", "args": {"answer": "done"}},
+      "protocol_registry": ["read_file", "write_file", "list_files", "submit"],
+      "runtime_handlers": ["read_file", "write_file"],
+      "harness_decision": {"action": "return", "final_answer": "done"},
+      "tool_result": null,
+      "next_messages": [],
+      "exit_reason": "submitted",
+      "source_test": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_submit_stops_loop",
+      "source_trace": "curriculum/traces/agent-loop-scenarios.json",
+      "questions": [
+        {"id": "decision", "question": "Which design preserves harness authority?", "choices": ["Call a registered submit function", "Return the validated answer without runtime dispatch", "Ask the model for one more completion", "Append a successful file-tool observation"], "answer": "Return the validated answer without runtime dispatch", "explanation": "Submit is control flow, not an external capability. The harness stops and returns its validated answer."}
       ]
     },
     {
-      "id": "unknown-tool",
-      "title": "Unknown tools are rejected",
-      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
-      "steps": [
-        {
-          "stage": "validated_shape",
-          "label": "The request shape is valid but the tool is absent",
-          "detail": "tool=delete_file; registry=[read_file, write_file, list_files]",
-          "question": "Which result preserves harness authority?",
-          "choices": ["Append unknown-tool observation", "Perform requested deletion", "Return successful submission"],
-          "answer": 0,
-          "explanation": "Valid JSON is not permission. Only registered tools may execute."
-        }
+      "id": "unknown-protocol-tool",
+      "title": "Unknown protocol tool fails before dispatch",
+      "initial_messages": [{"role": "user", "content": "Delete notes.txt."}],
+      "assistant_output": "{\"tool\": \"delete_file\", \"args\": {\"path\": \"notes.txt\"}}",
+      "parse_result": {"ok": true},
+      "validation_result": {"ok": false, "error_code": "UNKNOWN_TOOL"},
+      "protocol_registry": ["read_file", "write_file", "list_files", "submit"],
+      "runtime_handlers": ["read_file"],
+      "harness_decision": {"action": "append_observation", "result": {"ok": false, "error_code": "UNKNOWN_TOOL"}},
+      "tool_result": null,
+      "next_messages": [{"role": "tool", "content": "{\"error_code\": \"UNKNOWN_TOOL\", \"ok\": false}"}],
+      "exit_reason": null,
+      "source_test": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_unknown_protocol_tool_is_rejected_without_execution",
+      "source_trace": "curriculum/traces/agent-loop-scenarios.json",
+      "questions": [
+        {"id": "cause", "question": "What evidence distinguishes this from runtime-handler drift?", "choices": ["The runtime handler list is empty", "Validation fails before dispatch and the tool is absent from the protocol registry", "The tool returns an exception after execution", "The model call reaches max_steps"], "answer": "Validation fails before dispatch and the tool is absent from the protocol registry", "explanation": "delete_file never becomes a ValidatedToolRequest. The registry is the first responsible boundary."}
       ]
     },
     {
-      "id": "max-steps",
-      "title": "The step budget is a safety brake",
-      "source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py",
-      "steps": [
-        {
-          "stage": "budget_check",
-          "label": "The last allowed step did not submit",
-          "detail": "step=2; max_steps=3; another model call would exceed the budget",
-          "question": "What is the correct exit?",
-          "choices": ["Exit with max_steps", "Continue until submission", "Execute fallback tool"],
-          "answer": 0,
-          "explanation": "The harness owns the budget and stops even when the model has not finished."
-        }
+      "id": "tool-exception-normalized",
+      "title": "A handler exception becomes an observation",
+      "initial_messages": [{"role": "user", "content": "Read notes.txt."}],
+      "assistant_output": "{\"tool\": \"read_file\", \"args\": {\"path\": \"notes.txt\"}}",
+      "parse_result": {"ok": true},
+      "validation_result": {"ok": true, "tool": "read_file", "args": {"path": "notes.txt"}},
+      "protocol_registry": ["read_file", "write_file", "list_files", "submit"],
+      "runtime_handlers": ["read_file"],
+      "harness_decision": {"action": "append_observation", "result": {"ok": false, "error_code": "TOOL_EXCEPTION"}},
+      "tool_result": {"raised": "RuntimeError: disk unavailable"},
+      "next_messages": [{"role": "tool", "content": "{\"error_code\": \"TOOL_EXCEPTION\", \"ok\": false}"}],
+      "exit_reason": null,
+      "source_test": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_tool_exception_becomes_observation",
+      "source_trace": "curriculum/traces/agent-loop-scenarios.json",
+      "questions": [
+        {"id": "intervention", "question": "What does the proof establish?", "choices": ["Every tool exception is impossible", "The model caused the disk failure", "The harness normalizes a handler exception into inspectable context", "The runtime registry validates JSON"], "answer": "The harness normalizes a handler exception into inspectable context", "explanation": "The proof covers error normalization and continued bounded control flow, not the external system's health."}
+      ]
+    },
+    {
+      "id": "max-steps-bound",
+      "title": "The step budget bounds repeated valid work",
+      "initial_messages": [{"role": "user", "content": "Keep listing files."}],
+      "assistant_output": "{\"tool\": \"list_files\", \"args\": {}}",
+      "parse_result": {"ok": true},
+      "validation_result": {"ok": true, "tool": "list_files", "args": {}},
+      "protocol_registry": ["read_file", "write_file", "list_files", "submit"],
+      "runtime_handlers": ["list_files"],
+      "harness_decision": {"action": "return", "reason": "max_steps"},
+      "tool_result": {"ok": true, "value": ["a.txt", "b.txt"]},
+      "next_messages": [{"role": "tool", "content": "{\"ok\": true, \"value\": [\"a.txt\", \"b.txt\"]}"}],
+      "exit_reason": "max_steps",
+      "source_test": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py::test_max_steps_stops_infinite_loop",
+      "source_trace": "curriculum/traces/agent-loop-scenarios.json",
+      "questions": [
+        {"id": "first-bad-transition", "question": "What is the first bad transition if another completion is requested after the budget?", "choices": ["The model receives a valid observation", "The tool handler returns a list", "The harness advances beyond max_steps", "The parser accepts JSON"], "answer": "The harness advances beyond max_steps", "explanation": "All earlier transitions can be valid. The invariant is that the harness, not the model, owns the step budget."}
       ]
     }
   ]

@@ -18,6 +18,7 @@ ASSETS_OUT = SITE / "assets"
 
 sys.path.insert(0, str(CURRICULUM))
 from learning_flow import load_manifest  # noqa: E402
+from lint_lessons import lint  # noqa: E402
 
 
 LOCAL_LINK_PATTERN = re.compile(
@@ -35,6 +36,10 @@ class Lesson:
     output_name: str
     title: str
     eyebrow: str
+
+    @property
+    def lesson_id(self) -> str:
+        return self.source.stem
 
 
 def text_from_html(raw: str) -> str:
@@ -156,7 +161,34 @@ def write_lessons(lessons: list[Lesson]) -> None:
         (LESSONS_OUT / lesson.output_name).write_text(output, encoding="utf-8")
 
 
-def render_index(lessons: list[Lesson]) -> str:
+def write_locked_lessons(lessons: list[Lesson], manifest: dict[str, object]) -> None:
+    for lesson in lessons:
+        config = manifest["lessons"][lesson.lesson_id]
+        reason = config["publication"]["reason"]
+        html = f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{escape(lesson.title)} — Upcoming</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css">
+  </head>
+  <body>
+    <main class="course-home">
+      <p class="eyebrow">Upcoming specification</p>
+      <h1>{escape(lesson.title)}</h1>
+      <p>This lesson is locked. Implement its prerequisite capability and produce runnable evidence before studying it as a completed lesson.</p>
+      <p>{escape(reason)}</p>
+      <p><a href="../index.html">Return to course home</a></p>
+    </main>
+  </body>
+</html>
+"""
+        (LESSONS_OUT / lesson.output_name).write_text(html, encoding="utf-8")
+
+
+def render_index(lessons: list[Lesson], locked_lessons: list[Lesson], manifest: dict[str, object]) -> str:
     lesson_rows = "\n".join(
         f"""
         <li>
@@ -166,6 +198,27 @@ def render_index(lessons: list[Lesson]) -> str:
           </a>
         </li>"""
         for lesson in lessons
+    )
+    locked_rows = "\n".join(
+        f"""
+        <li class="lesson-locked">
+          <span>
+            <span>{escape(lesson.eyebrow)}</span>
+            <strong>{escape(lesson.title)}</strong>
+            <small>Upcoming: {escape(manifest['lessons'][lesson.lesson_id]['publication']['reason'])}</small>
+          </span>
+        </li>"""
+        for lesson in locked_lessons
+    )
+    active_section = lesson_rows or "        <li>No lessons are published while the current primitives are rebuilt against evidence-first contracts.</li>"
+    upcoming_section = (
+        f"""
+      <section>
+        <h2>Upcoming work</h2>
+        <ol class="lesson-index">{locked_rows}
+        </ol>
+      </section>"""
+        if locked_rows else ""
     )
 
     return f"""<!doctype html>
@@ -208,17 +261,18 @@ def render_index(lessons: list[Lesson]) -> str:
       <section>
         <h2>Lessons</h2>
         <ol class="lesson-index">
-{lesson_rows}
+{active_section}
         </ol>
       </section>
+{upcoming_section}
     </main>
   </body>
 </html>
 """
 
 
-def write_index(lessons: list[Lesson]) -> None:
-    (SITE / "index.html").write_text(render_index(lessons), encoding="utf-8")
+def write_index(lessons: list[Lesson], locked_lessons: list[Lesson], manifest: dict[str, object]) -> None:
+    (SITE / "index.html").write_text(render_index(lessons, locked_lessons, manifest), encoding="utf-8")
 
 
 def main() -> None:
@@ -231,11 +285,19 @@ def main() -> None:
         extra = sorted(manifest_ids - lesson_ids)
         raise ValueError(f"Lesson manifest mismatch. Missing: {missing}; extra: {extra}")
 
+    lint_errors = lint(manifest)
+    if lint_errors:
+        raise ValueError("Lesson lint failed:\n" + "\n".join(lint_errors))
+
+    published = [lesson for lesson in lessons if manifest["lessons"][lesson.lesson_id]["publication"]["status"] == "published"]
+    locked = [lesson for lesson in lessons if manifest["lessons"][lesson.lesson_id]["publication"]["status"] == "locked"]
+
     clean_site()
     copy_assets()
     write_review_page()
-    write_lessons(lessons)
-    write_index(lessons)
+    write_lessons(published)
+    write_locked_lessons(locked, manifest)
+    write_index(published, locked, manifest)
 
 
 SITE_CSS = """

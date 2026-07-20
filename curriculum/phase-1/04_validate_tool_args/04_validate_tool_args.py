@@ -1,73 +1,57 @@
-### =============================================================================
-## Imports
-## =============================================================================
-from dataclasses import dataclass, field, fields, is_dataclass
+from __future__ import annotations
+
+"""Validate arguments for a ToolRequest already produced by Primitive 3."""
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+import importlib.util
 import json
-from typing import Any, Generic, Literal, TypeAlias, TypeVar
+from pathlib import Path
+import sys
+from typing import Generic, Literal, TypeAlias, TypeVar, assert_never
 
 import typer
 from pydantic import BaseModel, ConfigDict, StrictStr, ValidationError
 
 
-### =============================================================================
-## Setup
-## =============================================================================
 app = typer.Typer()
+T = TypeVar("T", covariant=True)
+E = TypeVar("E", covariant=True)
 
 
-### =============================================================================
-## Types
-## =============================================================================
-ErrorCode: TypeAlias = Literal[
-    "INVALID_JSON",
-    "INVALID_TOOL_REQUEST_SHAPE",
-    "UNKNOWN_TOOL",
-    "INVALID_TOOL_ARGS",
-]
-
-T = TypeVar("T")
-
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Ok(Generic[T]):
     value: T
-    ok: Literal[True] = field(default=True, init=False)
 
 
-@dataclass(frozen=True)
-class Err:
-    error: str
-    error_code: ErrorCode
-    ok: Literal[False] = field(default=False, init=False)
+@dataclass(frozen=True, slots=True)
+class Err(Generic[E]):
+    error: E
 
 
-Result: TypeAlias = Ok[T] | Err
+Result: TypeAlias = Ok[T] | Err[E]
+
+
+def load_parser_module():
+    """Load Primitive 3's concrete output contract without duplicating it here."""
+    path = Path(__file__).resolve().parents[1] / "03_parse_tool_request.py"
+    spec = importlib.util.spec_from_file_location("parse_tool_request_primitive", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load Primitive 3's ToolRequest contract.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+parser = load_parser_module()
+ToolRequest = parser.ToolRequest
 
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class ToolRequest(StrictModel):
-    tool: StrictStr
-    args: dict[str, Any]
-
-
-@dataclass(frozen=True)
-class ToolSpec:
-    name: str
-    args_schema: type[BaseModel]
-
-
-@dataclass(frozen=True)
-class ValidatedToolRequest:
-    tool: str
-    args: BaseModel
-
-
-### =============================================================================
-## Tool Args Schemas
-## =============================================================================
 class ReadFileArgs(StrictModel):
     path: StrictStr
 
@@ -85,141 +69,125 @@ class SubmitArgs(StrictModel):
     answer: StrictStr
 
 
-### =============================================================================
-## Tool Registry
-## =============================================================================
+@dataclass(frozen=True, slots=True)
+class ReadFileRequest:
+    args: ReadFileArgs
+    tool: Literal["read_file"] = field(default="read_file", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class WriteFileRequest:
+    args: WriteFileArgs
+    tool: Literal["write_file"] = field(default="write_file", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class ListFilesRequest:
+    args: ListFilesArgs
+    tool: Literal["list_files"] = field(default="list_files", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class SubmitRequest:
+    args: SubmitArgs
+    tool: Literal["submit"] = field(default="submit", init=False)
+
+
+ValidatedToolRequest: TypeAlias = (
+    ReadFileRequest | WriteFileRequest | ListFilesRequest | SubmitRequest
+)
+
+
+@dataclass(frozen=True, slots=True)
+class UnknownTool:
+    tool: str
+    error_code: Literal["UNKNOWN_TOOL"] = field(default="UNKNOWN_TOOL", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidToolArgs:
+    tool: str
+    details: str
+    error_code: Literal["INVALID_TOOL_ARGS"] = field(default="INVALID_TOOL_ARGS", init=False)
+
+
+ValidationErrorResult: TypeAlias = UnknownTool | InvalidToolArgs
+ToolArgsParser: TypeAlias = Callable[[dict[str, object]], ValidatedToolRequest]
+
+
+@dataclass(frozen=True, slots=True)
+class ToolSpec:
+    parse_args: ToolArgsParser
+
+
+def parse_read_file_args(raw_args: dict[str, object]) -> ReadFileRequest:
+    return ReadFileRequest(args=ReadFileArgs.model_validate(raw_args))
+
+
+def parse_write_file_args(raw_args: dict[str, object]) -> WriteFileRequest:
+    return WriteFileRequest(args=WriteFileArgs.model_validate(raw_args))
+
+
+def parse_list_files_args(raw_args: dict[str, object]) -> ListFilesRequest:
+    return ListFilesRequest(args=ListFilesArgs.model_validate(raw_args))
+
+
+def parse_submit_args(raw_args: dict[str, object]) -> SubmitRequest:
+    return SubmitRequest(args=SubmitArgs.model_validate(raw_args))
+
+
 tool_registry: dict[str, ToolSpec] = {
-    "read_file": ToolSpec(name="read_file", args_schema=ReadFileArgs),
-    "write_file": ToolSpec(name="write_file", args_schema=WriteFileArgs),
-    "list_files": ToolSpec(name="list_files", args_schema=ListFilesArgs),
-    "submit": ToolSpec(name="submit", args_schema=SubmitArgs),
+    "read_file": ToolSpec(parse_args=parse_read_file_args),
+    "write_file": ToolSpec(parse_args=parse_write_file_args),
+    "list_files": ToolSpec(parse_args=parse_list_files_args),
+    "submit": ToolSpec(parse_args=parse_submit_args),
 }
 
 
-### =============================================================================
-## Validation Helpers
-## =============================================================================
-def parse_json(raw_text: str) -> Result[Any]:
+def validate_tool_args(request: ToolRequest) -> Result[ValidatedToolRequest, ValidationErrorResult]:
+    """Validate tool existence and tool-specific arguments, never raw model text."""
+    tool_spec = tool_registry.get(request.tool)
+    if tool_spec is None:
+        return Err(UnknownTool(tool=request.tool))
     try:
-        data = json.loads(raw_text)
-        return Ok(data)
-
-    except json.JSONDecodeError as error:
-        return Err(
-            error=str(error),
-            error_code="INVALID_JSON",
-        )
-
-
-def validate_tool_request_shape(data: Any) -> Result[ToolRequest]:
-    try:
-        tool_request = ToolRequest.model_validate(data)
-        return Ok(tool_request)
-
+        return Ok(tool_spec.parse_args(request.args))
     except ValidationError as error:
-        return Err(
-            error=str(error),
-            error_code="INVALID_TOOL_REQUEST_SHAPE",
-        )
+        return Err(InvalidToolArgs(tool=request.tool, details=str(error)))
 
 
-def validate_tool_exists(tool_request: ToolRequest) -> Result[ToolRequest]:
-    if tool_request.tool not in tool_registry:
-        return Err(
-            error=f"Unknown tool: {tool_request.tool}",
-            error_code="UNKNOWN_TOOL",
-        )
-
-    return Ok(tool_request)
+def validated_request_to_dict(request: ValidatedToolRequest) -> dict[str, object]:
+    match request:
+        case ReadFileRequest(args=args) | WriteFileRequest(args=args) | ListFilesRequest(args=args) | SubmitRequest(args=args):
+            return {"tool": request.tool, "args": args.model_dump()}
+        case unreachable:
+            assert_never(unreachable)
 
 
-def validate_tool_args(tool_request: ToolRequest) -> Result[ValidatedToolRequest]:
-    try:
-        tool_spec = tool_registry[tool_request.tool]
-        validated_args = tool_spec.args_schema.model_validate(tool_request.args)
-
-        validated_tool_request = ValidatedToolRequest(
-            tool=tool_request.tool,
-            args=validated_args,
-        )
-
-        return Ok(validated_tool_request)
-
-    except ValidationError as error:
-        return Err(
-            error=str(error),
-            error_code="INVALID_TOOL_ARGS",
-        )
+def error_to_dict(error: ValidationErrorResult) -> dict[str, object]:
+    match error:
+        case UnknownTool(tool=tool):
+            return {"error_code": error.error_code, "error": f"Unknown tool: {tool}"}
+        case InvalidToolArgs(tool=tool, details=details):
+            return {"error_code": error.error_code, "error": f"Invalid arguments for {tool}: {details}"}
+        case unreachable:
+            assert_never(unreachable)
 
 
-def validate_tool_request(raw_text: str) -> Result[ValidatedToolRequest]:
-    json_result = parse_json(raw_text)
-
-    if isinstance(json_result, Err):
-        return json_result
-
-    shape_result = validate_tool_request_shape(json_result.value)
-
-    if isinstance(shape_result, Err):
-        return shape_result
-
-    exists_result = validate_tool_exists(shape_result.value)
-
-    if isinstance(exists_result, Err):
-        return exists_result
-
-    args_result = validate_tool_args(exists_result.value)
-
-    return args_result
-
-
-### =============================================================================
-## Serialization Helpers
-## =============================================================================
-def to_jsonable(value: Any) -> Any:
-    if isinstance(value, BaseModel):
-        return value.model_dump()
-
-    if is_dataclass(value):
-        return {
-            field.name: to_jsonable(getattr(value, field.name))
-            for field in fields(value)
-        }
-
-    if isinstance(value, dict):
-        return {key: to_jsonable(item) for key, item in value.items()}
-
-    if isinstance(value, list):
-        return [to_jsonable(item) for item in value]
-
-    return value
-
-
-def result_to_dict(result: Result[Any]) -> dict[str, Any]:
+def result_to_dict(result: Result[ValidatedToolRequest, ValidationErrorResult]) -> dict[str, object]:
     if isinstance(result, Err):
-        return {
-            "ok": False,
-            "error": result.error,
-            "error_code": result.error_code,
-        }
-
-    return {
-        "ok": True,
-        "value": to_jsonable(result.value),
-    }
+        return {"ok": False, **error_to_dict(result.error)}
+    return {"ok": True, "value": validated_request_to_dict(result.value)}
 
 
-### =============================================================================
-## Application
-## =============================================================================
 @app.command()
-def parse_tool_request(raw_text: str) -> None:
-    result = validate_tool_request(raw_text)
-    typer.echo(json.dumps(result_to_dict(result), indent=2))
+def main(raw_text: str) -> None:
+    """Compose P3 then P4 for CLI exploration while preserving boundary ownership."""
+    parsed = parser.parse_tool_request(raw_text)
+    if isinstance(parsed, parser.Err):
+        typer.echo(json.dumps({"ok": False, "error_code": parsed.error.code, "error": parsed.error.message}, indent=2))
+        raise typer.Exit(code=1)
+    typer.echo(json.dumps(result_to_dict(validate_tool_args(parsed.value)), indent=2))
 
 
-### =============================================================================
-## Program Init
-## =============================================================================
 if __name__ == "__main__":
     app()
