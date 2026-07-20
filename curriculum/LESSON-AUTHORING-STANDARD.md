@@ -90,6 +90,40 @@ This is a **teaching contract**, not an HTML heading template and not a new stud
 
 Every `foundation_build` episode needs at least one inspectable `starting_artifact`. A starter test is a valid starting artifact when it already exists before the learner changes the target. A completed solution for the current primitive is not.
 
+## Study workspace contract
+
+`study_contract` configures the learner's existing Think → Plan → Reflect workspace. It is personal synthesis and implementation intent, never completion evidence or a second lesson. Every `foundation_build` lesson must define it; other patterns are added as their study defaults are reviewed.
+
+```yaml
+study_contract:
+  version: 1
+  objective: The learner-owned model, action, and evidence interpretation.
+  context_cards: [starting_artifacts, target_artifacts, proof_artifacts, failure_contract]
+  think:
+    jot_notes: {label: Jot notes, placeholder: Keep this messy.}
+    prompts:
+      - {id: model, label: ..., prompt: ..., kind: explanation}
+      - {id: decision, label: ..., prompt: ..., kind: judgment}
+      - {id: evidence_or_uncertainty, label: ..., prompt: ..., kind: evidence}
+  plan:
+    intro: A one-session handoff.
+    fields:
+      target_function: {label: ..., placeholder: ...}
+      smallest_slice: {label: ..., placeholder: ...}
+      must_do: {label: ..., placeholder: ...}
+      must_not_do: {label: ..., placeholder: ...}
+      first_proof: {label: ..., placeholder: ...}
+      open_question: {label: ..., placeholder: ...}
+  reflect:
+    feynman: {label: Explain this to a smart 12-year-old, subject: ..., placeholder: ...}
+    feynman_limit: {label: Where does that explanation break?, prompt: ...}
+    prediction_vs_evidence: {label: ..., prompt: ...}
+    mental_model: {label: ..., prompt: ...}
+    next_step: {label: ..., prompt: ...}
+```
+
+The jot-notes box and both Feynman prompts are mandatory. `context_cards` resolve from the existing artifact contracts; they do not duplicate source paths. The plan keeps the existing handoff fields and ready-to-implement behavior. A workspace answer cannot satisfy prediction, practice, proof, or recall milestones.
+
 ## Composite-system episode schema: `integration_build`
 
 Use `integration_build` when the learner must make behavior work across two or more real components. It is not specific to agent loops: a router, checkpoint flow, trace pipeline, evaluation harness, deployment path, or later repair can all use it. The lesson type still identifies the learner action; `integration_build` supplies the teaching arc.
