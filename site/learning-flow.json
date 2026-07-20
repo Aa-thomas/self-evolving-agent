@@ -154,6 +154,52 @@
     "0006-agent-loop-primitive": {
       "publication": {"status": "published", "reason": null},
       "lesson_type": "reconstruction_lab",
+      "episode_pattern": "integration_build",
+      "teaching_contract": {
+        "system_problem": "A protocol-valid read_file request can reach the agent loop while the runtime tools dictionary has no read_file handler; the harness still has to preserve a bounded, explainable trajectory.",
+        "integration_responsibility": "The loop coordinates already-built boundaries in a defined order, turns recoverable failures into observations, maintains message state, and stops safely.",
+        "prerequisite_bridge": {
+          "existing_components": [
+            {"component": "tool-request parser", "already_guarantees": "Raw assistant text becomes either a structured request or a normalized parse failure.", "does_not_guarantee": "The requested tool exists or can execute."},
+            {"component": "tool argument validator", "already_guarantees": "A known protocol tool has arguments that match its registered schema.", "does_not_guarantee": "The runtime tools dictionary has a handler for that tool."},
+            {"component": "sandboxed file tool", "already_guarantees": "A permitted file operation returns a normalized result while containing paths.", "does_not_guarantee": "The loop invoked it in the right order or will stop safely."}
+          ]
+        },
+        "system_model": {
+          "components": [
+            {"component": "parser and validator", "input": "Assistant output text", "output_or_transition": "Validated request or normalized rejection observation", "responsibility": "Establish the protocol contract before runtime dispatch."},
+            {"component": "runtime dispatch", "input": "Validated non-submit request and runtime handler map", "output_or_transition": "Tool result, missing-handler observation, or normalized tool exception", "responsibility": "Decide whether an executable handler is actually available."},
+            {"component": "agent loop", "input": "User task, messages, model output, and each boundary result", "output_or_transition": "Next ordered messages or a submitted/max-steps AgentResult", "responsibility": "Own transition order, observation accumulation, and bounded stopping."}
+          ],
+          "system_invariant": "Every loop iteration records assistant output, invokes boundaries in order, appends a normalized observation for non-terminal outcomes, and never exceeds max_steps."
+        },
+        "worked_trajectories": {
+          "success_path": ["The model requests read_file with valid JSON and arguments.", "The registered runtime handler returns a result that is appended as a tool observation before the next call, which submits the final answer."],
+          "failure_or_edge_path": ["The protocol registry accepts read_file, but runtime dispatch finds no read_file handler.", "The loop appends UNKNOWN_TOOL as an observation, gives the model another bounded turn, and eventually returns submit or max_steps."],
+          "comparison_question": "What evidence distinguishes an unknown protocol tool from a protocol-valid tool whose runtime handler is missing?"
+        },
+        "design_tension": {
+          "options": ["Abort the entire run whenever any component rejects a request.", "Normalize recoverable parser, validation, and dispatch failures into observations while enforcing a bounded step budget."],
+          "decision_rule": "The loop preserves recoverable evidence for the next model decision, but it owns explicit terminal control flow for submit and max_steps."
+        },
+        "prediction_prompt": "Before opening run_agent, predict the next message and responsible boundary when read_file validates successfully but the runtime tools dictionary is empty.",
+        "artifact_inspection_prompt": "Inspect the parser, validator, file-tool contracts, agent-loop tests, and causal scenario to map what each component proves before the loop composes them.",
+        "intervention_strategy": {
+          "mode": "reconstruct",
+          "scaffold": "The real agent_loop.py reconstruction handoff, with the control-flow slice intentionally withheld from copying.",
+          "build_order": ["Append assistant output to message state.", "Validate the output and append a normalized rejection observation when validation fails.", "Return immediately for submit control flow.", "Look up and invoke a runtime handler only after validation.", "Normalize missing handlers and tool exceptions into observations.", "Stop after the configured max_steps budget."],
+          "learner_owns": ["The order of loop transitions and message-state updates.", "At least one normalized runtime failure path and its regression evidence."],
+          "leave_unchanged": ["Parser, validator, and file-tool internals unless diagnosis identifies them as the first bad boundary."],
+          "forbidden_shortcuts": ["Copying the completed loop.", "Bypassing validation or runtime-handler lookup.", "Treating a tool exception as invisible control flow."]
+        },
+        "integration_proof": {
+          "required_evidence": ["A successful tool-result-to-next-model-call trajectory.", "A normalized missing-runtime-handler or tool-exception trajectory.", "A bounded max_steps stop case."],
+          "establishes": "The focused suite establishes the tested ordering, failure normalization, dispatch, submit, and bounded-stop behavior of this composed harness.",
+          "does_not_establish": "It does not establish reliable model behavior, correctness of every future tool, production observability, or broad behavioral evaluation coverage."
+        },
+        "causal_explanation_prompt": "Explain one real failed trajectory as component transitions and contracts; do not attribute the failure merely to the model behaving strangely.",
+        "transfer_prompt": "Change one condition—malformed output, invalid arguments, a missing runtime handler, a tool exception, or exhausted budget—and name the first bad transition, smallest safe intervention, and regression proof."
+      },
       "requires": ["0003-manual-tool-protocol", "0004-schema-validation", "0005-sandboxed-file-tools"],
       "unlocks": ["0007-trace-logger"],
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",

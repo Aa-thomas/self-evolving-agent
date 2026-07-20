@@ -90,7 +90,54 @@ This is a **teaching contract**, not an HTML heading template and not a new stud
 
 Every `foundation_build` episode needs at least one inspectable `starting_artifact`. A starter test is a valid starting artifact when it already exists before the learner changes the target. A completed solution for the current primitive is not.
 
-The contract deliberately applies only to isolated Project 1A primitives. Agent Loop, Trace Logger, and Eval Runner retain their current lesson types until their reconstruction, diagnostic, and experiment episode schemas are defined separately.
+## Composite-system episode schema: `integration_build`
+
+Use `integration_build` when the learner must make behavior work across two or more real components. It is not specific to agent loops: a router, checkpoint flow, trace pipeline, evaluation harness, deployment path, or later repair can all use it. The lesson type still identifies the learner action; `integration_build` supplies the teaching arc.
+
+```yaml
+episode_pattern: integration_build
+teaching_contract:
+  system_problem: An observable cross-component failure, missing capability, or decision.
+  integration_responsibility: What composition must now own that no prior component owns.
+  prerequisite_bridge:
+    existing_components:
+      - component: ...
+        already_guarantees: ...
+        does_not_guarantee: ...
+  system_model:
+    components:
+      - component: ...
+        input: ...
+        output_or_transition: ...
+        responsibility: ...
+    system_invariant: The end-to-end behavior that must remain true.
+  worked_trajectories:
+    success_path: [At least two real transitions.]
+    failure_or_edge_path: [At least two contrasting real transitions.]
+    comparison_question: What evidence distinguishes plausible causes?
+  design_tension:
+    options: [Two or more plausible integration choices.]
+    decision_rule: Which boundary owns the choice and why.
+  prediction_prompt: Commit to the next transition, diagnosis, or intervention.
+  artifact_inspection_prompt: Map real predecessor artifacts to their responsibilities.
+  intervention_strategy:
+    mode: assemble | extend | repair | reconstruct
+    build_order: [At least two ordered steps.]
+    learner_owns: [The integration work they must perform.]
+    leave_unchanged: [Boundaries that should not be edited speculatively.]
+    forbidden_shortcuts: [Ways to bypass the architecture.]
+    scaffold: Required only when mode is reconstruct.
+  integration_proof:
+    required_evidence: [At least two composed paths or outcomes.]
+    establishes: ...
+    does_not_establish: ...
+  causal_explanation_prompt: Explain the outcome as component transitions.
+  transfer_prompt: Change one system condition and choose an intervention and proof.
+```
+
+`reconstruct` mode requires a `reconstruction_lab`, a real scaffold, and the existing reconstruction proof contract. `assemble`, `extend`, and `repair` do not require a scaffold. This keeps reconstruction as a deliberate mode, rather than forcing every system lesson to pretend the learner is rebuilding existing code.
+
+Agent Loop is the first use of this pattern. Trace Logger and Eval Runner deliberately remain unassigned until their more specific episode patterns are reviewed.
 
 ## Lesson types and publication
 

@@ -87,6 +87,50 @@ def test_foundation_build_requires_a_real_tradeoff_and_proof_limit():
         validate_manifest(manifest)
 
 
+def test_agent_loop_uses_reusable_integration_build_contract():
+    manifest = load_manifest()
+    lesson = manifest["lessons"]["0006-agent-loop-primitive"]
+    contract = lesson["teaching_contract"]
+
+    assert lesson["episode_pattern"] == "integration_build"
+    assert lesson["lesson_type"] == "reconstruction_lab"
+    assert contract["intervention_strategy"]["mode"] == "reconstruct"
+    assert len(contract["prerequisite_bridge"]["existing_components"]) >= 2
+    assert len(contract["integration_proof"]["required_evidence"]) >= 2
+
+
+def test_integration_build_reconstruction_requires_scaffold_and_matching_lab_type():
+    manifest = deepcopy(load_manifest())
+    strategy = manifest["lessons"]["0006-agent-loop-primitive"]["teaching_contract"]["intervention_strategy"]
+    strategy.pop("scaffold")
+
+    with pytest.raises(ManifestError, match="scaffold"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    lesson = manifest["lessons"]["0006-agent-loop-primitive"]
+    lesson["lesson_type"] = "implementation_lab"
+
+    with pytest.raises(ManifestError, match="lesson_type reconstruction_lab"):
+        validate_manifest(manifest)
+
+
+def test_integration_build_requires_component_model_and_multiple_proof_outcomes():
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0006-agent-loop-primitive"]["teaching_contract"]
+    contract["system_model"]["components"] = []
+
+    with pytest.raises(ManifestError, match="system_model.components"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0006-agent-loop-primitive"]["teaching_contract"]
+    contract["integration_proof"]["required_evidence"] = ["one case"]
+
+    with pytest.raises(ManifestError, match="integration_proof.required_evidence"):
+        validate_manifest(manifest)
+
+
 def test_published_lesson_requires_target():
     manifest, lesson = published_agent_loop()
     lesson["target_artifacts"]["source_files"] = []
