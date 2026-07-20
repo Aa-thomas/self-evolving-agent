@@ -30,7 +30,7 @@
       "learning_goal": "Preserve an inspectable model-call record while normalizing provider output at one boundary.",
       "learner_decision": "Decide which provider response data belongs in ModelCallRecord and reject a non-string completion.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
-      "starting_artifacts": {"source_files": [], "symbols": [], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "scenario_sources": []},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call_skeleton.py"], "symbols": ["ModelCallRecord", "call_model"], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "scenario_sources": []},
       "target_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call.py"], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "expected_artifact": "A ModelCallRecord with exact messages, string output, and evidence fields."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/01_model_call/tests_01_model_call.py"], "assertions": ["test_call_model_rejects_non_string_model_output"], "traces_or_output": []},
       "failure_contract": {"source": "curriculum/phase-1/01_model_call/tests_01_model_call.py", "symptom": "A provider response contains a non-string completion.", "responsible_boundary": "call_model provider normalization", "regression_target": "test_call_model_rejects_non_string_model_output"},
