@@ -186,6 +186,57 @@ teaching_contract:
 
 This pattern works for trace review, flaky tests, permission failures, benchmark failure analysis, and incident triage. Trace Logger is its first Project 1A use: the partial run is intentionally non-diagnostic, so the learner builds the minimum trace needed to turn a future run into evidence.
 
+## Behavioral measurement episode schema: `experiment_lab`
+
+Use `experiment_lab` when the learner must turn a behavioral claim into repeatable, interpretable evidence. An experiment may construct an eval runner, compare two harness choices, ablate a component, or calibrate a grader. It is not a single passing test and it must preserve per-case failure evidence rather than only an aggregate score.
+
+```yaml
+episode_pattern: experiment_lab
+teaching_contract:
+  decision_question: The engineering decision that the measurement informs.
+  behavioral_claim:
+    hypothesis: If X, behavior Y should occur for the defined cases because Z.
+    scope: The cases or task family this claim covers.
+    expected_failure_modes: [...]
+  baseline:
+    existing_evidence: [At least two real artifacts or outputs.]
+    what_baseline_establishes: ...
+    what_baseline_does_not_establish: ...
+  measurement_model:
+    unit_of_evaluation: One full trajectory, task, case, or run.
+    cases:
+      source: A real fixture or case set.
+      inclusion_rule: Why the cases belong.
+      minimum_coverage: [At least two behavior or edge categories.]
+    outcome_contract:
+      - outcome: ...
+        pass_condition: ...
+        failure_evidence: ...
+    controlled_conditions: [...]
+    confounders: [...]
+  worked_comparison:
+    baseline_run: [...]
+    measured_run: [...]
+    interpretation: ...
+  prediction_prompt: Commit to an outcome before the measurement runs.
+  artifact_inspection_prompt: Separate prior unit guarantees from composed behavior.
+  experiment_strategy:
+    mode: construct | compare | ablate | calibrate
+    intervention_or_measurement_change: ...
+    keep_constant: [...]
+    learner_owns: [...]
+    leave_unchanged: [...]
+    forbidden_shortcuts: [...]
+  measurement_proof:
+    required_evidence: [Case set, per-case outcomes, failed-case artifact, aggregate result.]
+    establishes: ...
+    does_not_establish: ...
+  interpretation_prompt: State whether evidence supports, weakens, or leaves the claim unresolved.
+  transfer_prompt: Change a case, component, or assertion and redesign the measurement.
+```
+
+Eval Runner is the first Project 1A use in `construct` mode. Later phases can use `compare` for harness choices, `ablate` for component attribution, and `calibrate` for evaluator behavior.
+
 ## Lesson types and publication
 
 Valid lesson types are `briefing`, `implementation_lab`, `diagnostic_lab`, `reconstruction_lab`, and `specification`.

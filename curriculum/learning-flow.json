@@ -281,6 +281,56 @@
     "0008-eval-runner": {
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
+      "episode_pattern": "experiment_lab",
+      "teaching_contract": {
+        "decision_question": "Does the composed file-agent harness satisfy the explicitly claimed copy-file behavior across defined trajectories, rather than merely passing its focused component tests?",
+        "behavioral_claim": {
+          "hypothesis": "If each composed case is run against fixed model outputs, tools, and budget, then the eval runner can report whether the actual trajectory satisfies every expected behavior and preserve evidence for failures.",
+          "scope": "The configured deterministic Project 1A eval cases and their declared expected outcomes; not arbitrary provider behavior or all future workflows.",
+          "expected_failure_modes": ["A trajectory reaches submit with the wrong final answer.", "A required side effect such as target file content differs from the expected outcome.", "A failed case loses its trace path or a specific failure reason."]
+        },
+        "baseline": {
+          "existing_evidence": ["Focused Agent Loop tests show individual transitions such as tool-result accumulation and submit control flow.", "The Trace Logger test shows one trajectory can preserve causal fields."],
+          "what_baseline_establishes": "The prerequisite components work for their focused cases and can produce a causal trace.",
+          "what_baseline_does_not_establish": "Focused tests do not grade a composed user workflow across a named case set or report per-case expected-versus-actual behavior."
+        },
+        "measurement_model": {
+          "unit_of_evaluation": "One complete, named agent trajectory with a user task, fixed model outputs, runtime tools, expected final behavior, and trace path.",
+          "cases": {
+            "source": "curriculum/phase-1/08_eval_runner/fixtures/eval-cases.json plus the real wrong-answer case in tests_eval_runner.py.",
+            "inclusion_rule": "Each case must exercise a user-visible composed behavior and declare evidence sufficient to explain a mismatch.",
+            "minimum_coverage": ["A successful multi-tool workflow with an expected side effect.", "A near-identical trajectory whose final answer or other expected field is wrong."]
+          },
+          "outcome_contract": [
+            {"outcome": "case passes", "pass_condition": "Every declared expected field equals the actual result.", "failure_evidence": "The per-case actual and expected records remain available for inspection."},
+            {"outcome": "case fails", "pass_condition": "At least one declared expected field differs from actual behavior.", "failure_evidence": "The report preserves a specific failure reason and causal trace path."}
+          ],
+          "controlled_conditions": ["Use deterministic FakeModel outputs for each configured case.", "Keep the tool implementation, max_steps budget, and expected case contract fixed while evaluating a case."],
+          "confounders": ["Changing model outputs, tools, budget, and expected behavior together would make a result impossible to attribute.", "An aggregate pass count without per-case records can hide which behavior changed."]
+        },
+        "worked_comparison": {
+          "baseline_run": ["The copy-file trajectory reads a.txt, writes b.txt, and submits copied.", "Focused component tests can show individual transitions but do not produce a named expected-versus-actual evaluation report."],
+          "measured_run": ["The same copy-file case is evaluated against its expected exit_reason, final_answer, and target_content.", "A nearly identical run that submits wrong produces a failed EvalCaseResult with a failure reason and trace path."],
+          "interpretation": "The report supports a claim about only its configured cases; the wrong-answer result shows why a score without failed-case evidence is not enough for diagnosis."
+        },
+        "prediction_prompt": "Before implementing the runner, predict whether the wrong-answer trajectory should count as passing because its tools succeeded, and identify the exact expected field that decides the result.",
+        "artifact_inspection_prompt": "Inspect the eval fixture, the copy-file trajectory, and the trace contract; distinguish what unit tests already prove from the composed behavior this experiment measures.",
+        "experiment_strategy": {
+          "mode": "construct",
+          "intervention_or_measurement_change": "Implement one-case evaluation and suite aggregation so expected-versus-actual comparison, per-case failure reason, and trace path become repeatable evidence.",
+          "keep_constant": ["The configured case inputs and expected outcomes while the runner is constructed."],
+          "learner_owns": ["Comparison of every declared expected field.", "Aggregate report counts derived from per-case results.", "Failure reporting that retains causal trace linkage."],
+          "leave_unchanged": ["Agent-loop control flow, trace logger behavior, and the case's tool implementations unless a measured failure identifies them as responsible."],
+          "forbidden_shortcuts": ["Calling a single passing trajectory an evaluation.", "Changing model outputs and expected outcomes together while claiming a behavioral improvement.", "Reporting only an aggregate score without failed-case evidence."]
+        },
+        "measurement_proof": {
+          "required_evidence": ["The configured copy-file case fixture.", "A passing per-case result with expected and actual behavior.", "A failing wrong-answer result with a specific failure reason and trace path.", "Aggregate total, passed, and failed counts derived from those case results."],
+          "establishes": "The runner measures the declared deterministic cases, reports each outcome, and preserves the evidence needed to inspect a covered failure.",
+          "does_not_establish": "It does not establish production success rates, statistical significance, generalization to unlisted tasks, or that a passing aggregate score explains every failure mode."
+        },
+        "interpretation_prompt": "State whether the result supports the configured behavioral claim, then connect one pass or failure to its expected-versus-actual record and causal trace path.",
+        "transfer_prompt": "When adding a new failure mode, decide which variables must stay fixed, whether it needs a new eval case, a unit regression, or both, and what evidence a failed result must preserve."
+      },
       "requires": ["0007-trace-logger"],
       "unlocks": [],
       "learning_goal": "Evaluate multiple trajectories against explicit behavioral assertions.",

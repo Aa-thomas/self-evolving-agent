@@ -165,6 +165,40 @@ def test_diagnostic_clinic_requires_competing_causes_inspection_and_regression_e
         validate_manifest(manifest)
 
 
+def test_eval_runner_uses_experiment_lab_with_repeatable_measurement():
+    manifest = load_manifest()
+    lesson = manifest["lessons"]["0008-eval-runner"]
+    contract = lesson["teaching_contract"]
+
+    assert lesson["episode_pattern"] == "experiment_lab"
+    assert contract["experiment_strategy"]["mode"] == "construct"
+    assert len(contract["measurement_model"]["outcome_contract"]) >= 2
+    assert len(contract["measurement_proof"]["required_evidence"]) >= 4
+
+
+def test_experiment_lab_requires_case_coverage_controls_and_failed_case_evidence():
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0008-eval-runner"]["teaching_contract"]
+    contract["measurement_model"]["cases"]["minimum_coverage"] = ["one case"]
+
+    with pytest.raises(ManifestError, match="minimum_coverage"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0008-eval-runner"]["teaching_contract"]
+    contract["measurement_model"]["controlled_conditions"] = []
+
+    with pytest.raises(ManifestError, match="controlled_conditions"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0008-eval-runner"]["teaching_contract"]
+    contract["measurement_proof"]["required_evidence"] = ["aggregate score"]
+
+    with pytest.raises(ManifestError, match="measurement_proof.required_evidence"):
+        validate_manifest(manifest)
+
+
 def test_published_lesson_requires_target():
     manifest, lesson = published_agent_loop()
     lesson["target_artifacts"]["source_files"] = []
