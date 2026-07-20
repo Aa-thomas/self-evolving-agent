@@ -1,19 +1,202 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Tool-request parser</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head>
-<body><main>
-<header><p class="eyebrow">Project 1A · Primitive 3</p><h1>Turn one assistant string into one ToolRequest</h1><p class="lede">The parser owns JSON decoding and the outer request shape. It does not decide whether a tool exists or whether its arguments are safe.</p></header>
-<section><h2>Start from the prior primitive</h2><p>Primitive 2 stores the assistant output as a message. Inspect <a href="../phase-1/02_message_state/message_state.py"><code>message_state.py</code></a>: its job is to preserve that output, not interpret it. The next boundary receives the raw text and must either produce the <code>ToolRequest</code> defined in <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a> or a structured rejection.</p><p><strong>Invariant:</strong> exactly one JSON object with <code>tool</code> and <code>args</code> becomes a request. No informal syntax, extra prose, registry lookup, or argument schema is accepted here.</p></section>
-<section data-prediction><h2>Commit a boundary prediction</h2><p><code>{"tool":"read_file"}</code> is valid JSON but lacks <code>args</code>. Which result should the parser return?</p><label><input data-prediction-choice type="radio" name="prediction" value="shape"> <code>INVALID_TOOL_REQUEST_SHAPE</code></label><label><input data-prediction-choice type="radio" name="prediction" value="json"> <code>INVALID_JSON</code></label><label><input data-prediction-choice type="radio" name="prediction" value="unknown"> defer it to later validation</label><textarea data-prediction-rationale placeholder="Name the first boundary that can reject it."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>It is <code>INVALID_TOOL_REQUEST_SHAPE</code>: decoding succeeded, but <code>ToolRequest.model_validate</code> cannot establish the required outer shape. Tool names belong to Primitive 4.</p></section>
-<section><h2>Build and prove the narrow parser</h2><p>Implement or reconstruct <a href="../phase-1/03_parse_tool_request.py"><code>parse_tool_request()</code></a>. Run <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>. The proof covers <code>test_valid_request_produces_tool_request</code> and <code>test_trailing_prose_is_not_json</code>; it establishes the parser boundary, not executable tool availability.</p></section>
-<section data-case-set><h2>Classify the first rejecting boundary</h2><p>Commit every classification before checking it. For each, explain why parsing did or did not succeed.</p>
-<fieldset data-case-id="malformed" data-answer="json" data-correct="Correct: decoding itself fails, so INVALID_JSON is owned here." data-incorrect="Check whether json.loads can decode the raw text."><legend><code>{"tool":"read_file","args":</code></legend><label><input type="radio" name="c1" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c1" value="json">INVALID_JSON</label><label><input type="radio" name="c1" value="registry">registry lookup</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="string" data-answer="shape" data-correct="Correct: a JSON string decodes but is not a ToolRequest object." data-incorrect="Separate JSON decoding from the outer object shape."><legend><code>"hello"</code></legend><label><input type="radio" name="c2" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c2" value="json">INVALID_JSON</label><label><input type="radio" name="c2" value="args">argument validation</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="array" data-answer="shape" data-correct="Correct: [] is valid JSON but not the required object." data-incorrect="An array is a decoded value, not a request shape."><legend><code>[]</code></legend><label><input type="radio" name="c3" value="json">INVALID_JSON</label><label><input type="radio" name="c3" value="tool">later registry decision</label><label><input type="radio" name="c3" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="missing-args" data-answer="shape" data-correct="Correct: the object lacks a required outer field." data-incorrect="The parser must establish both tool and args before later boundaries run."><legend><code>{"tool":"read_file"}</code></legend><label><input type="radio" name="c4" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c4" value="json">INVALID_JSON</label><label><input type="radio" name="c4" value="runtime">runtime handler</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="function" data-answer="json" data-correct="Correct: Python-like function syntax is not JSON." data-incorrect="Do not add an unofficial second protocol."><legend><code>read_file(path="notes.txt")</code></legend><label><input type="radio" name="c5" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c5" value="json">INVALID_JSON</label><label><input type="radio" name="c5" value="tool">later registry decision</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="two-objects" data-answer="json" data-correct="Correct: the decoder rejects trailing content after the first object." data-incorrect="One request is not two adjacent JSON documents."><legend>two JSON objects separated by a space</legend><label><input type="radio" name="c6" value="registry">registry lookup</label><label><input type="radio" name="c6" value="args">argument validation</label><label><input type="radio" name="c6" value="json">INVALID_JSON</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="valid-request" data-answer="request" data-correct="Correct: this is the only case that produces a ToolRequest." data-incorrect="Both fields exist and the raw text is one JSON object."><legend><code>{"tool":"read_file","args":{"path":"notes.txt"}}</code></legend><label><input type="radio" name="c7" value="request">ToolRequest</label><label><input type="radio" name="c7" value="json">INVALID_JSON</label><label><input type="radio" name="c7" value="schema">later argument validation</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="trailing-prose" data-answer="json" data-correct="Correct: valid-looking JSON followed by prose is not one JSON document." data-incorrect="The parser cannot silently discard untrusted suffixes."><legend><code>{"tool":"read_file","args":{}} thanks</code></legend><label><input type="radio" name="c8" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c8" value="json">INVALID_JSON</label><label><input type="radio" name="c8" value="runtime">runtime handler</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-</section>
-<section><h2>Explain the proof, then transfer</h2><p>After the tests pass, inspect your implementation: where can <code>INVALID_JSON</code> originate, and where can it not? The suite proves text-to-request behavior; it does not prove <code>read_file</code> is registered or that <code>path</code> is a string. For a changed protocol that permits a top-level <code>request_id</code>, decide whether that field belongs in this outer-shape boundary or the next validation boundary.</p><p class="small">Ask your teacher to review one rejected case and your smallest regression test.</p></section>
-</main></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Tool-request parser</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Project 1A · Primitive 3 · Foundation build</p>
+        <h1>Turn untrusted model text into one narrow request</h1>
+        <p class="lede">The model proposes text. The harness decides whether that text earns the right to become structured data—and stops before claiming the request is safe to execute.</p>
+      </header>
+
+      <section>
+        <h2>Why is JSON-looking text still only text?</h2>
+        <p>Primitive 2 can preserve an assistant message such as <code>{"tool":"read_file","args":{"path":"notes.txt"}}</code>. To a person, it looks like a tool call. To the harness, it is still an untrusted string.</p>
+        <p>If later code treats any tool-looking string as an executable request, the model has silently gained permission to invent syntax, attach ignored prose, or smuggle a malformed value past an unclear boundary.</p>
+        <div class="callout">
+          <strong>First principle:</strong> text becomes structured data only when an explicit parser establishes a small, testable contract. Looking structured is not the same as being parsed.
+        </div>
+        <p>This primitive creates that first protocol boundary. It answers: “Is this exactly one JSON document with the outer shape of a <code>ToolRequest</code>?”</p>
+      </section>
+
+      <section>
+        <h2>Start from artifacts that already exist</h2>
+        <p>Inspect Primitive 2's completed <a href="../phase-1/02_message_state/message_state.py"><code>message_state.py</code></a>, the real <a href="../phase-1/03_parse_tool_request_tests.py"><code>03_parse_tool_request_tests.py</code></a>, and the current primitive's <a href="../phase-1/03_parse_tool_request_skeleton.py"><code>03_parse_tool_request_skeleton.py</code></a>. Do not open the completed parser before your first implementation attempt.</p>
+        <table class="contract-table">
+          <thead><tr><th>Starting artifact</th><th>What it already gives you</th><th>What remains missing</th></tr></thead>
+          <tbody>
+            <tr><td>Assistant message content</td><td>The exact provider output preserved as a string.</td><td>No claim that the string is valid JSON.</td></tr>
+            <tr><td><code>ToolRequest</code> in the scaffold</td><td>The required outer fields: strict string <code>tool</code> and object <code>args</code>.</td><td>No implementation that establishes the shape.</td></tr>
+            <tr><td>The focused tests</td><td>Real inputs and observable result codes for this boundary.</td><td>Your parser must make every case pass without doing Lesson 4's work.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Target artifact:</strong> your <code>03_parse_tool_request.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>.</p>
+      </section>
+
+      <section>
+        <h2>Build the mental model one claim at a time</h2>
+        <p>The parser is easier to reason about when you refuse to collapse its two gates into one vague idea of “valid.”</p>
+        <table class="contract-table">
+          <thead><tr><th>Stage</th><th>Question it may answer</th><th>Claim it still cannot make</th></tr></thead>
+          <tbody>
+            <tr><td>Raw assistant text</td><td>What exact characters did the model return?</td><td>Whether those characters encode any JSON value.</td></tr>
+            <tr><td><code>parse_json</code></td><td>Is this one complete JSON document?</td><td>Whether the decoded value is a tool request.</td></tr>
+            <tr><td><code>validate_tool_request</code></td><td>Is the value an object with strict <code>tool</code> and <code>args</code> fields and no extras?</td><td>Whether the named tool exists or its arguments match that tool.</td></tr>
+            <tr><td>Primitive 4</td><td>Is the tool known and are its arguments valid for its schema?</td><td>Whether a runtime handler is installed and succeeds.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Invariant:</strong> Primitive 3 returns either one <code>ToolRequest</code>, <code>INVALID_JSON</code>, or <code>INVALID_TOOL_REQUEST_SHAPE</code>. It never guesses a repair and never approves execution.</p>
+      </section>
+
+      <section>
+        <h2>Walk through a successful request</h2>
+        <p>Follow <code>{"tool":"read_file","args":{"path":"notes.txt"}}</code> through the real contract:</p>
+        <ol class="compact-list">
+          <li><code>json.loads</code> consumes the entire string and returns a Python dictionary.</li>
+          <li><code>ToolRequest.model_validate</code> sees a strict string <code>tool</code>, a dictionary <code>args</code>, and no unexpected top-level fields.</li>
+          <li>The parser returns <code>Ok(ToolRequest(...))</code>.</li>
+        </ol>
+        <p>Notice the modest conclusion. The parser has proven the request's transport shape. It has not looked in a registry, checked that <code>path</code> is a string, opened a file, or granted permission.</p>
+      </section>
+
+      <section>
+        <h2>Contrast the two failure families</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Decoding fails</h3>
+            <p><code>read_file(path="notes.txt")</code>, two adjacent objects, malformed braces, and JSON followed by prose are not one complete JSON document. The first failed claim is decoding, so the result is <code>INVALID_JSON</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Outer shape fails</h3>
+            <p><code>"hello"</code> and a top-level array containing one tool-like object are valid JSON values. <code>{"tool":"read_file"}</code> is a valid JSON object. None establishes the required <code>ToolRequest</code> shape, so the result is <code>INVALID_TOOL_REQUEST_SHAPE</code>.</p>
+          </article>
+        </div>
+        <p>The error code records the first claim that failed. It is not a general verdict that the whole agent run is bad.</p>
+      </section>
+
+      <section>
+        <h2>Choose strictness deliberately</h2>
+        <p>A permissive parser could accept Python-like calls, extract the first object from surrounding prose, or fill in a missing <code>args</code> field. That seems convenient because more model outputs continue through the loop.</p>
+        <p>The cost is hidden ambiguity: different spellings may mean different things, ignored suffixes disappear from evidence, and later components can no longer tell what the parser actually guaranteed.</p>
+        <div class="grid">
+          <article class="card"><h3>Permissive guessing</h3><p>Fewer immediate rejections, but a large undocumented language and surprising execution paths.</p></article>
+          <article class="card"><h3>One strict protocol</h3><p>One complete JSON document, one explicit outer model, and failures the loop can record and return as feedback.</p></article>
+        </div>
+        <p>This harness chooses the strict protocol. Recovery can happen visibly on a later turn; silent interpretation does not happen inside the parser.</p>
+      </section>
+
+      <section class="practice" data-prediction>
+        <h2>Commit your boundary prediction</h2>
+        <p>Primitive 3 receives <code>{"tool":"read_file","args":{"path":123}}</code>. What should this parser return?</p>
+        <div class="choice-list">
+          <label><input data-prediction-choice type="radio" name="prediction" value="json"><span><code>INVALID_JSON</code>, because <code>path</code> is not text.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code>, because the argument is unsafe.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="request"><span>An <code>Ok(ToolRequest)</code> for the next boundary to validate.</span></label>
+        </div>
+        <label>Why does that boundary own the decision?<textarea data-prediction-rationale placeholder="Separate JSON syntax, outer shape, and tool-specific argument rules."></textarea></label>
+        <button type="button" data-prediction-submit>Commit prediction</button>
+        <p data-feedback class="feedback" aria-live="polite"></p>
+        <div data-prediction-answer hidden class="callout"><strong>Evidence:</strong> the JSON document decodes, and <code>args</code> is an object whose value <code>123</code> is valid JSON. Primitive 3 returns a <code>ToolRequest</code>. <code>test_tool_specific_argument_type_is_left_for_validation</code> proves that this parser stops there; Primitive 4 owns the rule that <code>read_file.path</code> must be a string.</div>
+      </section>
+
+      <section data-case-set>
+        <h2>Classify ten protocol cases</h2>
+        <p>For each assistant output, choose the result at Primitive 3 and explain the first claim that succeeds or fails. The last two cases sit deliberately near the boundary with Primitive 4.</p>
+
+        <fieldset data-case-id="malformed" data-answer="json" data-correct="Correct. The decoder cannot finish one JSON document, so INVALID_JSON is the first honest result." data-incorrect="Ask whether the raw characters can be decoded before reasoning about ToolRequest fields." data-shuffle-choices>
+          <legend><code>{"tool":"read_file","args":</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-malformed" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-malformed" value="json"><span><code>INVALID_JSON</code></span></label><label><input type="radio" name="case-malformed" value="request"><span><code>Ok(ToolRequest)</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which parser claim fails first?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="json-string" data-answer="shape" data-correct="Correct. The string is valid JSON, but a decoded string is not the required request object." data-incorrect="Separate successful decoding from validation of the decoded outer shape." data-shuffle-choices>
+          <legend><code>"hello"</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-string" value="request"><span><code>Ok(ToolRequest)</code></span></label><label><input type="radio" name="case-string" value="json"><span><code>INVALID_JSON</code></span></label><label><input type="radio" name="case-string" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What did decoding prove, and what did it not prove?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="json-array" data-answer="shape" data-correct="Correct. An array decodes, but this protocol requires one request object." data-incorrect="Valid JSON can still have the wrong outer shape." data-shuffle-choices>
+          <legend><code>[{"tool":"read_file","args":{"path":"notes.txt"}}]</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-array" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-array" value="request"><span><code>Ok(ToolRequest)</code></span></label><label><input type="radio" name="case-array" value="json"><span><code>INVALID_JSON</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Why would multi-action support require a protocol change?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="missing-args" data-answer="shape" data-correct="Correct. Decoding succeeds, then the required args field is absent." data-incorrect="A syntactically valid object is not automatically a ToolRequest." data-shuffle-choices>
+          <legend><code>{"tool":"read_file"}</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-missing" value="json"><span><code>INVALID_JSON</code></span></label><label><input type="radio" name="case-missing" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-missing" value="request"><span><code>Ok(ToolRequest)</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Name the required outer field that is missing."></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="function-syntax" data-answer="json" data-correct="Correct. Python-like call syntax is not part of the JSON protocol." data-incorrect="Do not create a second unofficial request language for convenience." data-shuffle-choices>
+          <legend><code>read_file(path="notes.txt")</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-function" value="request"><span><code>Ok(ToolRequest)</code></span></label><label><input type="radio" name="case-function" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-function" value="json"><span><code>INVALID_JSON</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which documented syntax does the parser accept?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="two-objects" data-answer="json" data-correct="Correct. One decoder call cannot consume two adjacent JSON documents as one request." data-incorrect="The first object does not grant permission to ignore the remaining untrusted text." data-shuffle-choices>
+          <legend><code>{"tool":"read_file","args":{}} {"tool":"submit","args":{}}</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-two" value="json"><span><code>INVALID_JSON</code></span></label><label><input type="radio" name="case-two" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-two" value="request"><span><code>Ok(ToolRequest)</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Why can the suffix not be silently discarded?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="valid-request" data-answer="request" data-correct="Correct. One JSON object has exactly the required outer fields, so this boundary returns ToolRequest." data-incorrect="Both decoding and outer-shape validation succeed for this input." data-shuffle-choices>
+          <legend><code>{"tool":"read_file","args":{"path":"notes.txt"}}</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-valid" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-valid" value="request"><span><code>Ok(ToolRequest)</code></span></label><label><input type="radio" name="case-valid" value="json"><span><code>INVALID_JSON</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="State the two parser claims this input satisfies."></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="trailing-prose" data-answer="json" data-correct="Correct. JSON followed by prose is not one complete JSON document." data-incorrect="A strict parser cannot silently throw away an untrusted suffix." data-shuffle-choices>
+          <legend><code>{"tool":"read_file","args":{}} thanks</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-trailing" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-trailing" value="request"><span><code>Ok(ToolRequest)</code></span></label><label><input type="radio" name="case-trailing" value="json"><span><code>INVALID_JSON</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What does one-complete-document mean here?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="unknown-tool" data-answer="request" data-correct="Correct. The outer shape is valid; tool existence belongs to the registry boundary in Primitive 4." data-incorrect="Do not make the parser consult a registry it does not own." data-shuffle-choices>
+          <legend><code>{"tool":"delete_file","args":{"path":"notes.txt"}}</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-unknown" value="request"><span><code>Ok(ToolRequest)</code></span></label><label><input type="radio" name="case-unknown" value="json"><span><code>INVALID_JSON</code></span></label><label><input type="radio" name="case-unknown" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What can Primitive 3 prove without a registry?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="wrong-argument-type" data-answer="request" data-correct="Correct. The args field is a JSON object; the read_file-specific path rule belongs to Primitive 4." data-incorrect="Outer shape and tool-specific argument schema are different contracts." data-shuffle-choices>
+          <legend><code>{"tool":"read_file","args":{"path":123}}</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-type" value="shape"><span><code>INVALID_TOOL_REQUEST_SHAPE</code></span></label><label><input type="radio" name="case-type" value="request"><span><code>Ok(ToolRequest)</code></span></label><label><input type="radio" name="case-type" value="json"><span><code>INVALID_JSON</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which later schema knows the required path type?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+      </section>
+
+      <section>
+        <h2>Build from the scaffold</h2>
+        <p>Copy the real <a href="../phase-1/03_parse_tool_request_skeleton.py"><code>03_parse_tool_request_skeleton.py</code></a> into your working <code>03_parse_tool_request.py</code>. Implement only the three withheld functions.</p>
+        <ol class="compact-list">
+          <li>In <code>parse_json</code>, decode exactly one complete document and normalize only <code>JSONDecodeError</code> into <code>InvalidJsonError</code>.</li>
+          <li>In <code>validate_tool_request</code>, use the supplied strict model and normalize its <code>ValidationError</code> into <code>InvalidToolRequestShapeError</code>.</li>
+          <li>In <code>parse_tool_request</code>, stop on a decoding <code>Err</code>; otherwise pass the decoded value to the shape gate.</li>
+        </ol>
+        <p>Do not add tool names, per-tool argument models, runtime handlers, retries, or prose extraction. Those would make this primitive claim more than it can prove.</p>
+      </section>
+
+      <section>
+        <h2>Run proof, then inspect what you built</h2>
+        <p>Run <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>. Pay particular attention to <code>test_trailing_prose_is_not_json</code>, <code>test_unknown_tool_name_still_produces_tool_request</code>, and <code>test_tool_specific_argument_type_is_left_for_validation</code>.</p>
+        <div class="grid">
+          <article class="card"><h3>The proof establishes</h3><p>For the ten covered raw outputs, the implementation distinguishes decoding failure, outer-shape failure, and a structured request without swallowing suffixes or consulting later boundaries.</p></article>
+          <article class="card"><h3>The proof does not establish</h3><p>That a tool name is registered, its arguments are valid for that tool, a runtime handler exists, or execution is safe.</p></article>
+        </div>
+        <p>Now inspect your completed <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>. Trace where <code>INVALID_JSON</code> can originate, where <code>INVALID_TOOL_REQUEST_SHAPE</code> can originate, and why neither code can originate in <code>read_file</code>.</p>
+        <p><strong>Explain causally:</strong> for the trailing-prose failure, connect raw input → first failed claim → responsible function → regression test. Then state why that test says nothing about registry membership.</p>
+      </section>
+
+      <section>
+        <h2>Transfer the reasoning</h2>
+        <p>A future protocol proposes a top-level <code>request_id</code>. Decide whether Primitive 3 should reject it as an extra field, add it to <code>ToolRequest</code>, or leave it inside <code>args</code>. Base the decision on what the field means across every tool, then name the parser test and later validation test needed to keep the boundary honest.</p>
+        <p class="small">Ask your teacher to review one near-boundary classification and the exact limit you placed on the parser's proof.</p>
+      </section>
+    </main>
+  </body>
+</html>

@@ -34,7 +34,10 @@ def test_json_string_is_not_a_tool_request():
 
 
 def test_json_array_is_not_a_tool_request():
-    assert_error('[]', "INVALID_TOOL_REQUEST_SHAPE")
+    assert_error(
+        '[{"tool": "read_file", "args": {"path": "notes.txt"}}]',
+        "INVALID_TOOL_REQUEST_SHAPE",
+    )
 
 
 def test_missing_args_is_not_a_tool_request():
@@ -51,3 +54,21 @@ def test_multiple_json_objects_are_not_one_request():
 
 def test_trailing_prose_is_not_json():
     assert_error('{"tool": "read_file", "args": {}} thanks', "INVALID_JSON")
+
+
+def test_unknown_tool_name_still_produces_tool_request():
+    result = module.parse_tool_request(
+        '{"tool": "delete_file", "args": {"path": "notes.txt"}}'
+    )
+
+    assert isinstance(result, module.Ok)
+    assert result.value.tool == "delete_file"
+
+
+def test_tool_specific_argument_type_is_left_for_validation():
+    result = module.parse_tool_request(
+        '{"tool": "read_file", "args": {"path": 123}}'
+    )
+
+    assert isinstance(result, module.Ok)
+    assert result.value.args == {"path": 123}
