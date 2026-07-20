@@ -19,14 +19,19 @@ def published_agent_loop():
     return manifest, lesson
 
 
-def test_project_manifest_uses_evidence_first_schema_and_locks_unbuilt_work():
+def test_project_manifest_uses_evidence_first_schema_and_publishes_buildable_work():
     manifest = load_manifest()
 
     assert manifest["schema_version"] == 2
     assert manifest["lessons"]["0006-agent-loop-primitive"]["starting_artifacts"]["source_files"]
     assert manifest["lessons"]["0006-agent-loop-primitive"]["target_artifacts"]["source_files"]
-    assert manifest["lessons"]["0007-trace-logger"]["publication"]["status"] == "locked"
-    assert manifest["lessons"]["0008-eval-runner"]["unlocks"] == []
+    trace_logger = manifest["lessons"]["0007-trace-logger"]
+    eval_runner = manifest["lessons"]["0008-eval-runner"]
+    assert trace_logger["publication"]["status"] == "published"
+    assert trace_logger["target_artifacts"]["source_files"]
+    assert trace_logger["proof_artifacts"]["proof_command"]
+    assert eval_runner["publication"]["status"] == "published"
+    assert eval_runner["target_artifacts"]["tests"]
 
 
 def test_published_lesson_requires_target():
@@ -48,7 +53,10 @@ def test_published_lesson_requires_proof():
 
 def test_locked_lesson_cannot_unlock_dependent():
     manifest = deepcopy(load_manifest())
-    manifest["lessons"]["0007-trace-logger"]["unlocks"] = ["0008-eval-runner"]
+    lesson = manifest["lessons"]["0008-eval-runner"]
+    lesson["publication"] = {"status": "locked", "reason": "A contract-only lesson cannot advance the course."}
+    lesson["lesson_type"] = "specification"
+    lesson["unlocks"] = ["0001-model-call-primitive"]
 
     with pytest.raises(ManifestError, match="cannot unlock"):
         validate_manifest(manifest)

@@ -118,18 +118,19 @@ def add_site_assets(html: str) -> str:
 
 def nav_html(lessons: list[Lesson], index: int, *, bottom: bool = False) -> str:
     lesson = lessons[index]
-    previous_link = ""
-    next_link = ""
+    navigation_links: list[str] = []
 
     if index > 0:
         previous = lessons[index - 1]
-        previous_link = (
-            f'<a href="{previous.output_name}" aria-label="Previous lesson">Previous</a>'
+        navigation_links.append(
+            f'        <a href="{previous.output_name}" aria-label="Previous lesson">Previous</a>'
         )
 
     if index < len(lessons) - 1:
         next_lesson = lessons[index + 1]
-        next_link = f'<a href="{next_lesson.output_name}" aria-label="Next lesson">Next</a>'
+        navigation_links.append(
+            f'        <a href="{next_lesson.output_name}" aria-label="Next lesson">Next</a>'
+        )
 
     nav_class = "site-nav bottom-nav" if bottom else "site-nav"
 
@@ -139,8 +140,7 @@ def nav_html(lessons: list[Lesson], index: int, *, bottom: bool = False) -> str:
         <span>Lesson {index + 1} of {len(lessons)}</span>
         <span>{escape(lesson.eyebrow)}</span>
         <div class="nav-spacer"></div>
-        {previous_link}
-        {next_link}
+{"\n".join(navigation_links)}
       </nav>
 """
 

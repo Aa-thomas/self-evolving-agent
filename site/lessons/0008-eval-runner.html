@@ -1,19 +1,36 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Evals define what working means — Upcoming</title>
-    <link rel="stylesheet" href="../assets/course.css">
-    <link rel="stylesheet" href="../assets/site.css">
-  </head>
-  <body>
-    <main class="course-home">
-      <p class="eyebrow">Upcoming specification</p>
-      <h1>Evals define what working means</h1>
-      <p>This lesson is locked. Implement its prerequisite capability and produce runnable evidence before studying it as a completed lesson.</p>
-      <p>Eval runner is not implemented; composed cases and eval output must exist first.</p>
-      <p><a href="../index.html">Return to course home</a></p>
-    </main>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Build an eval runner</title><link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script></head>
+<body><main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 8 of 8</span>
+        <span>Project 1A · Primitive 8</span>
+        <div class="nav-spacer"></div>
+        <a href="0007-trace-logger.html" aria-label="Previous lesson">Previous</a>
+      </nav>
+
+<header><p class="eyebrow">Project 1A · Primitive 8</p><h1>Build a runner for composed behavior</h1><p class="lede">You will implement the evaluator. The starter gives you a real multi-step workflow fixture, a report contract, and a red proof that becomes the evidence for your runner.</p></header>
+<section><h2>Inspect the workflow unit tests miss</h2><p>Open <code>eval-cases.json</code>. The copy-file case requires three model outputs: read, observe, write, observe, then submit. The focused loop test <code>test_tool_result_is_appended_before_next_model_call</code> protects one transition; this fixture defines a user-visible workflow across several transitions.</p><p><strong>Invariant:</strong> an eval result retains each case’s expected behavior, actual behavior, pass/fail decision, failure reason, and causal trace path. A count alone cannot diagnose a regression.</p></section>
+<section data-prediction><h2>Commit the evaluation boundary</h2><p>A refactor still passes the submit stop-condition unit test but writes the copied file with the wrong contents. What should catch it first?</p><label><input data-prediction-choice type="radio" name="prediction" value="eval">a composed eval case</label><label><input data-prediction-choice type="radio" name="prediction" value="parser">the JSON parser</label><label><input data-prediction-choice type="radio" name="prediction" value="registry">the protocol registry</label><textarea data-prediction-rationale placeholder="State which behavior crosses multiple boundaries."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>The composed eval catches it: the unit test established that one observation is appended, not that the full read → write → submit workflow produced the desired file.</p></section>
+<section><h2>Implement the runner, not the answer key</h2><p>Read <code>eval_runner.py</code>. Implement <code>evaluate_case</code> and <code>run_eval_suite</code> against the provided dataclasses. A case executes its scenario, compares actual and expected fields, records a focused failure reason, and preserves its trace path. Run <code>uv run pytest curriculum/phase-1/08_eval_runner/tests_eval_runner.py</code>; <code>test_eval_runner_reports_each_case_and_causal_trace</code> starts red until you construct the report.</p></section>
+<section data-case-set><h2>Decide what an evaluator must retain</h2>
+<fieldset data-case-id="unit" data-answer="unit" data-correct="Correct: a focused unit assertion owns one local transition." data-incorrect="Ask whether the assertion crosses several loop boundaries."><legend>Does <code>validate_tool_args</code> reject an integer path?</legend><label><input type="radio" name="c1" value="unit">unit test first</label><label><input type="radio" name="c1" value="eval">eval only</label><label><input type="radio" name="c1" value="trace">trace only</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="copy" data-answer="eval" data-correct="Correct: copy-file composes model outputs, state, tools, and submit." data-incorrect="A single function cannot establish the entire workflow."><legend>Copy a file and report completion.</legend><label><input type="radio" name="c2" value="trace">trace only</label><label><input type="radio" name="c2" value="eval">composed eval</label><label><input type="radio" name="c2" value="unit">one unit test</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="expected" data-answer="expected" data-correct="Correct: the expected behavior makes pass/fail explicit." data-incorrect="A result cannot be graded against an unstated contract."><legend>A report has actual output and trace path but no declared outcome.</legend><label><input type="radio" name="c3" value="expected">expected behavior</label><label><input type="radio" name="c3" value="latency">latency budget</label><label><input type="radio" name="c3" value="prompt">prompt wording</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="reason" data-answer="reason" data-correct="Correct: the failure reason identifies the mismatched field." data-incorrect="Counts signal that something failed; they do not say what."><legend>One case failed, but the report contains only total and passed counts.</legend><label><input type="radio" name="c4" value="trace">more cases</label><label><input type="radio" name="c4" value="reason">failure reason</label><label><input type="radio" name="c4" value="registry">registry name</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="trace" data-answer="trace" data-correct="Correct: a causal trace makes the failed trajectory inspectable." data-incorrect="The evaluator should point to evidence, not only repeat the assertion."><legend>The final answer mismatched but there is no way to inspect the path to it.</legend><label><input type="radio" name="c5" value="expected">expected behavior</label><label><input type="radio" name="c5" value="trace">trace path</label><label><input type="radio" name="c5" value="total">total count</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="regression" data-answer="regression" data-correct="Correct: preserve the failed workflow as a future case." data-incorrect="A fixed incident must become repeatable evidence."><legend>A real trajectory exposed a missing tool observation.</legend><label><input type="radio" name="c6" value="ignore">treat it as model noise</label><label><input type="radio" name="c6" value="unit">delete the trace</label><label><input type="radio" name="c6" value="regression">add a regression eval</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+</section>
+<section><h2>Prove, diagnose, transfer</h2><p>When the proof turns green, deliberately inspect the wrong-answer result. Explain which expected field mismatched, why its trace path is part of the evidence, and what the aggregate report does not prove about coverage. Then add one case for a behavior a user cares about—such as “never modify files without confirmation”—and state whether a unit test, eval, or both should own it.</p><p class="small">Ask your teacher to review your first failed eval before claiming the harness improved.</p></section>
+
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 8 of 8</span>
+        <span>Project 1A · Primitive 8</span>
+        <div class="nav-spacer"></div>
+        <a href="0007-trace-logger.html" aria-label="Previous lesson">Previous</a>
+      </nav>
+    </main></body></html>

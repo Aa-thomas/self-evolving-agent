@@ -1,9 +1,12 @@
 import sqlite3
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import study_server
+from learning_flow import load_manifest
 from study_server import StudyStore
 
 
@@ -161,11 +164,17 @@ def test_server_rejects_forged_milestones(tmp_path):
         raise AssertionError("Forged proof milestone was accepted")
 
 
-def test_locked_lesson_cannot_be_marked_learned(tmp_path):
+def test_locked_lesson_cannot_be_marked_learned(tmp_path, monkeypatch):
+    manifest = deepcopy(load_manifest())
+    locked = manifest["lessons"]["0008-eval-runner"]
+    locked["publication"] = {"status": "locked", "reason": "This is an unavailable specification."}
+    locked["lesson_type"] = "specification"
+    locked["unlocks"] = []
+    monkeypatch.setattr(study_server, "load_manifest", lambda: manifest)
     store = StudyStore(tmp_path / "study.sqlite3")
 
     try:
-        store.save("0007-trace-logger", {"status": "studying", "phase": "learned"})
+        store.save("0008-eval-runner", {"status": "studying", "phase": "learned"})
     except ValueError as error:
         assert "Locked specifications" in str(error)
     else:
