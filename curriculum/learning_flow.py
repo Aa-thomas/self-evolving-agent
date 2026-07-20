@@ -640,8 +640,8 @@ def validate_operational_drill_contract(lesson_id: str, contract: dict[str, Any]
 def validate_study_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
     """Validate workspace prompts without turning notes into completion evidence."""
     contract = lesson.get("study_contract")
-    if lesson_id in FOUNDATION_BUILD_PRIMITIVES and not isinstance(contract, dict):
-        raise ManifestError(f"{lesson_id}: foundation_build requires a study_contract")
+    if lesson_id in FOUNDATION_BUILD_PRIMITIVES | INTEGRATION_BUILD_LESSONS and not isinstance(contract, dict):
+        raise ManifestError(f"{lesson_id}: selected episode pattern requires a study_contract")
     if contract is None:
         return
     if not isinstance(contract, dict) or contract.get("version") != STUDY_CONTRACT_VERSION:

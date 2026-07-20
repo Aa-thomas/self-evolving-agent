@@ -92,7 +92,7 @@ Every `foundation_build` episode needs at least one inspectable `starting_artifa
 
 ## Study workspace contract
 
-`study_contract` configures the learner's existing Think → Plan → Reflect workspace. It is personal synthesis and implementation intent, never completion evidence or a second lesson. Every `foundation_build` lesson must define it; other patterns are added as their study defaults are reviewed.
+`study_contract` configures the learner's existing Think → Plan → Reflect workspace. It is personal synthesis and implementation intent, never completion evidence or a second lesson. Every `foundation_build` and `integration_build` lesson must define it; other patterns are added as their study defaults are reviewed.
 
 ```yaml
 study_contract:

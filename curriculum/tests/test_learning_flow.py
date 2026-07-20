@@ -193,6 +193,9 @@ def test_agent_loop_uses_reusable_integration_build_contract():
     assert contract["intervention_strategy"]["mode"] == "reconstruct"
     assert len(contract["prerequisite_bridge"]["existing_components"]) >= 2
     assert len(contract["integration_proof"]["required_evidence"]) >= 2
+    study = lesson["study_contract"]
+    assert study["think"]["prompts"][0]["id"] == "model"
+    assert "trajectory" in study["reflect"]["prediction_vs_evidence"]["prompt"]
 
 
 def test_integration_build_reconstruction_requires_scaffold_and_matching_lab_type():
