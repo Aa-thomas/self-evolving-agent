@@ -57,6 +57,41 @@ Authors may arrange a lesson in the structure that best fits its decision, but i
 7. Explain what the proof establishes and what it does not establish.
 8. Apply the reasoning to a changed scenario.
 
+## Project 1A primitive episode schema: `foundation_build`
+
+Lessons 1–5 teach isolated harness primitives to a learner starting from zero. Their manifest entry must use `"episode_pattern": "foundation_build"` and include this `teaching_contract`:
+
+```yaml
+episode_pattern: foundation_build
+teaching_contract:
+  concrete_problem: A specific engineering symptom or decision.
+  first_principle: The small causal model needed before practice.
+  worked_walkthrough:
+    - A concrete pass through real starting artifacts.
+    - A contrasting pass that exposes the missing responsibility.
+  boundary_and_invariant:
+    boundary: The component that owns the transition or correction.
+    invariant: The behavior that remains true after the learner's change.
+  design_tension:
+    options: [Two or more plausible choices.]
+    decision_rule: Why this primitive chooses one without claiming later boundaries are solved.
+  prediction_prompt: The commitment required before the answer is revealed.
+  artifact_inspection_prompt: What existing repository artifact establishes.
+  implementation_scope:
+    build: [The narrow slice to create or change.]
+    leave_unchanged: [Responsibilities intentionally outside this primitive.]
+  proof_interpretation:
+    establishes: What the configured proof demonstrates.
+    does_not_establish: The explicit limit of that evidence.
+  transfer_prompt: A changed case requiring the same reasoning.
+```
+
+This is a **teaching contract**, not an HTML heading template and not a new study-state machine. Authors may use approachable headings such as “Why this exists,” “Walkthrough,” “Tradeoff,” and “Try the changed case.” They must teach the causal model and worked example before demanding the prediction or implementation handoff.
+
+Every `foundation_build` episode needs at least one inspectable `starting_artifact`. A starter test is a valid starting artifact when it already exists before the learner changes the target. A completed solution for the current primitive is not.
+
+The contract deliberately applies only to isolated Project 1A primitives. Agent Loop, Trace Logger, and Eval Runner retain their current lesson types until their reconstruction, diagnostic, and experiment episode schemas are defined separately.
+
 ## Lesson types and publication
 
 Valid lesson types are `briefing`, `implementation_lab`, `diagnostic_lab`, `reconstruction_lab`, and `specification`.

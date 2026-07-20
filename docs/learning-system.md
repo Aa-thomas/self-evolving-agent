@@ -10,7 +10,7 @@ lesson practice → implementation handoff → configured proof
 ## Sources of truth
 
 - `curriculum/MISSION.md` defines the outcome that teaching serves.
-- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, and micro-world decisions.
+- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, micro-world decisions, and the selected episode pattern. A `foundation_build` contract is required for Project 1A's isolated primitives (Lessons 1–5); it records the first-principles explanation, walkthrough, tradeoff, narrow build scope, proof limit, and transfer prompt that the page must teach.
 - `curriculum/learning-records/` defines understanding that future teaching may assume.
 - The local or remote learner store defines the current phase, milestones, evidence references, and review schedule.
 - Tests, diffs, and canonical traces provide executable evidence.
@@ -52,7 +52,7 @@ The Agent Trace Lab is shared by the Agent Loop and its canonical scenarios live
 4. Make the configured proof pass. For a learner-build lab, commit the real starter source and intentionally red proof first; the learner makes that same proof pass during the lesson.
 5. Design learner actions around the real artifact.
 6. Write the lesson.
-7. Add its manifest contracts.
+7. Add its manifest contracts, including the applicable episode-pattern teaching contract.
 8. Run `python3 tools/lint_lessons.py`.
 9. Run the configured proof.
 10. Review instructional quality with the authoring rubric.

@@ -29,6 +29,14 @@ PRACTICE_KINDS = {"case_set", "trace_diagnosis", "code_change", "reconstruction"
 PRODUCTIVE_ACTIONS = {"implement", "diagnose", "test", "reconstruct", "debug"}
 RECONSTRUCTION_MODES = {"annotated", "skeleton", "blank", "none"}
 MICRO_WORLD_DECISIONS = {"none", "optional", "required"}
+EPISODE_PATTERNS = {"foundation_build"}
+FOUNDATION_BUILD_PRIMITIVES = {
+    "0001-model-call-primitive",
+    "0002-message-state-primitive",
+    "0003-manual-tool-protocol",
+    "0004-schema-validation",
+    "0005-sandboxed-file-tools",
+}
 
 
 class ManifestError(ValueError):
@@ -79,6 +87,7 @@ def validate_manifest(manifest: object) -> None:
         validate_reconstruction_contract(lesson_id, lesson)
         validate_completion_contract(lesson_id, lesson)
         validate_micro_world(lesson_id, lesson.get("micro_world"))
+        validate_episode_contract(lesson_id, lesson)
 
     validate_graph(lessons)
 
@@ -243,6 +252,87 @@ def validate_micro_world(lesson_id: str, micro_world: object) -> None:
     source = micro_world.get("scenario_source")
     if source is not None:
         resolve_repository_file(lesson_id, source, "micro_world.scenario_source")
+
+
+def require_text(lesson_id: str, contract: dict[str, Any], key: str, label: str) -> None:
+    if not isinstance(contract.get(key), str) or not contract[key].strip():
+        raise ManifestError(f"{lesson_id}: {label}.{key} must be non-empty text")
+
+
+def require_text_list(
+    lesson_id: str,
+    contract: dict[str, Any],
+    key: str,
+    label: str,
+    minimum: int,
+) -> None:
+    value = contract.get(key)
+    if (
+        not isinstance(value, list)
+        or len(value) < minimum
+        or not all(isinstance(item, str) and item.strip() for item in value)
+    ):
+        raise ManifestError(f"{lesson_id}: {label}.{key} needs at least {minimum} non-empty entries")
+
+
+def validate_episode_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
+    """Validate the pedagogical contract selected for a lesson episode.
+
+    Episode patterns describe the teaching arc. They intentionally do not own
+    publication, evidence, or study-state transitions, which remain the
+    responsibility of the existing artifact and completion contracts.
+    """
+    pattern = lesson.get("episode_pattern")
+    if lesson_id in FOUNDATION_BUILD_PRIMITIVES and pattern != "foundation_build":
+        raise ManifestError(f"{lesson_id}: Project 1A primitive requires episode_pattern foundation_build")
+    if pattern is None:
+        return
+    if pattern not in EPISODE_PATTERNS:
+        raise ManifestError(f"{lesson_id}: unsupported episode_pattern {pattern!r}")
+
+    contract = lesson.get("teaching_contract")
+    if not isinstance(contract, dict):
+        raise ManifestError(f"{lesson_id}: {pattern} requires a teaching_contract")
+    if pattern == "foundation_build":
+        validate_foundation_build_contract(lesson_id, lesson, contract)
+
+
+def validate_foundation_build_contract(
+    lesson_id: str,
+    lesson: dict[str, Any],
+    contract: dict[str, Any],
+) -> None:
+    """Validate the beginner-first contract for an isolated Project 1A primitive."""
+    starting = lesson["starting_artifacts"]
+    if not any(starting[key] for key in ("source_files", "symbols", "tests", "scenario_sources")):
+        raise ManifestError(f"{lesson_id}: foundation_build requires an inspectable starting artifact")
+    for key in ("concrete_problem", "first_principle", "prediction_prompt", "artifact_inspection_prompt", "transfer_prompt"):
+        require_text(lesson_id, contract, key, "teaching_contract")
+    require_text_list(lesson_id, contract, "worked_walkthrough", "teaching_contract", 2)
+
+    boundary = contract.get("boundary_and_invariant")
+    if not isinstance(boundary, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.boundary_and_invariant must be an object")
+    for key in ("boundary", "invariant"):
+        require_text(lesson_id, boundary, key, "teaching_contract.boundary_and_invariant")
+
+    tension = contract.get("design_tension")
+    if not isinstance(tension, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.design_tension must be an object")
+    require_text_list(lesson_id, tension, "options", "teaching_contract.design_tension", 2)
+    require_text(lesson_id, tension, "decision_rule", "teaching_contract.design_tension")
+
+    scope = contract.get("implementation_scope")
+    if not isinstance(scope, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.implementation_scope must be an object")
+    require_text_list(lesson_id, scope, "build", "teaching_contract.implementation_scope", 1)
+    require_text_list(lesson_id, scope, "leave_unchanged", "teaching_contract.implementation_scope", 1)
+
+    proof = contract.get("proof_interpretation")
+    if not isinstance(proof, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.proof_interpretation must be an object")
+    for key in ("establishes", "does_not_establish"):
+        require_text(lesson_id, proof, key, "teaching_contract.proof_interpretation")
 
 
 def validate_graph(lessons: dict[str, Any]) -> None:

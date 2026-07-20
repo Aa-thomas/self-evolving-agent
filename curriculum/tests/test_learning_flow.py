@@ -34,6 +34,59 @@ def test_project_manifest_uses_evidence_first_schema_and_publishes_buildable_wor
     assert eval_runner["target_artifacts"]["tests"]
 
 
+def test_project_1a_primitives_use_the_foundation_build_episode_contract():
+    manifest = load_manifest()
+    primitive_ids = (
+        "0001-model-call-primitive",
+        "0002-message-state-primitive",
+        "0003-manual-tool-protocol",
+        "0004-schema-validation",
+        "0005-sandboxed-file-tools",
+    )
+
+    for lesson_id in primitive_ids:
+        lesson = manifest["lessons"][lesson_id]
+        contract = lesson["teaching_contract"]
+        assert lesson["episode_pattern"] == "foundation_build"
+        assert contract["worked_walkthrough"]
+        assert contract["boundary_and_invariant"]["invariant"]
+        assert contract["proof_interpretation"]["does_not_establish"]
+
+
+def test_foundation_build_requires_explanation_and_inspectable_starting_artifact():
+    manifest = deepcopy(load_manifest())
+    lesson = manifest["lessons"]["0001-model-call-primitive"]
+    lesson["teaching_contract"].pop("first_principle")
+
+    with pytest.raises(ManifestError, match="first_principle"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    lesson = manifest["lessons"]["0001-model-call-primitive"]
+    lesson["starting_artifacts"] = {
+        "source_files": [], "symbols": [], "tests": [], "scenario_sources": []
+    }
+
+    with pytest.raises(ManifestError, match="inspectable starting artifact"):
+        validate_manifest(manifest)
+
+
+def test_foundation_build_requires_a_real_tradeoff_and_proof_limit():
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0004-schema-validation"]["teaching_contract"]
+    contract["design_tension"]["options"] = ["Validate it"]
+
+    with pytest.raises(ManifestError, match="design_tension.options"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    contract = manifest["lessons"]["0004-schema-validation"]["teaching_contract"]
+    contract["proof_interpretation"].pop("does_not_establish")
+
+    with pytest.raises(ManifestError, match="does_not_establish"):
+        validate_manifest(manifest)
+
+
 def test_published_lesson_requires_target():
     manifest, lesson = published_agent_loop()
     lesson["target_artifacts"]["source_files"] = []
