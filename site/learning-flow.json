@@ -2,7 +2,7 @@
   "schema_version": 2,
   "lessons": {
     "0001-model-call-primitive": {
-      "publication": {"status": "draft", "reason": "Rebuild as an implementation lab with a committed prediction and provider-output failure."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "requires": [],
       "unlocks": ["0002-message-state-primitive"],
