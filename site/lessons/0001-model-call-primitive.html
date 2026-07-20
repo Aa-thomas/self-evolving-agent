@@ -1,6 +1,17 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Model-call evidence lab</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head><body><main>
+<!doctype html><html><head><meta charset="utf-8"><title>Model-call evidence lab</title><link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script></head><body><main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 1 of 8</span>
+        <span>Primitive 1 · implementation lab</span>
+        <div class="nav-spacer"></div>
+        <a href="0002-message-state-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+
 <p class="eyebrow">Primitive 1 · implementation lab</p><h1>Keep the model boundary inspectable</h1>
-<section><h2>Evidence packet</h2><p>Inspect <a href="../phase-1/01_model_call/model_call.py"><code>model_call.py</code></a> and <a href="../phase-1/01_model_call/tests_01_model_call.py"><code>tests_01_model_call.py</code></a>. The target is <code>call_model</code>: it must return <code>ModelCallRecord</code>, retain exact input messages and timing/usage evidence, and reject a provider completion that is not text. Run <code>uv run pytest curriculum/phase-1/01_model_call/tests_01_model_call.py</code>.</p></section>
+<section><h2>Evidence packet</h2><p>Inspect <code>model_call.py</code> and <code>tests_01_model_call.py</code>. The target is <code>call_model</code>: it must return <code>ModelCallRecord</code>, retain exact input messages and timing/usage evidence, and reject a provider completion that is not text. Run <code>uv run pytest curriculum/phase-1/01_model_call/tests_01_model_call.py</code>.</p></section>
 <section data-prediction><h2>Commit a prediction</h2><p>A provider returns <code>{"content":"pong"}</code> instead of a string. Which boundary owns the correction?</p><label><input data-prediction-choice type="radio" name="p" value="adapter">call_model</label><label><input data-prediction-choice type="radio" name="p" value="parser">the tool parser</label><label><input data-prediction-choice type="radio" name="p" value="tool">a runtime tool</label><label>Why?<textarea data-prediction-rationale></textarea></label><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>The adapter owns provider normalization. Later primitives must receive raw assistant text, never provider-specific objects.</p></section>
 <section data-case-set><h2>Classify the boundary</h2>
 <fieldset data-case-id="string" data-answer="record"><legend>A fake provider returns <code>"pong"</code>.</legend><label><input type="radio" value="parse">parse tools</label><label><input type="radio" value="record">return a ModelCallRecord</label><label><input type="radio" value="execute">execute text</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
@@ -10,4 +21,12 @@
 <fieldset data-case-id="messages" data-answer="exact"><legend>A test must prove input behavior.</legend><label><input type="radio" value="final">assert final UI</label><label><input type="radio" value="exact">capture exact messages sent</label><label><input type="radio" value="network">use live network</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
 <fieldset data-case-id="limit" data-answer="limit"><legend>What does the focused proof not establish?</legend><label><input type="radio" value="limit">provider reliability on every path</label><label><input type="radio" value="string">a string is returned</label><label><input type="radio" value="record">a record exists</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset></section>
 <section><h2>Build and prove</h2><p>Reconstruct <code>call_model</code> from a skeleton: enforce exactly one of prompt/messages, call the model once, reject non-string output, and attach usage source. Prove <code>test_call_model_sends_single_user_message_and_returns_output_record</code> and <code>test_call_model_rejects_non_string_model_output</code>. Explain why the test proves the boundary, not provider reliability. Transfer: how would you add a customer latency SLO without allowing provider details to leak?</p></section>
-</main></body></html>
+
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 1 of 8</span>
+        <span>Primitive 1 · implementation lab</span>
+        <div class="nav-spacer"></div>
+        <a href="0002-message-state-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main></body></html>

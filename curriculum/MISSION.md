@@ -26,7 +26,7 @@ Understanding is demonstrated when the learner can:
 Two invariants follow:
 
 1. A learner-facing page is not itself a completed lesson.
-2. A lesson cannot be published as complete before its implementation, proof, and evidence artifact exist.
+2. A lesson cannot be treated as complete before its implementation, passing proof, and evidence artifact exist. A published learner-build lab may begin with a real starter file and a deliberately failing proof; it is an invitation to build, never a claim that the capability already works.
 
 ## Constraints
 

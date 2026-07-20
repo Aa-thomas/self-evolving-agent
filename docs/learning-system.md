@@ -10,7 +10,7 @@ lesson practice → implementation handoff → configured proof
 ## Sources of truth
 
 - `curriculum/MISSION.md` defines the outcome that teaching serves.
-- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, and micro-world decisions.
+- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, micro-world decisions, and the selected episode pattern. `foundation_build` teaches isolated Project 1A primitives (Lessons 1–5); `integration_build` teaches composed behavior across real components (Agent Loop); `diagnostic_clinic` teaches evidence-first failure analysis and targeted repair (Trace Logger); and `experiment_lab` teaches repeatable behavioral measurement (Eval Runner). `operational_drill` is reserved for later evidence-backed procedures such as trace replay and incident response. These contracts record explanation, walkthrough, tradeoff, intervention scope, proof limits, and transfer without changing study-state milestones.
 - `curriculum/learning-records/` defines understanding that future teaching may assume.
 - The local or remote learner store defines the current phase, milestones, evidence references, and review schedule.
 - Tests, diffs, and canonical traces provide executable evidence.
@@ -42,22 +42,22 @@ Phase and review are independent. A learned lesson can be due for review. A weak
 
 Every lesson manifest entry records `required`, `optional`, or `none`, a score, a rationale, a real scenario source, and a static fallback. Full micro-worlds require a score of at least six and must expose hidden, dynamic, or branching behavior through grounded cause and effect.
 
-The Agent Trace Lab is shared by Agent Loop, Trace Logger, and Eval Runner. Its canonical scenarios live in `curriculum/traces/agent-loop-scenarios.json` and point back to the agent-loop tests.
+The Agent Trace Lab is shared by the Agent Loop and its canonical scenarios live in `curriculum/traces/agent-loop-scenarios.json`. Trace Logger and Eval Runner are learner-build labs: they begin with a real incomplete-run or composed-workflow fixture, then produce their own evidence artifacts.
 
 ## Adding or changing a lesson
 
 1. Identify a real learner decision or failure.
 2. Create the evidence packet, separating existing starting artifacts from target and proof artifacts.
 3. Implement or locate the runnable artifact.
-4. Make the configured proof pass.
+4. Make the configured proof pass. For a learner-build lab, commit the real starter source and intentionally red proof first; the learner makes that same proof pass during the lesson.
 5. Design learner actions around the real artifact.
 6. Write the lesson.
-7. Add its manifest contracts.
+7. Add its manifest contracts, including the applicable episode-pattern teaching contract.
 8. Run `python3 tools/lint_lessons.py`.
 9. Run the configured proof.
 10. Review instructional quality with the authoring rubric.
 11. Test the full study → implement → prove → explain path, including the milestone gates.
-12. Publish only after every gate passes.
+12. Publish only after every gate passes. The exception is a learner-build lab whose explicit starting gate is a real failing implementation proof; it may be published as unfinished learner work, but never recorded as complete until that proof passes.
 
 `python3 tools/build_lessons_site.py` runs the lesson linter before generating `site/`. It builds only published lessons into the active course, presents locked specifications separately as upcoming work, and never allows a locked lesson to unlock later learning.
 

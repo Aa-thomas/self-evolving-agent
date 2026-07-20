@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Sandboxed file tools</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Sandboxed file tools</title><link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script></head>
 <body><main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 5 of 8</span>
+        <span>Project 1A · Primitive 5</span>
+        <div class="nav-spacer"></div>
+        <a href="0004-schema-validation.html" aria-label="Previous lesson">Previous</a>
+        <a href="0006-agent-loop-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+
 <header><p class="eyebrow">Project 1A · Primitive 5</p><h1>Make valid file requests safe to execute</h1><p class="lede">Protocol validation can prove that path is a string. Only the file-tool boundary can prove that it stays inside this run’s sandbox and produces a useful observation.</p></header>
-<section><h2>Inspect the boundary you are about to change</h2><p>Primitive 4 may produce a typed <code>read_file</code> request. Inspect <a href="../phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"><code>05_sandboxed_file_tools.py</code></a>: <code>validate_path()</code> resolves a user path against <code>sandbox_root</code> before any read, write, or listing occurs. The target is not a generic “safe path” claim; it is a concrete result code and no outside filesystem access.</p><p><strong>Invariant:</strong> every user path is sandbox-relative and containment is established before filesystem effects. Invalid requests return observations such as <code>FORBIDDEN_PATH</code>, not uncaught exceptions.</p></section>
+<section><h2>Inspect the boundary you are about to change</h2><p>Primitive 4 may produce a typed <code>read_file</code> request. Inspect <code>05_sandboxed_file_tools.py</code>: <code>validate_path()</code> resolves a user path against <code>sandbox_root</code> before any read, write, or listing occurs. The target is not a generic “safe path” claim; it is a concrete result code and no outside filesystem access.</p><p><strong>Invariant:</strong> every user path is sandbox-relative and containment is established before filesystem effects. Invalid requests return observations such as <code>FORBIDDEN_PATH</code>, not uncaught exceptions.</p></section>
 <section data-prediction><h2>Commit a safety prediction</h2><p>A validated request asks to read <code>../secret.txt</code>. What should own the rejection?</p><label><input data-prediction-choice type="radio" name="prediction" value="sandbox">sandboxed file tool</label><label><input data-prediction-choice type="radio" name="prediction" value="parser">tool-request parser</label><label><input data-prediction-choice type="radio" name="prediction" value="registry">protocol registry</label><textarea data-prediction-rationale placeholder="Explain why a string type is not enough."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>The file-tool boundary returns <code>FORBIDDEN_PATH</code>. Primitive 4 established argument type and tool identity, but it cannot know this run’s sandbox root or filesystem state.</p></section>
-<section><h2>Implement, then produce evidence</h2><p>Implement or reconstruct the path gate and file operations in <a href="../phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"><code>05_sandboxed_file_tools.py</code></a>. Run <code>uv run pytest curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py</code>. <code>test_read_forbidden_parent_path_rejected</code> is the regression for traversal. The proof establishes containment behavior for its fixtures; it does not prove every OS-level permission or symlink policy.</p></section>
+<section><h2>Implement, then produce evidence</h2><p>Implement or reconstruct the path gate and file operations in <code>05_sandboxed_file_tools.py</code>. Run <code>uv run pytest curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py</code>. <code>test_read_forbidden_parent_path_rejected</code> is the regression for traversal. The proof establishes containment behavior for its fixtures; it does not prove every OS-level permission or symlink policy.</p></section>
 <section data-case-set><h2>Diagnose the first file-tool decision</h2>
 <fieldset data-case-id="empty" data-answer="empty" data-correct="Correct: an empty user path is rejected before resolution." data-incorrect="Check validate_path before any filesystem operation."><legend><code>read_file("")</code></legend><label><input type="radio" name="c1" value="empty">EMPTY_PATH</label><label><input type="radio" name="c1" value="missing">FILE_NOT_FOUND</label><label><input type="radio" name="c1" value="forbidden">FORBIDDEN_PATH</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
 <fieldset data-case-id="absolute" data-answer="forbidden" data-correct="Correct: absolute paths are never sandbox-relative." data-incorrect="Containment starts by refusing absolute user input."><legend>read an absolute path outside the sandbox</legend><label><input type="radio" name="c2" value="missing">FILE_NOT_FOUND</label><label><input type="radio" name="c2" value="forbidden">FORBIDDEN_PATH</label><label><input type="radio" name="c2" value="read">READ_ERROR</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
@@ -16,4 +28,13 @@
 <fieldset data-case-id="write-directory" data-answer="directory" data-correct="Correct: write_file refuses to replace a directory with file content." data-incorrect="This happens after path containment, at the file-kind gate."><legend>write file content to an existing contained directory</legend><label><input type="radio" name="c8" value="forbidden">FORBIDDEN_PATH</label><label><input type="radio" name="c8" value="directory">IS_DIRECTORY</label><label><input type="radio" name="c8" value="write">WRITE_ERROR</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
 </section>
 <section><h2>Regression and transfer</h2><p>Choose one rejection and add or explain its regression test. Then inspect the resulting <code>Ok</code> or <code>Err</code> value: what exact observation would the agent loop receive? For transfer, decide whether a missing parent directory for <code>write_file</code> should be auto-created or return <code>NOT_A_DIRECTORY</code>; state the smallest safe intervention and which test would distinguish it.</p><p class="small">Ask your teacher to review the path boundary and what the fixture-based proof still cannot establish.</p></section>
-</main></body></html>
+
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 5 of 8</span>
+        <span>Project 1A · Primitive 5</span>
+        <div class="nav-spacer"></div>
+        <a href="0004-schema-validation.html" aria-label="Previous lesson">Previous</a>
+        <a href="0006-agent-loop-primitive.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main></body></html>

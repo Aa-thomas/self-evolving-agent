@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Tool validation</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Tool validation</title><link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script></head>
 <body><main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 4 of 8</span>
+        <span>Project 1A · Primitive 4</span>
+        <div class="nav-spacer"></div>
+        <a href="0003-manual-tool-protocol.html" aria-label="Previous lesson">Previous</a>
+        <a href="0005-sandboxed-file-tools.html" aria-label="Next lesson">Next</a>
+      </nav>
+
 <header><p class="eyebrow">Project 1A · Primitive 4</p><h1>Validate a parsed request before execution</h1><p class="lede">Primitive 3 already proved that text has the outer ToolRequest shape. This primitive decides whether its tool and arguments satisfy the protocol contract.</p></header>
-<section><h2>Inspect what already exists</h2><p>Read <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>. Its <code>ToolRequest</code> can contain <code>tool="read_file"</code> and <code>args={"path":123}</code>; JSON and outer shape are valid. Inspect the starter target <a href="../phase-1/04_validate_tool_args/04_validate_tool_args.py"><code>04_validate_tool_args.py</code></a>: the registry names protocol capabilities and each <code>ToolSpec</code> parses its own arguments.</p><p><strong>Invariant:</strong> runtime tools receive only a typed, registered request. Parsing must not guess schemas; an individual file tool must not be the first place to discover an invalid argument type.</p></section>
+<section><h2>Inspect what already exists</h2><p>Read <code>03_parse_tool_request.py</code>. Its <code>ToolRequest</code> can contain <code>tool="read_file"</code> and <code>args={"path":123}</code>; JSON and outer shape are valid. Inspect the starter target <code>04_validate_tool_args.py</code>: the registry names protocol capabilities and each <code>ToolSpec</code> parses its own arguments.</p><p><strong>Invariant:</strong> runtime tools receive only a typed, registered request. Parsing must not guess schemas; an individual file tool must not be the first place to discover an invalid argument type.</p></section>
 <section data-prediction><h2>Commit a design decision</h2><p>For <code>ToolRequest(tool="read_file", args={"path":123})</code>, which boundary owns the rejection?</p><label><input data-prediction-choice type="radio" name="prediction" value="validation">tool argument validation</label><label><input data-prediction-choice type="radio" name="prediction" value="parser">JSON parser</label><label><input data-prediction-choice type="radio" name="prediction" value="read">read_file runtime tool</label><textarea data-prediction-rationale placeholder="Name what Primitive 3 already proved."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>Tool argument validation owns it and returns <code>INVALID_TOOL_ARGS</code>. The parser has already done its narrow job; deferring this to the runtime tool duplicates the protocol contract at the wrong boundary.</p></section>
-<section><h2>Build the target and run proof</h2><p>Implement or reconstruct <a href="../phase-1/04_validate_tool_args/04_validate_tool_args.py"><code>validate_tool_args()</code></a>, then run <code>uv run pytest curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py</code>. In particular, <code>test_wrong_tool_arg_type_is_rejected</code> proves the new gate. It does not prove that a separately configured runtime-handler dictionary contains that tool.</p></section>
+<section><h2>Build the target and run proof</h2><p>Implement or reconstruct <code>validate_tool_args()</code>, then run <code>uv run pytest curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py</code>. In particular, <code>test_wrong_tool_arg_type_is_rejected</code> proves the new gate. It does not prove that a separately configured runtime-handler dictionary contains that tool.</p></section>
 <section data-case-set><h2>Choose the responsible source of truth</h2>
 <fieldset data-case-id="valid-read" data-answer="accept" data-correct="Correct: registry lookup and ReadFileArgs both accept it." data-incorrect="Check both the registered name and typed arguments."><legend><code>read_file</code> with <code>{"path":"notes.txt"}</code></legend><label><input type="radio" name="c1" value="unknown">UNKNOWN_TOOL</label><label><input type="radio" name="c1" value="accept">validated request</label><label><input type="radio" name="c1" value="args">INVALID_TOOL_ARGS</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
 <fieldset data-case-id="unknown" data-answer="unknown" data-correct="Correct: the protocol registry has no delete_file entry." data-incorrect="Unknown names fail before any argument parser runs."><legend><code>delete_file</code> with <code>{"path":"notes.txt"}</code></legend><label><input type="radio" name="c2" value="unknown">UNKNOWN_TOOL</label><label><input type="radio" name="c2" value="json">INVALID_JSON</label><label><input type="radio" name="c2" value="runtime">runtime-handler absence</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
@@ -14,4 +26,13 @@
 <fieldset data-case-id="optional-path" data-answer="accept" data-correct="Correct: ListFilesArgs makes path optional." data-incorrect="Apply the schema for this tool, not read_file's schema."><legend><code>list_files</code> with <code>{}</code></legend><label><input type="radio" name="c6" value="accept">validated request</label><label><input type="radio" name="c6" value="args">INVALID_TOOL_ARGS</label><label><input type="radio" name="c6" value="unknown">UNKNOWN_TOOL</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
 </section>
 <section><h2>Explain the remaining ambiguity</h2><p><code>submit</code> with an answer is protocol-valid, as <code>test_submit_is_protocol_valid_but_returns_a_control_request</code> shows. A later loop must still decide its control flow. Likewise, a protocol registry can validate a request while a separate runtime tools dictionary lacks its handler: that is configuration drift or an invalid state, not <code>UNKNOWN_TOOL</code>. Add a regression for the smallest new schema rule you introduce, then state what the validation proof does not establish.</p><p class="small">Ask your teacher to compare your source-of-truth decision with the runtime-handler ambiguity.</p></section>
-</main></body></html>
+
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 4 of 8</span>
+        <span>Project 1A · Primitive 4</span>
+        <div class="nav-spacer"></div>
+        <a href="0003-manual-tool-protocol.html" aria-label="Previous lesson">Previous</a>
+        <a href="0005-sandboxed-file-tools.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main></body></html>

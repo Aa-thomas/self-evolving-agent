@@ -29,6 +29,21 @@ PRACTICE_KINDS = {"case_set", "trace_diagnosis", "code_change", "reconstruction"
 PRODUCTIVE_ACTIONS = {"implement", "diagnose", "test", "reconstruct", "debug"}
 RECONSTRUCTION_MODES = {"annotated", "skeleton", "blank", "none"}
 MICRO_WORLD_DECISIONS = {"none", "optional", "required"}
+EPISODE_PATTERNS = {"foundation_build", "integration_build", "diagnostic_clinic", "experiment_lab", "operational_drill"}
+FOUNDATION_BUILD_PRIMITIVES = {
+    "0001-model-call-primitive",
+    "0002-message-state-primitive",
+    "0003-manual-tool-protocol",
+    "0004-schema-validation",
+    "0005-sandboxed-file-tools",
+}
+INTEGRATION_BUILD_LESSONS = {"0006-agent-loop-primitive"}
+INTEGRATION_MODES = {"assemble", "extend", "repair", "reconstruct"}
+DIAGNOSTIC_CLINIC_LESSONS = {"0007-trace-logger"}
+DIAGNOSTIC_INTERVENTION_MODES = {"repair", "add_evidence", "add_regression"}
+EXPERIMENT_LAB_LESSONS = {"0008-eval-runner"}
+EXPERIMENT_MODES = {"construct", "compare", "ablate", "calibrate"}
+OPERATIONAL_MODES = {"verify", "replay", "recover", "deploy", "rollback", "audit"}
 
 
 class ManifestError(ValueError):
@@ -79,6 +94,7 @@ def validate_manifest(manifest: object) -> None:
         validate_reconstruction_contract(lesson_id, lesson)
         validate_completion_contract(lesson_id, lesson)
         validate_micro_world(lesson_id, lesson.get("micro_world"))
+        validate_episode_contract(lesson_id, lesson)
 
     validate_graph(lessons)
 
@@ -243,6 +259,377 @@ def validate_micro_world(lesson_id: str, micro_world: object) -> None:
     source = micro_world.get("scenario_source")
     if source is not None:
         resolve_repository_file(lesson_id, source, "micro_world.scenario_source")
+
+
+def require_text(lesson_id: str, contract: dict[str, Any], key: str, label: str) -> None:
+    if not isinstance(contract.get(key), str) or not contract[key].strip():
+        raise ManifestError(f"{lesson_id}: {label}.{key} must be non-empty text")
+
+
+def require_text_list(
+    lesson_id: str,
+    contract: dict[str, Any],
+    key: str,
+    label: str,
+    minimum: int,
+) -> None:
+    value = contract.get(key)
+    if (
+        not isinstance(value, list)
+        or len(value) < minimum
+        or not all(isinstance(item, str) and item.strip() for item in value)
+    ):
+        raise ManifestError(f"{lesson_id}: {label}.{key} needs at least {minimum} non-empty entries")
+
+
+def validate_episode_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
+    """Validate the pedagogical contract selected for a lesson episode.
+
+    Episode patterns describe the teaching arc. They intentionally do not own
+    publication, evidence, or study-state transitions, which remain the
+    responsibility of the existing artifact and completion contracts.
+    """
+    pattern = lesson.get("episode_pattern")
+    if lesson_id in FOUNDATION_BUILD_PRIMITIVES and pattern != "foundation_build":
+        raise ManifestError(f"{lesson_id}: Project 1A primitive requires episode_pattern foundation_build")
+    if lesson_id in INTEGRATION_BUILD_LESSONS and pattern != "integration_build":
+        raise ManifestError(f"{lesson_id}: Project 1A integration lesson requires episode_pattern integration_build")
+    if lesson_id in DIAGNOSTIC_CLINIC_LESSONS and pattern != "diagnostic_clinic":
+        raise ManifestError(f"{lesson_id}: Project 1A diagnostic lesson requires episode_pattern diagnostic_clinic")
+    if lesson_id in EXPERIMENT_LAB_LESSONS and pattern != "experiment_lab":
+        raise ManifestError(f"{lesson_id}: Project 1A evaluation lesson requires episode_pattern experiment_lab")
+    if pattern is None:
+        return
+    if pattern not in EPISODE_PATTERNS:
+        raise ManifestError(f"{lesson_id}: unsupported episode_pattern {pattern!r}")
+
+    contract = lesson.get("teaching_contract")
+    if not isinstance(contract, dict):
+        raise ManifestError(f"{lesson_id}: {pattern} requires a teaching_contract")
+    if pattern == "foundation_build":
+        validate_foundation_build_contract(lesson_id, lesson, contract)
+    elif pattern == "integration_build":
+        validate_integration_build_contract(lesson_id, lesson, contract)
+    elif pattern == "diagnostic_clinic":
+        validate_diagnostic_clinic_contract(lesson_id, contract)
+    elif pattern == "experiment_lab":
+        validate_experiment_lab_contract(lesson_id, contract)
+    elif pattern == "operational_drill":
+        validate_operational_drill_contract(lesson_id, contract)
+
+
+def validate_foundation_build_contract(
+    lesson_id: str,
+    lesson: dict[str, Any],
+    contract: dict[str, Any],
+) -> None:
+    """Validate the beginner-first contract for an isolated Project 1A primitive."""
+    starting = lesson["starting_artifacts"]
+    if not any(starting[key] for key in ("source_files", "symbols", "tests", "scenario_sources")):
+        raise ManifestError(f"{lesson_id}: foundation_build requires an inspectable starting artifact")
+    for key in ("concrete_problem", "first_principle", "prediction_prompt", "artifact_inspection_prompt", "transfer_prompt"):
+        require_text(lesson_id, contract, key, "teaching_contract")
+    require_text_list(lesson_id, contract, "worked_walkthrough", "teaching_contract", 2)
+
+    boundary = contract.get("boundary_and_invariant")
+    if not isinstance(boundary, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.boundary_and_invariant must be an object")
+    for key in ("boundary", "invariant"):
+        require_text(lesson_id, boundary, key, "teaching_contract.boundary_and_invariant")
+
+    tension = contract.get("design_tension")
+    if not isinstance(tension, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.design_tension must be an object")
+    require_text_list(lesson_id, tension, "options", "teaching_contract.design_tension", 2)
+    require_text(lesson_id, tension, "decision_rule", "teaching_contract.design_tension")
+
+    scope = contract.get("implementation_scope")
+    if not isinstance(scope, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.implementation_scope must be an object")
+    require_text_list(lesson_id, scope, "build", "teaching_contract.implementation_scope", 1)
+    require_text_list(lesson_id, scope, "leave_unchanged", "teaching_contract.implementation_scope", 1)
+
+    proof = contract.get("proof_interpretation")
+    if not isinstance(proof, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.proof_interpretation must be an object")
+    for key in ("establishes", "does_not_establish"):
+        require_text(lesson_id, proof, key, "teaching_contract.proof_interpretation")
+
+
+def require_component_entries(
+    lesson_id: str,
+    value: object,
+    label: str,
+    required_keys: tuple[str, ...],
+) -> None:
+    if not isinstance(value, list) or len(value) < 2 or not all(isinstance(entry, dict) for entry in value):
+        raise ManifestError(f"{lesson_id}: {label} needs at least two component entries")
+    for entry in value:
+        for key in required_keys:
+            require_text(lesson_id, entry, key, label)
+
+
+def validate_integration_build_contract(
+    lesson_id: str,
+    lesson: dict[str, Any],
+    contract: dict[str, Any],
+) -> None:
+    """Validate a reusable contract for composing multiple real components."""
+    for key in (
+        "system_problem",
+        "integration_responsibility",
+        "prediction_prompt",
+        "artifact_inspection_prompt",
+        "causal_explanation_prompt",
+        "transfer_prompt",
+    ):
+        require_text(lesson_id, contract, key, "teaching_contract")
+
+    bridge = contract.get("prerequisite_bridge")
+    if not isinstance(bridge, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.prerequisite_bridge must be an object")
+    require_component_entries(
+        lesson_id,
+        bridge.get("existing_components"),
+        "teaching_contract.prerequisite_bridge.existing_components",
+        ("component", "already_guarantees", "does_not_guarantee"),
+    )
+
+    model = contract.get("system_model")
+    if not isinstance(model, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.system_model must be an object")
+    require_component_entries(
+        lesson_id,
+        model.get("components"),
+        "teaching_contract.system_model.components",
+        ("component", "input", "output_or_transition", "responsibility"),
+    )
+    require_text(lesson_id, model, "system_invariant", "teaching_contract.system_model")
+
+    trajectories = contract.get("worked_trajectories")
+    if not isinstance(trajectories, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.worked_trajectories must be an object")
+    for key in ("success_path", "failure_or_edge_path"):
+        require_text_list(lesson_id, trajectories, key, "teaching_contract.worked_trajectories", 2)
+    require_text(lesson_id, trajectories, "comparison_question", "teaching_contract.worked_trajectories")
+
+    tension = contract.get("design_tension")
+    if not isinstance(tension, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.design_tension must be an object")
+    require_text_list(lesson_id, tension, "options", "teaching_contract.design_tension", 2)
+    require_text(lesson_id, tension, "decision_rule", "teaching_contract.design_tension")
+
+    strategy = contract.get("intervention_strategy")
+    if not isinstance(strategy, dict) or strategy.get("mode") not in INTEGRATION_MODES:
+        raise ManifestError(f"{lesson_id}: teaching_contract.intervention_strategy.mode is invalid")
+    for key, minimum in (("build_order", 2), ("learner_owns", 1), ("leave_unchanged", 1), ("forbidden_shortcuts", 1)):
+        require_text_list(lesson_id, strategy, key, "teaching_contract.intervention_strategy", minimum)
+    mode = strategy["mode"]
+    if mode == "reconstruct":
+        require_text(lesson_id, strategy, "scaffold", "teaching_contract.intervention_strategy")
+        if lesson["lesson_type"] != "reconstruction_lab":
+            raise ManifestError(f"{lesson_id}: integration reconstruct mode requires lesson_type reconstruction_lab")
+        if lesson["reconstruction_contract"]["mode"] == "none":
+            raise ManifestError(f"{lesson_id}: integration reconstruct mode requires a reconstruction contract")
+    elif "scaffold" in strategy and strategy["scaffold"] is not None:
+        raise ManifestError(f"{lesson_id}: only integration reconstruct mode may specify a scaffold")
+
+    proof = contract.get("integration_proof")
+    if not isinstance(proof, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.integration_proof must be an object")
+    require_text_list(lesson_id, proof, "required_evidence", "teaching_contract.integration_proof", 2)
+    for key in ("establishes", "does_not_establish"):
+        require_text(lesson_id, proof, key, "teaching_contract.integration_proof")
+
+
+def validate_diagnostic_clinic_contract(lesson_id: str, contract: dict[str, Any]) -> None:
+    """Validate a reusable evidence-first diagnosis and targeted-repair episode."""
+    incident = contract.get("incident")
+    if not isinstance(incident, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.incident must be an object")
+    for key in ("symptom", "impact"):
+        require_text(lesson_id, incident, key, "teaching_contract.incident")
+    require_text_list(lesson_id, incident, "available_evidence", "teaching_contract.incident", 2)
+
+    model = contract.get("diagnostic_model")
+    if not isinstance(model, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.diagnostic_model must be an object")
+    for key in ("first_principle", "ownership_rule"):
+        require_text(lesson_id, model, key, "teaching_contract.diagnostic_model")
+    require_component_entries(
+        lesson_id,
+        model.get("candidate_causes"),
+        "teaching_contract.diagnostic_model.candidate_causes",
+        ("cause", "would_explain", "distinguishing_evidence"),
+    )
+
+    investigation = contract.get("worked_investigation")
+    if not isinstance(investigation, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.worked_investigation must be an object")
+    for key in ("observations", "elimination_steps"):
+        require_text_list(lesson_id, investigation, key, "teaching_contract.worked_investigation", 2)
+    for key in ("current_conclusion", "confidence_limit"):
+        require_text(lesson_id, investigation, key, "teaching_contract.worked_investigation")
+
+    for key in ("prediction_prompt", "artifact_inspection_sequence", "diagnosis_commitment", "intervention_strategy", "diagnostic_proof", "causal_explanation_prompt", "transfer_prompt"):
+        if key not in contract:
+            raise ManifestError(f"{lesson_id}: teaching_contract.{key} is required")
+    require_text(lesson_id, contract, "prediction_prompt", "teaching_contract")
+    require_text(lesson_id, contract, "causal_explanation_prompt", "teaching_contract")
+    require_text(lesson_id, contract, "transfer_prompt", "teaching_contract")
+
+    inspection = contract["artifact_inspection_sequence"]
+    if not isinstance(inspection, list) or len(inspection) < 2 or not all(isinstance(entry, dict) for entry in inspection):
+        raise ManifestError(f"{lesson_id}: teaching_contract.artifact_inspection_sequence needs at least two entries")
+    for entry in inspection:
+        for key in ("artifact", "question", "fact_established"):
+            require_text(lesson_id, entry, key, "teaching_contract.artifact_inspection_sequence")
+
+    commitment = contract["diagnosis_commitment"]
+    if not isinstance(commitment, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.diagnosis_commitment must be an object")
+    require_text_list(lesson_id, commitment, "required_claims", "teaching_contract.diagnosis_commitment", 4)
+    require_text(lesson_id, commitment, "ambiguity_rule", "teaching_contract.diagnosis_commitment")
+
+    strategy = contract["intervention_strategy"]
+    if not isinstance(strategy, dict) or strategy.get("mode") not in DIAGNOSTIC_INTERVENTION_MODES:
+        raise ManifestError(f"{lesson_id}: teaching_contract.intervention_strategy.mode is invalid")
+    for key in ("smallest_safe_intervention", "regression_target"):
+        require_text(lesson_id, strategy, key, "teaching_contract.intervention_strategy")
+    require_text_list(lesson_id, strategy, "leave_unchanged", "teaching_contract.intervention_strategy", 1)
+    require_text_list(lesson_id, strategy, "forbidden_shortcuts", "teaching_contract.intervention_strategy", 2)
+
+    proof = contract["diagnostic_proof"]
+    if not isinstance(proof, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.diagnostic_proof must be an object")
+    require_text_list(lesson_id, proof, "required_evidence", "teaching_contract.diagnostic_proof", 3)
+    for key in ("establishes", "does_not_establish"):
+        require_text(lesson_id, proof, key, "teaching_contract.diagnostic_proof")
+
+
+def validate_experiment_lab_contract(lesson_id: str, contract: dict[str, Any]) -> None:
+    """Validate a repeatable behavioral measurement and interpretation episode."""
+    require_text(lesson_id, contract, "decision_question", "teaching_contract")
+
+    claim = contract.get("behavioral_claim")
+    if not isinstance(claim, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.behavioral_claim must be an object")
+    for key in ("hypothesis", "scope"):
+        require_text(lesson_id, claim, key, "teaching_contract.behavioral_claim")
+    require_text_list(lesson_id, claim, "expected_failure_modes", "teaching_contract.behavioral_claim", 1)
+
+    baseline = contract.get("baseline")
+    if not isinstance(baseline, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.baseline must be an object")
+    require_text_list(lesson_id, baseline, "existing_evidence", "teaching_contract.baseline", 2)
+    for key in ("what_baseline_establishes", "what_baseline_does_not_establish"):
+        require_text(lesson_id, baseline, key, "teaching_contract.baseline")
+
+    measurement = contract.get("measurement_model")
+    if not isinstance(measurement, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.measurement_model must be an object")
+    require_text(lesson_id, measurement, "unit_of_evaluation", "teaching_contract.measurement_model")
+    cases = measurement.get("cases")
+    if not isinstance(cases, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.measurement_model.cases must be an object")
+    for key in ("source", "inclusion_rule"):
+        require_text(lesson_id, cases, key, "teaching_contract.measurement_model.cases")
+    require_text_list(lesson_id, cases, "minimum_coverage", "teaching_contract.measurement_model.cases", 2)
+    outcome = measurement.get("outcome_contract")
+    if not isinstance(outcome, list) or len(outcome) < 2 or not all(isinstance(entry, dict) for entry in outcome):
+        raise ManifestError(f"{lesson_id}: teaching_contract.measurement_model.outcome_contract needs at least two outcomes")
+    for entry in outcome:
+        for key in ("outcome", "pass_condition", "failure_evidence"):
+            require_text(lesson_id, entry, key, "teaching_contract.measurement_model.outcome_contract")
+    require_text_list(lesson_id, measurement, "controlled_conditions", "teaching_contract.measurement_model", 2)
+    require_text_list(lesson_id, measurement, "confounders", "teaching_contract.measurement_model", 1)
+
+    comparison = contract.get("worked_comparison")
+    if not isinstance(comparison, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.worked_comparison must be an object")
+    for key in ("baseline_run", "measured_run"):
+        require_text_list(lesson_id, comparison, key, "teaching_contract.worked_comparison", 2)
+    require_text(lesson_id, comparison, "interpretation", "teaching_contract.worked_comparison")
+
+    for key in ("prediction_prompt", "artifact_inspection_prompt", "interpretation_prompt", "transfer_prompt"):
+        require_text(lesson_id, contract, key, "teaching_contract")
+
+    strategy = contract.get("experiment_strategy")
+    if not isinstance(strategy, dict) or strategy.get("mode") not in EXPERIMENT_MODES:
+        raise ManifestError(f"{lesson_id}: teaching_contract.experiment_strategy.mode is invalid")
+    require_text(lesson_id, strategy, "intervention_or_measurement_change", "teaching_contract.experiment_strategy")
+    for key, minimum in (("keep_constant", 1), ("learner_owns", 1), ("leave_unchanged", 1), ("forbidden_shortcuts", 3)):
+        require_text_list(lesson_id, strategy, key, "teaching_contract.experiment_strategy", minimum)
+
+    proof = contract.get("measurement_proof")
+    if not isinstance(proof, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.measurement_proof must be an object")
+    require_text_list(lesson_id, proof, "required_evidence", "teaching_contract.measurement_proof", 4)
+    for key in ("establishes", "does_not_establish"):
+        require_text(lesson_id, proof, key, "teaching_contract.measurement_proof")
+
+
+def validate_operational_drill_contract(lesson_id: str, contract: dict[str, Any]) -> None:
+    """Validate a constrained, evidence-backed operating procedure episode."""
+    context = contract.get("operational_context")
+    if not isinstance(context, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operational_context must be an object")
+    for key in ("objective", "trigger", "impact_if_wrong"):
+        require_text(lesson_id, context, key, "teaching_contract.operational_context")
+    require_text_list(lesson_id, context, "constraints", "teaching_contract.operational_context", 1)
+
+    model = contract.get("operating_model")
+    if not isinstance(model, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operating_model must be an object")
+    require_text(lesson_id, model, "first_principle", "teaching_contract.operating_model")
+    boundaries = model.get("system_boundaries")
+    if not isinstance(boundaries, list) or len(boundaries) < 2 or not all(isinstance(entry, dict) for entry in boundaries):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operating_model.system_boundaries needs at least two entries")
+    for entry in boundaries:
+        for key in ("boundary", "authority", "signal", "unsafe_assumption"):
+            require_text(lesson_id, entry, key, "teaching_contract.operating_model.system_boundaries")
+
+    readiness = contract.get("readiness_check")
+    if not isinstance(readiness, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.readiness_check must be an object")
+    require_text_list(lesson_id, readiness, "required_starting_artifacts", "teaching_contract.readiness_check", 1)
+    require_text_list(lesson_id, readiness, "preflight_checks", "teaching_contract.readiness_check", 2)
+    require_text_list(lesson_id, readiness, "no_go_conditions", "teaching_contract.readiness_check", 1)
+
+    worked_run = contract.get("worked_run")
+    if not isinstance(worked_run, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.worked_run must be an object")
+    for key in ("normal_path", "degraded_or_failure_path"):
+        require_text_list(lesson_id, worked_run, key, "teaching_contract.worked_run", 2)
+    require_text(lesson_id, worked_run, "decision_point", "teaching_contract.worked_run")
+
+    require_text(lesson_id, contract, "prediction_prompt", "teaching_contract")
+    execution = contract.get("execution_contract")
+    if not isinstance(execution, dict) or execution.get("mode") not in OPERATIONAL_MODES:
+        raise ManifestError(f"{lesson_id}: teaching_contract.execution_contract.mode is invalid")
+    procedure = execution.get("procedure")
+    if not isinstance(procedure, list) or len(procedure) < 2 or not all(isinstance(entry, dict) for entry in procedure):
+        raise ManifestError(f"{lesson_id}: teaching_contract.execution_contract.procedure needs at least two steps")
+    for entry in procedure:
+        for key in ("action", "expected_signal", "record"):
+            require_text(lesson_id, entry, key, "teaching_contract.execution_contract.procedure")
+    require_text(lesson_id, execution, "authority_boundary", "teaching_contract.execution_contract")
+    require_text_list(lesson_id, execution, "guardrails", "teaching_contract.execution_contract", 1)
+    require_text_list(lesson_id, execution, "forbidden_shortcuts", "teaching_contract.execution_contract", 2)
+
+    proof = contract.get("operational_proof")
+    if not isinstance(proof, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.operational_proof must be an object")
+    require_text_list(lesson_id, proof, "required_evidence", "teaching_contract.operational_proof", 4)
+    for key in ("establishes", "does_not_establish"):
+        require_text(lesson_id, proof, key, "teaching_contract.operational_proof")
+
+    handoff = contract.get("handoff_or_postmortem")
+    if not isinstance(handoff, dict):
+        raise ManifestError(f"{lesson_id}: teaching_contract.handoff_or_postmortem must be an object")
+    require_text_list(lesson_id, handoff, "required_record", "teaching_contract.handoff_or_postmortem", 1)
+    require_text(lesson_id, handoff, "explanation_prompt", "teaching_contract.handoff_or_postmortem")
+    require_text(lesson_id, contract, "transfer_prompt", "teaching_contract")
 
 
 def validate_graph(lessons: dict[str, Any]) -> None:

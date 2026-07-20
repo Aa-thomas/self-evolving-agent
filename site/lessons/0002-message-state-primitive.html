@@ -1,6 +1,18 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Message-state diagnosis lab</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head><body><main>
+<!doctype html><html><head><meta charset="utf-8"><title>Message-state diagnosis lab</title><link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script></head><body><main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 2 of 8</span>
+        <span>Primitive 2 · diagnostic lab</span>
+        <div class="nav-spacer"></div>
+        <a href="0001-model-call-primitive.html" aria-label="Previous lesson">Previous</a>
+        <a href="0003-manual-tool-protocol.html" aria-label="Next lesson">Next</a>
+      </nav>
+
 <p class="eyebrow">Primitive 2 · diagnostic lab</p><h1>Make the next call see the observation</h1>
-<section><h2>Evidence packet</h2><p>Start with <a href="../phase-1/01_model_call/model_call.py"><code>model_call.py</code></a>. Build or change <a href="../phase-1/02_message_state/message_state.py"><code>message_state.py</code></a>. Inspect <a href="../phase-1/02_message_state/tests_02_message_state.py"><code>test_second_primitive_one_call_receives_the_tool_observation</code></a>: the second model call must contain user, assistant, then the serialized tool observation.</p></section>
+<section><h2>Evidence packet</h2><p>Start with <code>model_call.py</code>. Build or change <code>message_state.py</code>. Inspect <code>test_second_primitive_one_call_receives_the_tool_observation</code>: the second model call must contain user, assistant, then the serialized tool observation.</p></section>
 <section data-prediction><h2>Commit a prediction</h2><p>The model asks for <code>read_file</code>, the tool succeeds, then the model repeats it. What is the first thing to inspect?</p><label><input data-prediction-choice type="radio" name="p" value="messages">the exact second-call messages</label><label><input data-prediction-choice type="radio" name="p" value="temperature">provider temperature</label><label><input data-prediction-choice type="radio" name="p" value="tool">filesystem permissions</label><label>Why?<textarea data-prediction-rationale></textarea></label><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>The model can only use state that the harness passes back. Diagnose the message timeline before assigning intent to the model.</p></section>
 <section data-case-set><h2>Find the absent transition</h2>
 <fieldset data-case-id="missing-observation" data-answer="append"><legend>The tool returned successfully but second-call messages end with assistant output.</legend><label><input type="radio" value="append">append a tool observation</label><label><input type="radio" value="retry">retry provider</label><label><input type="radio" value="schema">change schema</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
@@ -10,4 +22,13 @@
 <fieldset data-case-id="mutation" data-answer="preserve"><legend>What must update_message_state preserve?</legend><label><input type="radio" value="preserve">all earlier ordering</label><label><input type="radio" value="replace">only latest result</label><label><input type="radio" value="sort">alphabetical roles</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
 <fieldset data-case-id="limit" data-answer="not"><legend>What does the second-call proof not establish?</legend><label><input type="radio" value="not">that the model will never repeat work</label><label><input type="radio" value="roles">the message roles</label><label><input type="radio" value="content">the tool result content</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset></section>
 <section><h2>Build, prove, explain</h2><p>Reconstruct <code>update_message_state</code>, <code>append_tool_observation</code>, and one model turn. Run <code>uv run pytest curriculum/phase-1/02_message_state/tests_02_message_state.py</code>. Explain how its captured second call proves context was supplied, but not that the model chose a good next action. Transfer: what state would you deliberately omit for privacy?</p></section>
-</main></body></html>
+
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 2 of 8</span>
+        <span>Primitive 2 · diagnostic lab</span>
+        <div class="nav-spacer"></div>
+        <a href="0001-model-call-primitive.html" aria-label="Previous lesson">Previous</a>
+        <a href="0003-manual-tool-protocol.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main></body></html>

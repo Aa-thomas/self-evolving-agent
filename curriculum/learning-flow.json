@@ -2,14 +2,27 @@
   "schema_version": 2,
   "lessons": {
     "0001-model-call-primitive": {
-      "publication": {"status": "draft", "reason": "Rebuild as an implementation lab with a committed prediction and provider-output failure."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
+      "episode_pattern": "foundation_build",
+      "teaching_contract": {
+        "concrete_problem": "A model completion cannot be debugged or trusted when the harness loses the exact messages sent, returned text, and provider evidence.",
+        "first_principle": "The model returns data; the harness owns the boundary that records and normalizes that data before the rest of the system uses it.",
+        "worked_walkthrough": ["Follow one FakeModel call from the supplied message list to a provider response.", "Trace how call_model turns the response into one ModelCallRecord instead of exposing provider-specific data throughout the system."],
+        "boundary_and_invariant": {"boundary": "call_model is the provider-normalization boundary.", "invariant": "Every successful call preserves the exact input messages, returns assistant text as a string, and retains inspectable evidence."},
+        "design_tension": {"options": ["Coerce arbitrary provider output into text so the loop continues.", "Reject a non-string completion at the provider boundary."], "decision_rule": "Reject data that violates the internal text contract; preserving an explicit failure is safer than hiding a provider-shape change."},
+        "prediction_prompt": "Before opening the implementation, predict what call_model should do when FakeModel returns a non-string completion and explain why.",
+        "artifact_inspection_prompt": "Inspect the starter types and failing FakeModel test; identify which facts exist before call_model is implemented and which record fields the test can prove.",
+        "implementation_scope": {"build": ["Implement the narrow call_model normalization and ModelCallRecord creation path."], "leave_unchanged": ["Do not add tool dispatch, retries, or message-state policy to this primitive."]},
+        "proof_interpretation": {"establishes": "The focused tests establish the input, output-type, and evidence-record contract for the fake provider cases.", "does_not_establish": "They do not establish that a real provider is reliable, that tools execute safely, or that a multi-step agent can recover."},
+        "transfer_prompt": "If a second provider returns a rich response object, decide whether its metadata belongs in the record, the normalized text contract, or a provider adapter."
+      },
       "requires": [],
       "unlocks": ["0002-message-state-primitive"],
       "learning_goal": "Preserve an inspectable model-call record while normalizing provider output at one boundary.",
       "learner_decision": "Decide which provider response data belongs in ModelCallRecord and reject a non-string completion.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
-      "starting_artifacts": {"source_files": [], "symbols": [], "tests": [], "scenario_sources": []},
+      "starting_artifacts": {"source_files": [], "symbols": [], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "scenario_sources": []},
       "target_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call.py"], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "expected_artifact": "A ModelCallRecord with exact messages, string output, and evidence fields."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/01_model_call/tests_01_model_call.py"], "assertions": ["test_call_model_rejects_non_string_model_output"], "traces_or_output": []},
       "failure_contract": {"source": "curriculum/phase-1/01_model_call/tests_01_model_call.py", "symptom": "A provider response contains a non-string completion.", "responsible_boundary": "call_model provider normalization", "regression_target": "test_call_model_rejects_non_string_model_output"},
@@ -19,8 +32,21 @@
       "micro_world": {"decision": "none", "score": 1, "component": null, "scenario_source": null, "learner_action": "inspect_request_response", "fallback": "annotated_example", "rationale": "One annotated request and response exposes the complete boundary."}
     },
     "0002-message-state-primitive": {
-      "publication": {"status": "draft", "reason": "Rebuild around the repeated-tool-call failure and a second-call proof."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
+      "episode_pattern": "foundation_build",
+      "teaching_contract": {
+        "concrete_problem": "An agent repeats read_file even after the tool succeeded because the next model call cannot see the observation.",
+        "first_principle": "An agent has no hidden durable memory between calls; its message sequence is the state handed back to the model.",
+        "worked_walkthrough": ["Compare the first model-call input with the second after read_file returns a result.", "Follow the user task, assistant request, and tool observation in order to see why the second call can make a different decision."],
+        "boundary_and_invariant": {"boundary": "Message-state accumulation owns the transition from an event to a correctly ordered next-call message.", "invariant": "Before a next model call, every relevant tool observation is appended after the request that caused it without changing prior message order."},
+        "design_tension": {"options": ["Ask the model again and rely on it to remember the tool result.", "Append a normalized tool observation to explicit message state before asking again."], "decision_rule": "Make evidence explicit in the next input; the harness, not an assumed model memory, owns the state transition."},
+        "prediction_prompt": "Given two calls and one successful read_file result, predict what must be present in the second call's messages for repetition to be diagnosable as missing context.",
+        "artifact_inspection_prompt": "Inspect ModelCallRecord from Primitive 1 and the message-state starter test to separate recorded provider evidence from the new state that must be accumulated.",
+        "implementation_scope": {"build": ["Implement ordered conversion and appending of user, assistant, and tool messages."], "leave_unchanged": ["Do not call the model again, reorder history, or decide whether a tool request is valid."]},
+        "proof_interpretation": {"establishes": "The second-call proof establishes that the model receives the user, assistant, and tool observation in the required order.", "does_not_establish": "It does not prove that every model will stop repeating a request or that the requested tool was safe to run."},
+        "transfer_prompt": "When a tool fails instead of succeeding, decide which observation should still be appended and why hiding that failure would make the next decision worse."
+      },
       "requires": ["0001-model-call-primitive"],
       "unlocks": ["0003-manual-tool-protocol"],
       "learning_goal": "Preserve ordered messages so a tool observation reaches the next model call.",
@@ -28,16 +54,29 @@
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
       "starting_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call.py"], "symbols": ["ModelCallRecord"], "tests": [], "scenario_sources": []},
       "target_artifacts": {"source_files": ["curriculum/phase-1/02_message_state/message_state.py"], "tests": ["curriculum/phase-1/02_message_state/tests_02_message_state.py"], "expected_artifact": "A second model call that includes the prior tool observation."},
-      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/02_message_state/tests_02_message_state.py"], "assertions": ["test_tool_result_is_appended_before_next_model_call"], "traces_or_output": []},
-      "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "The agent repeats read_file after it already succeeded.", "responsible_boundary": "message-state accumulation", "regression_target": "test_tool_result_is_appended_before_next_model_call"},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/02_message_state/tests_02_message_state.py"], "assertions": ["test_second_primitive_one_call_receives_the_tool_observation"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/02_message_state/tests_02_message_state.py", "symptom": "The agent repeats read_file after it already succeeded.", "responsible_boundary": "message-state accumulation", "regression_target": "test_second_primitive_one_call_receives_the_tool_observation"},
       "practice_contract": {"kind": "trace_diagnosis", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "diagnose"},
       "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/02_message_state/message_state.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/02_message_state/tests_02_message_state.py"]},
       "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
       "micro_world": {"decision": "optional", "score": 4, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "inspect_message_timeline", "fallback": "annotated_static_trace", "rationale": "A short timeline helps expose accumulation, but a full simulation is unnecessary."}
     },
     "0003-manual-tool-protocol": {
-      "publication": {"status": "draft", "reason": "Rebuild with a parser case set and runnable parser proof."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
+      "episode_pattern": "foundation_build",
+      "teaching_contract": {
+        "concrete_problem": "Assistant output may look like a tool request but be malformed JSON, a JSON value of the wrong outer shape, or trailing prose.",
+        "first_principle": "Text becomes structured data only at an explicit parser boundary; parsing proves syntax and outer shape, not executability.",
+        "worked_walkthrough": ["Follow a valid JSON object from raw assistant text into ToolRequest.", "Contrast it with a JSON string and trailing prose to locate the first claim the parser can no longer make."],
+        "boundary_and_invariant": {"boundary": "The tool-request parser owns JSON decoding and ToolRequest outer-shape checks.", "invariant": "It returns either one structured ToolRequest or a parse/outer-shape error without deciding tool existence or argument validity."},
+        "design_tension": {"options": ["Accept convenient function-like or prose-wrapped syntax from the model.", "Accept only one complete JSON object with the required outer shape."], "decision_rule": "Keep the protocol strict and the parser's guarantee small so later boundaries receive unambiguous structured data."},
+        "prediction_prompt": "Classify each supplied assistant output as parser-acceptable or parser-rejectable before reading the parser implementation, and state the first failed condition.",
+        "artifact_inspection_prompt": "Inspect the previous message-state output shape and the parser test inputs; identify the precise point where raw text crosses into ToolRequest.",
+        "implementation_scope": {"build": ["Implement the JSON and outer-shape parser contract plus its focused cases."], "leave_unchanged": ["Do not add a tool registry, argument schemas, or runtime handler lookup."]},
+        "proof_interpretation": {"establishes": "The parser tests establish behavior for the configured raw-text cases, including valid requests and invalid trailing prose.", "does_not_establish": "They do not prove that a parsed tool exists, that its arguments are safe, or that a handler can execute it."},
+        "transfer_prompt": "For a valid JSON array containing one tool-like object, decide whether the parser should accept it and which later lesson, if any, should own multi-action support."
+      },
       "requires": ["0002-message-state-primitive"],
       "unlocks": ["0004-schema-validation"],
       "learning_goal": "Distinguish valid tool-request JSON from malformed or unsupported model output.",
@@ -53,8 +92,21 @@
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_parser_inputs", "fallback": "input_output_playground", "rationale": "Immediate input and output feedback is useful, but persistent world state is not."}
     },
     "0004-schema-validation": {
-      "publication": {"status": "draft", "reason": "Rebuild around parser guarantees, registry-versus-handler ambiguity, and validation gates."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
+      "episode_pattern": "foundation_build",
+      "teaching_contract": {
+        "concrete_problem": "ToolRequest(tool=read_file, args={path: 123}) is parsed correctly but is not safe or meaningful to execute.",
+        "first_principle": "A parsed request is only structured text; a validation boundary must establish the tool-specific contract before runtime execution.",
+        "worked_walkthrough": ["Start with Primitive 3's ToolRequest to identify exactly what parsing already guarantees.", "Walk the path type failure through registry lookup and argument validation before a runtime handler is even considered."],
+        "boundary_and_invariant": {"boundary": "Tool argument validation owns protocol registry lookup and the registered tool's argument contract.", "invariant": "Only a request for a known tool with arguments matching its declared schema can leave validation as executable input."},
+        "design_tension": {"options": ["Let read_file discover malformed arguments during execution.", "Reject malformed or unknown requests before runtime dispatch using the protocol contract."], "decision_rule": "Validate at the trust boundary, while keeping runtime-handler availability a distinct later decision rather than pretending one registry answers both questions."},
+        "prediction_prompt": "Before opening the validator, decide which boundary owns path=123, where known tools are declared, and whether runtime handler absence is the same failure.",
+        "artifact_inspection_prompt": "Inspect ToolRequest and the parser cases from Primitive 3; state what those artifacts prove and the new responsibility they deliberately leave open.",
+        "implementation_scope": {"build": ["Implement known-tool and argument-shape validation with explicit result codes."], "leave_unchanged": ["Do not execute read_file or merge protocol registry ownership with runtime handler availability."]},
+        "proof_interpretation": {"establishes": "The validation cases establish the declared protocol's behavior for known tools and their arguments.", "does_not_establish": "They do not establish filesystem permission, handler registration, or successful tool execution."},
+        "transfer_prompt": "For submit, decide whether protocol-valid but non-executable control should pass validation, fail dispatch, or terminate before dispatch, and name the evidence needed to decide."
+      },
       "requires": ["0003-manual-tool-protocol"],
       "unlocks": ["0005-sandboxed-file-tools"],
       "learning_goal": "Validate registered tool arguments at the trust boundary before execution.",
@@ -70,8 +122,21 @@
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_validation_inputs", "fallback": "input_output_playground", "rationale": "Validation outcomes are immediate and do not require an evolving simulated world."}
     },
     "0005-sandboxed-file-tools": {
-      "publication": {"status": "draft", "reason": "Rebuild against actual file-tool result codes and regression cases."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "diagnostic_lab",
+      "episode_pattern": "foundation_build",
+      "teaching_contract": {
+        "concrete_problem": "A protocol-valid read_file request can still traverse outside the configured sandbox or produce a confusing file-system result.",
+        "first_principle": "Validation of an argument's shape is not authorization of the resource it names; the capability boundary must enforce containment at use time.",
+        "worked_walkthrough": ["Follow a relative nested path and a parent-traversal path through sandbox resolution.", "Compare FORBIDDEN_PATH with missing-file and directory results to see why one generic failure would destroy useful causal evidence."],
+        "boundary_and_invariant": {"boundary": "The sandboxed file-tool boundary owns canonical path containment and file-operation result normalization.", "invariant": "No read or write resolves outside the configured root, while allowed paths retain accurate success or failure observations."},
+        "design_tension": {"options": ["Trust validated relative-looking paths and pass them directly to filesystem operations.", "Resolve paths against the sandbox and reject any result that escapes it."], "decision_rule": "Authorize the resolved capability, not a string that merely appears harmless before normalization."},
+        "prediction_prompt": "For each path case, predict whether it is contained, which result code applies, and why argument validation alone cannot decide it.",
+        "artifact_inspection_prompt": "Inspect Primitive 4's accepted request shape and the real file-tool cases; distinguish a protocol-valid request from an authorized filesystem operation.",
+        "implementation_scope": {"build": ["Implement or extend contained read/write behavior and add one regression case tied to a rejected path."], "leave_unchanged": ["Do not change parser syntax rules or redefine the protocol registry while fixing containment."]},
+        "proof_interpretation": {"establishes": "The focused file-tool proof establishes containment and normalized outcomes for its covered path and operation cases.", "does_not_establish": "It does not prove that every filesystem race, symlink policy, or future tool capability is safe."},
+        "transfer_prompt": "If a future tool accepts a URL rather than a path, decide which part of the containment reasoning transfers and which new authority boundary it needs."
+      },
       "requires": ["0004-schema-validation"],
       "unlocks": ["0006-agent-loop-primitive"],
       "learning_goal": "Enforce filesystem containment while returning useful file-tool observations.",
@@ -87,14 +152,60 @@
       "micro_world": {"decision": "optional", "score": 5, "component": null, "scenario_source": null, "learner_action": "explore_path_containment", "fallback": "annotated_path_diagram", "rationale": "Spatial containment can benefit from manipulation, but existing path cases may teach it sufficiently."}
     },
     "0006-agent-loop-primitive": {
-      "publication": {"status": "draft", "reason": "Vertical-slice rebuild required before publication."},
+      "publication": {"status": "published", "reason": null},
       "lesson_type": "reconstruction_lab",
+      "episode_pattern": "integration_build",
+      "teaching_contract": {
+        "system_problem": "A protocol-valid read_file request can reach the agent loop while the runtime tools dictionary has no read_file handler; the harness still has to preserve a bounded, explainable trajectory.",
+        "integration_responsibility": "The loop coordinates already-built boundaries in a defined order, turns recoverable failures into observations, maintains message state, and stops safely.",
+        "prerequisite_bridge": {
+          "existing_components": [
+            {"component": "tool-request parser", "already_guarantees": "Raw assistant text becomes either a structured request or a normalized parse failure.", "does_not_guarantee": "The requested tool exists or can execute."},
+            {"component": "tool argument validator", "already_guarantees": "A known protocol tool has arguments that match its registered schema.", "does_not_guarantee": "The runtime tools dictionary has a handler for that tool."},
+            {"component": "sandboxed file tool", "already_guarantees": "A permitted file operation returns a normalized result while containing paths.", "does_not_guarantee": "The loop invoked it in the right order or will stop safely."}
+          ]
+        },
+        "system_model": {
+          "components": [
+            {"component": "parser and validator", "input": "Assistant output text", "output_or_transition": "Validated request or normalized rejection observation", "responsibility": "Establish the protocol contract before runtime dispatch."},
+            {"component": "runtime dispatch", "input": "Validated non-submit request and runtime handler map", "output_or_transition": "Tool result, missing-handler observation, or normalized tool exception", "responsibility": "Decide whether an executable handler is actually available."},
+            {"component": "agent loop", "input": "User task, messages, model output, and each boundary result", "output_or_transition": "Next ordered messages or a submitted/max-steps AgentResult", "responsibility": "Own transition order, observation accumulation, and bounded stopping."}
+          ],
+          "system_invariant": "Every loop iteration records assistant output, invokes boundaries in order, appends a normalized observation for non-terminal outcomes, and never exceeds max_steps."
+        },
+        "worked_trajectories": {
+          "success_path": ["The model requests read_file with valid JSON and arguments.", "The registered runtime handler returns a result that is appended as a tool observation before the next call, which submits the final answer."],
+          "failure_or_edge_path": ["The protocol registry accepts read_file, but runtime dispatch finds no read_file handler.", "The loop appends UNKNOWN_TOOL as an observation, gives the model another bounded turn, and eventually returns submit or max_steps."],
+          "comparison_question": "What evidence distinguishes an unknown protocol tool from a protocol-valid tool whose runtime handler is missing?"
+        },
+        "design_tension": {
+          "options": ["Abort the entire run whenever any component rejects a request.", "Normalize recoverable parser, validation, and dispatch failures into observations while enforcing a bounded step budget."],
+          "decision_rule": "The loop preserves recoverable evidence for the next model decision, but it owns explicit terminal control flow for submit and max_steps."
+        },
+        "prediction_prompt": "Before opening run_agent, predict the next message and responsible boundary when read_file validates successfully but the runtime tools dictionary is empty.",
+        "artifact_inspection_prompt": "Inspect the parser, validator, file-tool contracts, agent-loop tests, and causal scenario to map what each component proves before the loop composes them.",
+        "intervention_strategy": {
+          "mode": "reconstruct",
+          "scaffold": "The real agent_loop.py reconstruction handoff, with the control-flow slice intentionally withheld from copying.",
+          "build_order": ["Append assistant output to message state.", "Validate the output and append a normalized rejection observation when validation fails.", "Return immediately for submit control flow.", "Look up and invoke a runtime handler only after validation.", "Normalize missing handlers and tool exceptions into observations.", "Stop after the configured max_steps budget."],
+          "learner_owns": ["The order of loop transitions and message-state updates.", "At least one normalized runtime failure path and its regression evidence."],
+          "leave_unchanged": ["Parser, validator, and file-tool internals unless diagnosis identifies them as the first bad boundary."],
+          "forbidden_shortcuts": ["Copying the completed loop.", "Bypassing validation or runtime-handler lookup.", "Treating a tool exception as invisible control flow."]
+        },
+        "integration_proof": {
+          "required_evidence": ["A successful tool-result-to-next-model-call trajectory.", "A normalized missing-runtime-handler or tool-exception trajectory.", "A bounded max_steps stop case."],
+          "establishes": "The focused suite establishes the tested ordering, failure normalization, dispatch, submit, and bounded-stop behavior of this composed harness.",
+          "does_not_establish": "It does not establish reliable model behavior, correctness of every future tool, production observability, or broad behavioral evaluation coverage."
+        },
+        "causal_explanation_prompt": "Explain one real failed trajectory as component transitions and contracts; do not attribute the failure merely to the model behaving strangely.",
+        "transfer_prompt": "Change one condition—malformed output, invalid arguments, a missing runtime handler, a tool exception, or exhausted budget—and name the first bad transition, smallest safe intervention, and regression proof."
+      },
       "requires": ["0003-manual-tool-protocol", "0004-schema-validation", "0005-sandboxed-file-tools"],
       "unlocks": ["0007-trace-logger"],
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",
       "learner_decision": "Diagnose the first bad transition and choose the smallest safe correction across parser, validator, runtime registry, and loop control.",
       "established_by": ["curriculum/learning-records/0002-agent-loop-contract.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": ["TOOL_REGISTRY"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
       "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "expected_artifact": "A bounded loop that normalizes failures and preserves message-state observations."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "assertions": ["test_submit_stops_loop", "test_unregistered_runtime_tool_is_rejected_without_execution"], "traces_or_output": ["curriculum/traces/agent-loop-scenarios.json"]},
       "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "A protocol-valid tool can be absent from the runtime handlers.", "responsible_boundary": "agent-loop runtime dispatch", "regression_target": "test_unregistered_runtime_tool_is_rejected_without_execution"},
@@ -104,38 +215,135 @@
       "micro_world": {"decision": "required", "score": 9, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "diagnose_first_bad_transition", "fallback": "annotated_static_trace", "rationale": "Harness decisions evolve through hidden, branching state and are best learned causally."}
     },
     "0007-trace-logger": {
-      "publication": {"status": "locked", "reason": "Trace logger is not implemented; implementation and replayable evidence must exist first."},
-      "lesson_type": "specification",
+      "publication": {"status": "published", "reason": null},
+      "lesson_type": "implementation_lab",
+      "episode_pattern": "diagnostic_clinic",
+      "teaching_contract": {
+        "incident": {
+          "symptom": "A completed run reports final_answer=null and exit_reason=max_steps, but contains no causal fields explaining how it reached that result.",
+          "available_evidence": ["The real partial-run.json fixture.", "The existing run_agent control flow and its focused tests."],
+          "impact": "The learner cannot decide whether the model repeated work, parsing failed, validation rejected a request, runtime dispatch failed, a tool raised, or the budget was exhausted for a legitimate trajectory."
+        },
+        "diagnostic_model": {
+          "first_principle": "A symptom is not a root cause; the earliest violated contract must be supported by recorded evidence, and missing evidence is itself a valid diagnosis.",
+          "candidate_causes": [
+            {"cause": "The model repeatedly requested a tool until max_steps.", "would_explain": "A max-steps result with no final answer.", "distinguishing_evidence": "Assistant output and ordered step records."},
+            {"cause": "A parser, validator, or runtime boundary rejected work before it could complete.", "would_explain": "A max-steps result after repeated normalized observations.", "distinguishing_evidence": "Per-step parse, validation, runtime-handler, and tool-result fields."},
+            {"cause": "The run has no causal record at all.", "would_explain": "Why the supplied final result cannot distinguish either prior cause.", "distinguishing_evidence": "A trace schema produced at the loop boundaries where each fact becomes authoritative."}
+          ],
+          "ownership_rule": "When existing output cannot distinguish plausible first bad transitions, the owning intervention is the boundary that first knows the missing fact—not an invented guess about model behavior."
+        },
+        "worked_investigation": {
+          "observations": ["partial-run.json contains only final_answer and exit_reason.", "The current agent loop already knows assistant output, validation results, runtime handler availability, tool results, and stopping decisions while it executes."],
+          "elimination_steps": ["The final result cannot rule in malformed output, an unavailable handler, a tool exception, or repeated valid work.", "Because no recorded artifact distinguishes those causes, claiming one would be speculation rather than diagnosis."],
+          "current_conclusion": "The incident is evidence-insufficient: causal loop transitions must be recorded before this run can be explained.",
+          "confidence_limit": "The partial fixture proves neither that the model was at fault nor which loop boundary first changed the trajectory."
+        },
+        "prediction_prompt": "Before opening the logger starter, choose the first missing causal field needed to distinguish a rejected request from a repeated valid request, and explain which loop boundary owns it.",
+        "artifact_inspection_sequence": [
+          {"artifact": "curriculum/phase-1/07_trace_logger/fixtures/partial-run.json", "question": "Which concrete diagnostic questions can this output answer?", "fact_established": "It records the terminal outcome but no causal transition."},
+          {"artifact": "curriculum/phase-1/06_agent_loop/agent_loop.py", "question": "Where do assistant output, validation, dispatch, tool result, and exit reason first become authoritative?", "fact_established": "The loop has the required facts at ordered decision boundaries."},
+          {"artifact": "curriculum/phase-1/07_trace_logger/tests_trace_logger.py", "question": "Which fields must one replayable trace preserve?", "fact_established": "The intended proof requires initial messages, causal steps, and terminal outcome."}
+        ],
+        "diagnosis_commitment": {
+          "required_claims": ["first_bad_transition_or_evidence_gap", "responsible_boundary", "rejected_alternative", "evidence_rationale"],
+          "ambiguity_rule": "The learner must conclude evidence is insufficient when the available artifacts cannot distinguish the plausible causes; confidence is not a substitute for a trace."
+        },
+        "intervention_strategy": {
+          "mode": "add_evidence",
+          "smallest_safe_intervention": "Implement TraceLogger and add only the hooks needed for run_agent to capture initial messages, one causal record per step, and the terminal result without changing loop behavior.",
+          "leave_unchanged": ["Parser, validator, runtime dispatch, tool behavior, and max_steps policy unless the new trace actually identifies one as responsible."],
+          "regression_target": "test_trace_logger_records_causal_fields_and_writes_replayable_json",
+          "forbidden_shortcuts": ["Synthesizing a trace after the run from the final result.", "Logging only final_answer and calling it diagnosis.", "Changing loop control flow solely to make output easier to explain."]
+        },
+        "diagnostic_proof": {
+          "required_evidence": ["The original non-diagnostic partial fixture.", "A real agent-loop trajectory that produces a structured JSON trace.", "The trace test that asserts each required causal field and replayable serialization."],
+          "establishes": "The covered run records the fields needed to distinguish its assistant output, validation, runtime dispatch, tool outcome, and terminal decision.",
+          "does_not_establish": "The trace does not prove the model chose the best action, capture every external cause, or make an untested trajectory diagnosable."
+        },
+        "causal_explanation_prompt": "Use one produced trace to explain the incident as evidence gap or first bad transition → owning boundary → intervention → regression, without defaulting to the model as the cause.",
+        "transfer_prompt": "Given a trace that records validation but omits runtime-handler and tool-result fields, decide which hypotheses remain ambiguous, the smallest additional event needed, and the regression proof you would add."
+      },
       "requires": ["0006-agent-loop-primitive"],
-      "unlocks": [],
+      "unlocks": ["0008-eval-runner"],
       "learning_goal": "Use a causal trace to separate model behavior from harness behavior.",
-      "learner_decision": "Specify which missing fields prevent diagnosis before trace capture is implemented.",
+      "learner_decision": "Design and implement the smallest causal trace that distinguishes model output, harness decisions, tool outcomes, and stop reason.",
       "established_by": [],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": []},
-      "target_artifacts": {"source_files": [], "tests": [], "expected_artifact": "Trace logger implementation is not available yet."},
-      "proof_artifacts": {"proof_command": [], "assertions": [], "traces_or_output": []},
-      "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/agent_loop.py", "symptom": "A final answer without causal fields cannot diagnose the run.", "responsible_boundary": "future trace logger", "regression_target": "replayable trace case to be added"},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/phase-1/07_trace_logger/fixtures/partial-run.json"]},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py", "curriculum/phase-1/07_trace_logger/trace_logger.py"], "tests": ["curriculum/phase-1/07_trace_logger/tests_trace_logger.py"], "expected_artifact": "A replayable JSON trace with one causal record for every agent-loop decision."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/07_trace_logger/tests_trace_logger.py"], "assertions": ["test_trace_logger_records_causal_fields_and_writes_replayable_json"], "traces_or_output": ["curriculum/phase-1/07_trace_logger/fixtures/partial-run.json"]},
+      "failure_contract": {"source": "curriculum/phase-1/07_trace_logger/tests_trace_logger.py", "symptom": "A final answer without causal fields cannot diagnose the run.", "responsible_boundary": "trace logger", "regression_target": "test_trace_logger_records_causal_fields_and_writes_replayable_json"},
       "practice_contract": {"kind": "trace_diagnosis", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "diagnose"},
-      "reconstruction_contract": {"mode": "none", "target": "", "proof_command": []},
-      "completion_contract": {"required_milestones": []},
-      "micro_world": {"decision": "required", "score": 8, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "diagnose_trace_fields", "fallback": "annotated_static_trace", "rationale": "Reusing real trajectories makes missing causal evidence directly visible."}
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/07_trace_logger/trace_logger.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/07_trace_logger/tests_trace_logger.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "optional", "score": 4, "component": null, "scenario_source": "curriculum/phase-1/07_trace_logger/fixtures/partial-run.json", "learner_action": "diagnose_trace_fields", "fallback": "annotated_static_trace", "rationale": "A real incomplete run makes the missing causal evidence directly visible."}
     },
     "0008-eval-runner": {
-      "publication": {"status": "locked", "reason": "Eval runner is not implemented; composed cases and eval output must exist first."},
-      "lesson_type": "specification",
+      "publication": {"status": "published", "reason": null},
+      "lesson_type": "implementation_lab",
+      "episode_pattern": "experiment_lab",
+      "teaching_contract": {
+        "decision_question": "Does the composed file-agent harness satisfy the explicitly claimed copy-file behavior across defined trajectories, rather than merely passing its focused component tests?",
+        "behavioral_claim": {
+          "hypothesis": "If each composed case is run against fixed model outputs, tools, and budget, then the eval runner can report whether the actual trajectory satisfies every expected behavior and preserve evidence for failures.",
+          "scope": "The configured deterministic Project 1A eval cases and their declared expected outcomes; not arbitrary provider behavior or all future workflows.",
+          "expected_failure_modes": ["A trajectory reaches submit with the wrong final answer.", "A required side effect such as target file content differs from the expected outcome.", "A failed case loses its trace path or a specific failure reason."]
+        },
+        "baseline": {
+          "existing_evidence": ["Focused Agent Loop tests show individual transitions such as tool-result accumulation and submit control flow.", "The Trace Logger test shows one trajectory can preserve causal fields."],
+          "what_baseline_establishes": "The prerequisite components work for their focused cases and can produce a causal trace.",
+          "what_baseline_does_not_establish": "Focused tests do not grade a composed user workflow across a named case set or report per-case expected-versus-actual behavior."
+        },
+        "measurement_model": {
+          "unit_of_evaluation": "One complete, named agent trajectory with a user task, fixed model outputs, runtime tools, expected final behavior, and trace path.",
+          "cases": {
+            "source": "curriculum/phase-1/08_eval_runner/fixtures/eval-cases.json plus the real wrong-answer case in tests_eval_runner.py.",
+            "inclusion_rule": "Each case must exercise a user-visible composed behavior and declare evidence sufficient to explain a mismatch.",
+            "minimum_coverage": ["A successful multi-tool workflow with an expected side effect.", "A near-identical trajectory whose final answer or other expected field is wrong."]
+          },
+          "outcome_contract": [
+            {"outcome": "case passes", "pass_condition": "Every declared expected field equals the actual result.", "failure_evidence": "The per-case actual and expected records remain available for inspection."},
+            {"outcome": "case fails", "pass_condition": "At least one declared expected field differs from actual behavior.", "failure_evidence": "The report preserves a specific failure reason and causal trace path."}
+          ],
+          "controlled_conditions": ["Use deterministic FakeModel outputs for each configured case.", "Keep the tool implementation, max_steps budget, and expected case contract fixed while evaluating a case."],
+          "confounders": ["Changing model outputs, tools, budget, and expected behavior together would make a result impossible to attribute.", "An aggregate pass count without per-case records can hide which behavior changed."]
+        },
+        "worked_comparison": {
+          "baseline_run": ["The copy-file trajectory reads a.txt, writes b.txt, and submits copied.", "Focused component tests can show individual transitions but do not produce a named expected-versus-actual evaluation report."],
+          "measured_run": ["The same copy-file case is evaluated against its expected exit_reason, final_answer, and target_content.", "A nearly identical run that submits wrong produces a failed EvalCaseResult with a failure reason and trace path."],
+          "interpretation": "The report supports a claim about only its configured cases; the wrong-answer result shows why a score without failed-case evidence is not enough for diagnosis."
+        },
+        "prediction_prompt": "Before implementing the runner, predict whether the wrong-answer trajectory should count as passing because its tools succeeded, and identify the exact expected field that decides the result.",
+        "artifact_inspection_prompt": "Inspect the eval fixture, the copy-file trajectory, and the trace contract; distinguish what unit tests already prove from the composed behavior this experiment measures.",
+        "experiment_strategy": {
+          "mode": "construct",
+          "intervention_or_measurement_change": "Implement one-case evaluation and suite aggregation so expected-versus-actual comparison, per-case failure reason, and trace path become repeatable evidence.",
+          "keep_constant": ["The configured case inputs and expected outcomes while the runner is constructed."],
+          "learner_owns": ["Comparison of every declared expected field.", "Aggregate report counts derived from per-case results.", "Failure reporting that retains causal trace linkage."],
+          "leave_unchanged": ["Agent-loop control flow, trace logger behavior, and the case's tool implementations unless a measured failure identifies them as responsible."],
+          "forbidden_shortcuts": ["Calling a single passing trajectory an evaluation.", "Changing model outputs and expected outcomes together while claiming a behavioral improvement.", "Reporting only an aggregate score without failed-case evidence."]
+        },
+        "measurement_proof": {
+          "required_evidence": ["The configured copy-file case fixture.", "A passing per-case result with expected and actual behavior.", "A failing wrong-answer result with a specific failure reason and trace path.", "Aggregate total, passed, and failed counts derived from those case results."],
+          "establishes": "The runner measures the declared deterministic cases, reports each outcome, and preserves the evidence needed to inspect a covered failure.",
+          "does_not_establish": "It does not establish production success rates, statistical significance, generalization to unlisted tasks, or that a passing aggregate score explains every failure mode."
+        },
+        "interpretation_prompt": "State whether the result supports the configured behavioral claim, then connect one pass or failure to its expected-versus-actual record and causal trace path.",
+        "transfer_prompt": "When adding a new failure mode, decide which variables must stay fixed, whether it needs a new eval case, a unit regression, or both, and what evidence a failed result must preserve."
+      },
       "requires": ["0007-trace-logger"],
       "unlocks": [],
       "learning_goal": "Evaluate multiple trajectories against explicit behavioral assertions.",
-      "learner_decision": "Specify how composed behavioral evaluation differs from focused unit assertions.",
+      "learner_decision": "Implement a report that grades composed cases and preserves causal evidence for each failure.",
       "established_by": [],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": []},
-      "target_artifacts": {"source_files": [], "tests": [], "expected_artifact": "Eval runner implementation is not available yet."},
-      "proof_artifacts": {"proof_command": [], "assertions": [], "traces_or_output": []},
-      "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "Focused tests do not establish a composed user workflow.", "responsible_boundary": "future eval runner", "regression_target": "multi-case evaluation to be added"},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py", "curriculum/phase-1/07_trace_logger/trace_logger.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "curriculum/phase-1/07_trace_logger/tests_trace_logger.py"], "scenario_sources": ["curriculum/phase-1/08_eval_runner/fixtures/eval-cases.json"]},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/08_eval_runner/eval_runner.py"], "tests": ["curriculum/phase-1/08_eval_runner/tests_eval_runner.py"], "expected_artifact": "A per-case eval report with expected and actual behavior, failure reason, and trace path."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/08_eval_runner/tests_eval_runner.py"], "assertions": ["test_eval_runner_reports_each_case_and_causal_trace"], "traces_or_output": ["curriculum/phase-1/08_eval_runner/fixtures/eval-cases.json"]},
+      "failure_contract": {"source": "curriculum/phase-1/08_eval_runner/tests_eval_runner.py", "symptom": "Focused tests do not establish a composed user workflow.", "responsible_boundary": "eval runner", "regression_target": "test_eval_runner_reports_each_case_and_causal_trace"},
       "practice_contract": {"kind": "case_set", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "test"},
-      "reconstruction_contract": {"mode": "none", "target": "", "proof_command": []},
-      "completion_contract": {"required_milestones": []},
-      "micro_world": {"decision": "required", "score": 7, "component": "agent-trace-lab", "scenario_source": "curriculum/traces/agent-loop-scenarios.json", "learner_action": "classify_trajectory_outcomes", "fallback": "annotated_eval_table", "rationale": "Comparing branching trajectories makes assertion coverage and aggregate outcomes concrete."}
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/08_eval_runner/eval_runner.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/08_eval_runner/tests_eval_runner.py"]},
+      "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "regression_added", "reconstruction_passed", "recall_passed", "learning_record_written"]},
+      "micro_world": {"decision": "optional", "score": 4, "component": null, "scenario_source": "curriculum/phase-1/08_eval_runner/fixtures/eval-cases.json", "learner_action": "classify_trajectory_outcomes", "fallback": "annotated_eval_table", "rationale": "A real composed workflow fixture makes assertion coverage and aggregate outcomes concrete."}
     }
   }
 }

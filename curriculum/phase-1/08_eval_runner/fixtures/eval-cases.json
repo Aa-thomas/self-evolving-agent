@@ -1,0 +1,17 @@
+[
+  {
+    "name": "copy-file",
+    "user_task": "Copy a.txt to b.txt.",
+    "model_outputs": [
+      "{\"tool\":\"read_file\",\"args\":{\"path\":\"a.txt\"}}",
+      "{\"tool\":\"write_file\",\"args\":{\"path\":\"b.txt\",\"content\":\"hello\"}}",
+      "{\"tool\":\"submit\",\"args\":{\"answer\":\"copied\"}}"
+    ],
+    "expected": {
+      "exit_reason": "submitted",
+      "final_answer": "copied",
+      "target_content": "hello"
+    },
+    "trace_path": "traces/copy-file.json"
+  }
+]

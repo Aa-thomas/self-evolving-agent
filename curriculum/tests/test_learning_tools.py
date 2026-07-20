@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "curriculum"))
 
-def test_prove_lesson_rejects_a_draft_lesson(tmp_path):
+def test_prove_lesson_requires_an_implementation_handoff(tmp_path):
     database = tmp_path / "study.sqlite3"
 
     result = subprocess.run(
@@ -18,4 +18,4 @@ def test_prove_lesson_rejects_a_draft_lesson(tmp_path):
     )
 
     assert result.returncode != 0
-    assert "not published" in result.stderr
+    assert "complete implementation handoff" in result.stderr

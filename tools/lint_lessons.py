@@ -21,7 +21,7 @@ LOCAL_HREF = re.compile(r'''(?:href|src)=["']([^"']+)["']''')
 TEST_IDENTIFIER = re.compile(r"\b(test_[A-Za-z0-9_]+)\b")
 ERROR_CODE = re.compile(r"\b(?:[A-Z][A-Z0-9]*_){1,}[A-Z0-9]+\b")
 CASE_ID = re.compile(r"\bdata-case-id=[\"'][^\"']+[\"']")
-CHOICE_GROUP = re.compile(r"<fieldset[^>]*data-case-id=[\"'][^\"']+[\"'][^>]*>(.*?)</fieldset>", re.DOTALL)
+CHOICE_GROUP = re.compile(r"(<fieldset[^>]*data-case-id=[\"'][^\"']+[\"'][^>]*>)(.*?)</fieldset>", re.DOTALL)
 OPTION = re.compile(r"<input[^>]*\bvalue=[\"']([^\"']+)[\"'][^>]*>", re.DOTALL)
 ANSWER = re.compile(r"\bdata-answer=[\"']([^\"']+)[\"']")
 
@@ -96,9 +96,9 @@ def lint_lesson(lesson_id: str, lesson: dict[str, Any], source: Path) -> list[st
         errors.append(f"{lesson_id}: practice needs boundary feedback")
 
     positions: list[int] = []
-    for group in CHOICE_GROUP.findall(html):
-        answer_match = ANSWER.search(group)
-        choices = OPTION.findall(group)
+    for opening_tag, contents in CHOICE_GROUP.findall(html):
+        answer_match = ANSWER.search(opening_tag + contents)
+        choices = OPTION.findall(contents)
         if not answer_match or answer_match.group(1) not in choices:
             errors.append(f"{lesson_id}: case is missing a valid answer choice")
             continue

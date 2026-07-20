@@ -283,7 +283,7 @@ function scheduleSave(panel, lessonId, delay = 550) {
   setSaveState(panel, "Saving");
   saveTimer = window.setTimeout(async () => {
     try {
-      if (!studyToken() && !connectStudy()) return setSaveState(panel, "Sync token required");
+      if (!studyToken()) return setSaveState(panel, "Connect sync to save notes");
       const response = await requestStudy(apiPath(lessonId), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

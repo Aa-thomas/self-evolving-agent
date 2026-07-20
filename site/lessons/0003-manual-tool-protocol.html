@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Tool-request parser</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Tool-request parser</title><link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script></head>
 <body><main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 3 of 8</span>
+        <span>Project 1A · Primitive 3</span>
+        <div class="nav-spacer"></div>
+        <a href="0002-message-state-primitive.html" aria-label="Previous lesson">Previous</a>
+        <a href="0004-schema-validation.html" aria-label="Next lesson">Next</a>
+      </nav>
+
 <header><p class="eyebrow">Project 1A · Primitive 3</p><h1>Turn one assistant string into one ToolRequest</h1><p class="lede">The parser owns JSON decoding and the outer request shape. It does not decide whether a tool exists or whether its arguments are safe.</p></header>
-<section><h2>Start from the prior primitive</h2><p>Primitive 2 stores the assistant output as a message. Inspect <a href="../phase-1/02_message_state/message_state.py"><code>message_state.py</code></a>: its job is to preserve that output, not interpret it. The next boundary receives the raw text and must either produce the <code>ToolRequest</code> defined in <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a> or a structured rejection.</p><p><strong>Invariant:</strong> exactly one JSON object with <code>tool</code> and <code>args</code> becomes a request. No informal syntax, extra prose, registry lookup, or argument schema is accepted here.</p></section>
+<section><h2>Start from the prior primitive</h2><p>Primitive 2 stores the assistant output as a message. Inspect <code>message_state.py</code>: its job is to preserve that output, not interpret it. The next boundary receives the raw text and must either produce the <code>ToolRequest</code> defined in <code>03_parse_tool_request.py</code> or a structured rejection.</p><p><strong>Invariant:</strong> exactly one JSON object with <code>tool</code> and <code>args</code> becomes a request. No informal syntax, extra prose, registry lookup, or argument schema is accepted here.</p></section>
 <section data-prediction><h2>Commit a boundary prediction</h2><p><code>{"tool":"read_file"}</code> is valid JSON but lacks <code>args</code>. Which result should the parser return?</p><label><input data-prediction-choice type="radio" name="prediction" value="shape"> <code>INVALID_TOOL_REQUEST_SHAPE</code></label><label><input data-prediction-choice type="radio" name="prediction" value="json"> <code>INVALID_JSON</code></label><label><input data-prediction-choice type="radio" name="prediction" value="unknown"> defer it to later validation</label><textarea data-prediction-rationale placeholder="Name the first boundary that can reject it."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>It is <code>INVALID_TOOL_REQUEST_SHAPE</code>: decoding succeeded, but <code>ToolRequest.model_validate</code> cannot establish the required outer shape. Tool names belong to Primitive 4.</p></section>
-<section><h2>Build and prove the narrow parser</h2><p>Implement or reconstruct <a href="../phase-1/03_parse_tool_request.py"><code>parse_tool_request()</code></a>. Run <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>. The proof covers <code>test_valid_request_produces_tool_request</code> and <code>test_trailing_prose_is_not_json</code>; it establishes the parser boundary, not executable tool availability.</p></section>
+<section><h2>Build and prove the narrow parser</h2><p>Implement or reconstruct <code>parse_tool_request()</code>. Run <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>. The proof covers <code>test_valid_request_produces_tool_request</code> and <code>test_trailing_prose_is_not_json</code>; it establishes the parser boundary, not executable tool availability.</p></section>
 <section data-case-set><h2>Classify the first rejecting boundary</h2><p>Commit every classification before checking it. For each, explain why parsing did or did not succeed.</p>
 <fieldset data-case-id="malformed" data-answer="json" data-correct="Correct: decoding itself fails, so INVALID_JSON is owned here." data-incorrect="Check whether json.loads can decode the raw text."><legend><code>{"tool":"read_file","args":</code></legend><label><input type="radio" name="c1" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c1" value="json">INVALID_JSON</label><label><input type="radio" name="c1" value="registry">registry lookup</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
 <fieldset data-case-id="string" data-answer="shape" data-correct="Correct: a JSON string decodes but is not a ToolRequest object." data-incorrect="Separate JSON decoding from the outer object shape."><legend><code>"hello"</code></legend><label><input type="radio" name="c2" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c2" value="json">INVALID_JSON</label><label><input type="radio" name="c2" value="args">argument validation</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
@@ -16,4 +28,13 @@
 <fieldset data-case-id="trailing-prose" data-answer="json" data-correct="Correct: valid-looking JSON followed by prose is not one JSON document." data-incorrect="The parser cannot silently discard untrusted suffixes."><legend><code>{"tool":"read_file","args":{}} thanks</code></legend><label><input type="radio" name="c8" value="shape">INVALID_TOOL_REQUEST_SHAPE</label><label><input type="radio" name="c8" value="json">INVALID_JSON</label><label><input type="radio" name="c8" value="runtime">runtime handler</label><textarea data-rationale placeholder="Why?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
 </section>
 <section><h2>Explain the proof, then transfer</h2><p>After the tests pass, inspect your implementation: where can <code>INVALID_JSON</code> originate, and where can it not? The suite proves text-to-request behavior; it does not prove <code>read_file</code> is registered or that <code>path</code> is a string. For a changed protocol that permits a top-level <code>request_id</code>, decide whether that field belongs in this outer-shape boundary or the next validation boundary.</p><p class="small">Ask your teacher to review one rejected case and your smallest regression test.</p></section>
-</main></body></html>
+
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 3 of 8</span>
+        <span>Project 1A · Primitive 3</span>
+        <div class="nav-spacer"></div>
+        <a href="0002-message-state-primitive.html" aria-label="Previous lesson">Previous</a>
+        <a href="0004-schema-validation.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main></body></html>

@@ -1,19 +1,38 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>A trace turns a run into evidence — Upcoming</title>
-    <link rel="stylesheet" href="../assets/course.css">
-    <link rel="stylesheet" href="../assets/site.css">
-  </head>
-  <body>
-    <main class="course-home">
-      <p class="eyebrow">Upcoming specification</p>
-      <h1>A trace turns a run into evidence</h1>
-      <p>This lesson is locked. Implement its prerequisite capability and produce runnable evidence before studying it as a completed lesson.</p>
-      <p>Trace logger is not implemented; implementation and replayable evidence must exist first.</p>
-      <p><a href="../index.html">Return to course home</a></p>
-    </main>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Build a trace logger</title><link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script></head>
+<body><main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 7 of 8</span>
+        <span>Project 1A · Primitive 7</span>
+        <div class="nav-spacer"></div>
+        <a href="0006-agent-loop-primitive.html" aria-label="Previous lesson">Previous</a>
+        <a href="0008-eval-runner.html" aria-label="Next lesson">Next</a>
+      </nav>
+
+<header><p class="eyebrow">Project 1A · Primitive 7</p><h1>Build the causal trace the loop is missing</h1><p class="lede">You will implement the trace logger yourself. The repository gives you a real incomplete run, a starter interface, and a proof that currently fails until your logger produces replayable evidence.</p></header>
+<section><h2>Encounter the failure</h2><p>Open <code>partial-run.json</code>. It says only <code>final_answer: null</code> and <code>exit_reason: max_steps</code>. Compare it with the prior loop in <code>agent_loop.py</code>: did the model emit malformed output, did validation reject it, did a runtime handler disappear, or did the loop repeat a valid request? The result cannot answer.</p><p><strong>Invariant:</strong> each trace step preserves the assistant output, parse result, validation result, runtime-handler decision, tool result, and exit reason. The trace is causal evidence, not a final-status log.</p></section>
+<section data-prediction><h2>Commit your trace contract</h2><p>A trace has <code>exit_reason="max_steps"</code> but no assistant outputs. What exact diagnosis is impossible?</p><label><input data-prediction-choice type="radio" name="prediction" value="request">what the model requested at each step</label><label><input data-prediction-choice type="radio" name="prediction" value="latency">which call was slowest</label><label><input data-prediction-choice type="radio" name="prediction" value="storage">where the file was stored</label><textarea data-prediction-rationale placeholder="Name the evidence field that is missing."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>Without assistant output you cannot distinguish model repetition, malformed JSON, or a changed request. Timing and storage may matter later, but neither explains the first bad transition.</p></section>
+<section><h2>Inspect the starter, then implement it</h2><p>Read the interfaces in <code>trace_logger.py</code> and the previous loop in <code>agent_loop.py</code>. Do not look for a completed implementation: add the narrow trace hook to <code>run_agent</code>, then implement <code>TraceLogger.start</code>, <code>record_step</code>, <code>finish</code>, and <code>write_json</code>. Preserve the fields in <code>TraceStep</code>; use only JSON-safe values. Run <code>uv run pytest curriculum/phase-1/07_trace_logger/tests_trace_logger.py</code>. It begins red because <code>test_trace_logger_records_causal_fields_and_writes_replayable_json</code> runs a real agent trajectory through your logger.</p></section>
+<section data-case-set><h2>Name the first missing causal field</h2>
+<fieldset data-case-id="assistant" data-answer="assistant" data-correct="Correct: raw assistant output distinguishes a model proposal from a harness decision." data-incorrect="Start with what the model actually emitted."><legend>Only the final answer and exit reason are saved.</legend><label><input type="radio" name="c1" value="assistant">assistant output</label><label><input type="radio" name="c1" value="latency">latency</label><label><input type="radio" name="c1" value="path">storage path</label><textarea data-rationale placeholder="Why is that causal?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="parse" data-answer="parse" data-correct="Correct: this separates malformed JSON from later validation." data-incorrect="A request-shaped output and a decoded JSON result are different facts."><legend>Assistant output is saved, but the next record jumps to a tool observation.</legend><label><input type="radio" name="c2" value="tool">tool result</label><label><input type="radio" name="c2" value="parse">parse result</label><label><input type="radio" name="c2" value="answer">final answer</label><textarea data-rationale placeholder="Why is that causal?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="validation" data-answer="validation" data-correct="Correct: validation identifies UNKNOWN_TOOL or invalid arguments before execution." data-incorrect="A parsed request is not yet an executable request."><legend>The JSON parsed into <code>read_file</code>, but no record says whether its arguments were accepted.</legend><label><input type="radio" name="c3" value="assistant">assistant output</label><label><input type="radio" name="c3" value="runtime">runtime handler</label><label><input type="radio" name="c3" value="validation">validation result</label><textarea data-rationale placeholder="Why is that causal?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="handler" data-answer="handler" data-correct="Correct: a protocol-valid request can still meet a missing runtime handler." data-incorrect="This is the registry-versus-runtime ambiguity from the loop."><legend>The request validated, but the tool never ran.</legend><label><input type="radio" name="c4" value="handler">runtime-handler decision</label><label><input type="radio" name="c4" value="parse">parse result</label><label><input type="radio" name="c4" value="final">final answer</label><textarea data-rationale placeholder="Why is that causal?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="tool" data-answer="tool" data-correct="Correct: the tool result reveals a normal observation versus TOOL_EXCEPTION." data-incorrect="Execution must produce a record, including failures normalized by the harness."><legend>The handler was selected, but the next model call repeats the request.</legend><label><input type="radio" name="c5" value="exit">exit reason</label><label><input type="radio" name="c5" value="tool">tool result</label><label><input type="radio" name="c5" value="storage">storage path</label><textarea data-rationale placeholder="Why is that causal?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+<fieldset data-case-id="exit" data-answer="exit" data-correct="Correct: the stop reason completes the causal chain." data-incorrect="A trace must state why it stopped, not only what it last observed."><legend>All per-step fields exist, but the trace ends without a run outcome.</legend><label><input type="radio" name="c6" value="assistant">assistant output</label><label><input type="radio" name="c6" value="parse">parse result</label><label><input type="radio" name="c6" value="exit">exit reason</label><textarea data-rationale placeholder="Why is that causal?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
+</section>
+<section><h2>Run proof and explain its limit</h2><p>When the test turns green, inspect the JSON you wrote. Explain the first bad transition in one trace and why the responsible boundary—not “the model being weird”—owns the correction. The proof establishes that the logger preserves the supplied causal fields and writes replayable JSON. It does not yet prove redaction, retention, or that every future loop branch calls your logger. For transfer, design the smallest regression for a missing runtime handler whose protocol validation succeeded.</p><p class="small">Ask your teacher to review the trace you produced before treating the lesson as learned.</p></section>
+
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 7 of 8</span>
+        <span>Project 1A · Primitive 7</span>
+        <div class="nav-spacer"></div>
+        <a href="0006-agent-loop-primitive.html" aria-label="Previous lesson">Previous</a>
+        <a href="0008-eval-runner.html" aria-label="Next lesson">Next</a>
+      </nav>
+    </main></body></html>

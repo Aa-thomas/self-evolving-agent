@@ -5,12 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Project 1A: Agent Loop Reconstruction Lab</title>
     <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css">
     <link rel="stylesheet" href="../assets/agent-trace-lab.css">
     <script defer src="../assets/lesson.js"></script>
+    <link rel="stylesheet" href="../assets/study.css">
+    <script defer src="../assets/study.js"></script>
     <script defer src="../assets/agent-trace-lab.js"></script>
   </head>
   <body>
     <main>
+      <nav class="site-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 6 of 8</span>
+        <span>Project 1A · Reconstruction lab</span>
+        <div class="nav-spacer"></div>
+        <a href="0005-sandboxed-file-tools.html" aria-label="Previous lesson">Previous</a>
+        <a href="0007-trace-logger.html" aria-label="Next lesson">Next</a>
+      </nav>
+
       <header>
         <p class="eyebrow">Project 1A · Reconstruction lab</p>
         <h1>Make the harness own every transition</h1>
@@ -19,8 +31,8 @@
 
       <section>
         <h2>Evidence packet</h2>
-        <p><strong>Starting artifacts:</strong> <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>, <a href="../phase-1/04_validate_tool_args/04_validate_tool_args.py"><code>04_validate_tool_args.py</code></a>, and <a href="../phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"><code>05_sandboxed_file_tools.py</code></a>.</p>
-        <p><strong>Target:</strong> reconstruct the narrow control-flow slice in <a href="../phase-1/06_agent_loop/agent_loop.py"><code>agent_loop.py</code></a>. <strong>Proof:</strong> <a href="../phase-1/06_agent_loop/tests_agent_loop.py"><code>tests_agent_loop.py</code></a>.</p>
+        <p><strong>Starting artifacts:</strong> <code>03_parse_tool_request.py</code>, <code>04_validate_tool_args.py</code>, and <code>05_sandboxed_file_tools.py</code>.</p>
+        <p><strong>Target:</strong> reconstruct the narrow control-flow slice in <code>agent_loop.py</code>. <strong>Proof:</strong> <code>tests_agent_loop.py</code>.</p>
         <p><strong>Failure:</strong> a request can be valid against the protocol registry while its runtime handler is missing. The loop—not the model or tool—must normalize that as an observation.</p>
       </section>
 
@@ -88,6 +100,15 @@
         <h2>Transfer</h2>
         <p>In a high-safety customer environment, which failures would you make terminal instead of bounded recovery? Name the transition and the regression proof you would add.</p>
       </section>
+    
+      <nav class="site-nav bottom-nav" aria-label="Course navigation">
+        <a href="../index.html">Course Home</a>
+        <span>Lesson 6 of 8</span>
+        <span>Project 1A · Reconstruction lab</span>
+        <div class="nav-spacer"></div>
+        <a href="0005-sandboxed-file-tools.html" aria-label="Previous lesson">Previous</a>
+        <a href="0007-trace-logger.html" aria-label="Next lesson">Next</a>
+      </nav>
     </main>
   </body>
 </html>
