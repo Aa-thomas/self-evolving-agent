@@ -2,6 +2,8 @@ import importlib.util
 from copy import deepcopy
 from pathlib import Path
 
+import pytest
+
 
 MODULE_PATH = Path(__file__).resolve().parent / "message_state.py"
 spec = importlib.util.spec_from_file_location("message_state", MODULE_PATH)
@@ -22,7 +24,6 @@ class FakeModel:
         return next(self.outputs)
 
 
-# The assertion here proves the second call includes the right message sequence. User message, then, assistant message, then tool message
 def test_second_primitive_one_call_receives_the_tool_observation():
     messages = []
     model = FakeModel(
@@ -48,7 +49,6 @@ def test_second_primitive_one_call_receives_the_tool_observation():
     }
 
 
-# The assertion here proves that The tool result in that sequence is the actual file content.
 def test_update_message_state_preserves_existing_message_order():
     messages = [{"role": "user", "content": "first"}]
 
@@ -58,3 +58,52 @@ def test_update_message_state_preserves_existing_message_order():
         {"role": "user", "content": "first"},
         {"role": "assistant", "content": "second"},
     ]
+
+
+def test_run_model_turn_appends_assistant_output_after_call():
+    messages = [{"role": "user", "content": "Read notes.txt."}]
+    model = FakeModel(['{"tool": "read_file", "args": {"path": "notes.txt"}}'])
+
+    record = module.run_model_turn(messages, model)
+
+    assert model.calls == [[{"role": "user", "content": "Read notes.txt."}]]
+    assert record.output_text == '{"tool": "read_file", "args": {"path": "notes.txt"}}'
+    assert messages == [
+        {"role": "user", "content": "Read notes.txt."},
+        {
+            "role": "assistant",
+            "content": '{"tool": "read_file", "args": {"path": "notes.txt"}}',
+        },
+    ]
+
+
+def test_append_tool_observation_serializes_structured_result():
+    messages = []
+
+    module.append_tool_observation(messages, {"value": "file contents", "ok": True})
+
+    assert messages == [
+        {
+            "role": "tool",
+            "content": '{"ok": true, "value": "file contents"}',
+        }
+    ]
+    assert module.decode_tool_observation(messages[0]) == {
+        "ok": True,
+        "value": "file contents",
+    }
+
+
+def test_update_message_state_rejects_unsupported_role():
+    with pytest.raises(ValueError, match="unsupported message role"):
+        module.update_message_state([], role="system", content="hidden")
+
+
+def test_update_message_state_rejects_non_string_content():
+    with pytest.raises(TypeError, match="message content must be a string"):
+        module.update_message_state([], role="tool", content={"ok": True})
+
+
+def test_decode_tool_observation_rejects_non_tool_message():
+    with pytest.raises(ValueError, match="only tool messages"):
+        module.decode_tool_observation({"role": "assistant", "content": "{}"})

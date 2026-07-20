@@ -151,7 +151,12 @@ def render_lesson(lessons: list[Lesson], index: int) -> str:
     html = strip_private_links(html)
     html = add_site_assets(html)
     html = html.replace("<main>", "<main>" + nav_html(lessons, index), 1)
-    html = html.replace("</main>", nav_html(lessons, index, bottom=True) + "    </main>", 1)
+    html = re.sub(
+        r"(?m)^[ \t]*</main>",
+        nav_html(lessons, index, bottom=True) + "    </main>",
+        html,
+        count=1,
+    )
     return html
 
 

@@ -1,13 +1,182 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Message-state diagnosis lab</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head><body><main>
-<p class="eyebrow">Primitive 2 · diagnostic lab</p><h1>Make the next call see the observation</h1>
-<section><h2>Evidence packet</h2><p>Start with <a href="../phase-1/01_model_call/model_call.py"><code>model_call.py</code></a>. Build or change <a href="../phase-1/02_message_state/message_state.py"><code>message_state.py</code></a>. Inspect <a href="../phase-1/02_message_state/tests_02_message_state.py"><code>test_second_primitive_one_call_receives_the_tool_observation</code></a>: the second model call must contain user, assistant, then the serialized tool observation.</p></section>
-<section data-prediction><h2>Commit a prediction</h2><p>The model asks for <code>read_file</code>, the tool succeeds, then the model repeats it. What is the first thing to inspect?</p><label><input data-prediction-choice type="radio" name="p" value="messages">the exact second-call messages</label><label><input data-prediction-choice type="radio" name="p" value="temperature">provider temperature</label><label><input data-prediction-choice type="radio" name="p" value="tool">filesystem permissions</label><label>Why?<textarea data-prediction-rationale></textarea></label><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>The model can only use state that the harness passes back. Diagnose the message timeline before assigning intent to the model.</p></section>
-<section data-case-set><h2>Find the absent transition</h2>
-<fieldset data-case-id="missing-observation" data-answer="append"><legend>The tool returned successfully but second-call messages end with assistant output.</legend><label><input type="radio" value="append">append a tool observation</label><label><input type="radio" value="retry">retry provider</label><label><input type="radio" value="schema">change schema</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="order" data-answer="assistant"><legend>What must precede the tool observation?</legend><label><input type="radio" value="assistant">the assistant request</label><label><input type="radio" value="system">a new system prompt</label><label><input type="radio" value="submit">a submit result</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="format" data-answer="json"><legend>How should a structured tool result enter message state?</legend><label><input type="radio" value="repr">Python repr</label><label><input type="radio" value="json">serialized JSON content</label><label><input type="radio" value="hidden">hidden process memory</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="role" data-answer="tool"><legend>Which role owns a file-tool result?</legend><label><input type="radio" value="assistant">assistant</label><label><input type="radio" value="tool">tool</label><label><input type="radio" value="user">user</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="mutation" data-answer="preserve"><legend>What must update_message_state preserve?</legend><label><input type="radio" value="preserve">all earlier ordering</label><label><input type="radio" value="replace">only latest result</label><label><input type="radio" value="sort">alphabetical roles</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="limit" data-answer="not"><legend>What does the second-call proof not establish?</legend><label><input type="radio" value="not">that the model will never repeat work</label><label><input type="radio" value="roles">the message roles</label><label><input type="radio" value="content">the tool result content</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset></section>
-<section><h2>Build, prove, explain</h2><p>Reconstruct <code>update_message_state</code>, <code>append_tool_observation</code>, and one model turn. Run <code>uv run pytest curriculum/phase-1/02_message_state/tests_02_message_state.py</code>. Explain how its captured second call proves context was supplied, but not that the model chose a good next action. Transfer: what state would you deliberately omit for privacy?</p></section>
-</main></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Message state</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Project 1A · Primitive 2 · Foundation build</p>
+        <h1>Give the next model call the evidence it needs</h1>
+        <p class="lede">A model call has no secret memory of the call before it. The harness creates continuity by passing an ordered record of what happened.</p>
+      </header>
+
+      <section>
+        <h2>Why does an agent repeat work?</h2>
+        <p>Imagine the model requests <code>read_file</code>. The tool succeeds and returns the file contents. On the next turn, the model asks for <code>read_file</code> again.</p>
+        <p>It is tempting to blame the model: perhaps its temperature is too high or it ignored the result. But there is a simpler cause to check first. Did the next model call actually receive the tool result?</p>
+        <div class="callout">
+          <strong>First principle:</strong> an agent's working state is the ordered message list supplied to the next model call. If an event is absent from that list, the model cannot use it.
+        </div>
+        <p>Primitive 1 records one provider call. Primitive 2 connects calls by turning each relevant event into a model-visible message.</p>
+      </section>
+
+      <section>
+        <h2>Start from what Primitive 1 already proves</h2>
+        <p>Inspect the completed <a href="../phase-1/01_model_call/model_call.py"><code>model_call.py</code></a> from Primitive 1 and the real <a href="../phase-1/02_message_state/tests_02_message_state.py"><code>tests_02_message_state.py</code></a>. Primitive 1 can prove the exact messages sent during one call. It does not decide what belongs in the next call.</p>
+        <table class="contract-table">
+          <thead><tr><th>Artifact</th><th>What it already guarantees</th><th>What remains missing</th></tr></thead>
+          <tbody>
+            <tr><td><code>call_model</code></td><td>One ordered message list is sent and one output record returns.</td><td>It does not accumulate a conversation.</td></tr>
+            <tr><td><code>ModelCallRecord</code></td><td>The assistant output is available as text.</td><td>It does not append that text to future state.</td></tr>
+            <tr><td>The Lesson 2 tests</td><td>Fake calls expose exactly what the first and second calls received.</td><td>Your implementation must create the missing transitions.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Target artifact:</strong> your <code>message_state.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/02_message_state/tests_02_message_state.py</code>. Use the scaffold before consulting the completed target.</p>
+      </section>
+
+      <section>
+        <h2>A message list is a causal ledger</h2>
+        <p>Each message says who produced an event and what the next model call is allowed to know about it. Order matters because later events only make sense in relation to earlier ones.</p>
+        <table class="contract-table">
+          <thead><tr><th>Role</th><th>Meaning in this harness</th><th>Example from the real proof</th></tr></thead>
+          <tbody>
+            <tr><td><code>user</code></td><td>The task or instruction that begins the trajectory.</td><td><code>Read notes.txt.</code></td></tr>
+            <tr><td><code>assistant</code></td><td>The model output, including a proposed tool request.</td><td><code>{"tool":"read_file",...}</code></td></tr>
+            <tr><td><code>tool</code></td><td>The harness's observation of what the tool returned.</td><td><code>{"ok":true,"value":"file contents"}</code></td></tr>
+          </tbody>
+        </table>
+        <p>The tool message is not the tool itself. It is evidence about the tool outcome, encoded as text so it can cross the model-call boundary.</p>
+      </section>
+
+      <section>
+        <h2>Walk through the successful trajectory</h2>
+        <p>The focused proof begins with one user message. The first fake-model call sees only that task and returns a <code>read_file</code> request. <code>run_model_turn</code> then appends that exact assistant output.</p>
+        <table class="contract-table">
+          <thead><tr><th>Transition</th><th>Messages afterward</th><th>Owner</th></tr></thead>
+          <tbody>
+            <tr><td>Initialize the task</td><td><code>[user]</code></td><td>Message-state setup</td></tr>
+            <tr><td>Record model output</td><td><code>[user, assistant]</code></td><td><code>run_model_turn</code></td></tr>
+            <tr><td>Record tool result</td><td><code>[user, assistant, tool]</code></td><td><code>append_tool_observation</code></td></tr>
+            <tr><td>Call again</td><td>The second call receives all three messages.</td><td>Primitive 1 uses the accumulated state</td></tr>
+          </tbody>
+        </table>
+        <p>Now the second model call can distinguish “I should read the file” from “I already requested it and the harness returned these contents.”</p>
+      </section>
+
+      <section>
+        <h2>What does “decode the tool observation” mean?</h2>
+        <p>Inside the harness, a tool result may be a structured Python value such as <code>{"ok": True, "value": "file contents"}</code>. Message content must be a string, so <code>append_tool_observation</code> serializes that value to JSON and appends it with <code>role="tool"</code>.</p>
+        <pre><code>structured harness result
+        ↓ json.dumps(...)
+{"role": "tool", "content": "{\"ok\": true, ...}"}
+        ↓ json.loads(message["content"])
+structured observation for a test or diagnostic</code></pre>
+        <p><code>decode_tool_observation</code> performs the final arrow. It does not execute the tool and the model does not call it. It lets tests verify that the message string still contains the structured result the harness intended to preserve.</p>
+      </section>
+
+      <section>
+        <h2>Contrast the missing transition</h2>
+        <p>Suppose the tool result exists only in a local Python variable. If the harness calls the model again while the message list still ends with the assistant request, the second input is <code>[user, assistant]</code>. From the model's point of view, no tool result ever happened.</p>
+        <div class="grid">
+          <article class="card"><h3>Assume hidden memory</h3><p>Ask again and hope the model remembers an event that was never supplied. Repetition remains ambiguous.</p></article>
+          <article class="card"><h3>Append explicit evidence</h3><p>Record the tool observation before the next call. The input now explains what happened and preserves it for proof.</p></article>
+        </div>
+        <p>The harness chooses explicit evidence. This does not guarantee the model will act well, but it makes missing context distinguishable from poor model behavior.</p>
+      </section>
+
+      <section class="practice" data-prediction>
+        <h2>Commit your prediction</h2>
+        <p>The tool returned <code>{"ok": true, "value": "file contents"}</code>, but the model requests <code>read_file</code> again. What should you inspect first?</p>
+        <div class="choice-list">
+          <label><input data-prediction-choice type="radio" name="prediction" value="temperature"><span>The provider temperature used for the second call.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="messages"><span>The exact messages supplied to the second call.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="permissions"><span>The filesystem permission used by <code>read_file</code>.</span></label>
+        </div>
+        <label>Why is that the first useful evidence?<textarea data-prediction-rationale placeholder="Connect the repeated request to what the model could actually see."></textarea></label>
+        <button type="button" data-prediction-submit>Commit prediction</button>
+        <p data-feedback class="feedback" aria-live="polite"></p>
+        <div data-prediction-answer hidden class="callout"><strong>Evidence:</strong> inspect <code>model.calls[1]</code>. If it lacks a tool-role message, message-state accumulation is the first bad transition. If the observation is present and accurate, only then investigate model behavior.</div>
+      </section>
+
+      <section data-case-set>
+        <h2>Diagnose the timeline</h2>
+        <p>Commit all seven cases with a rationale. Use the earliest observable transition, not a guess about model intent.</p>
+
+        <fieldset data-case-id="repeated-request" data-answer="inspect" data-correct="Correct. The second-call input distinguishes missing context from a model decision made with complete context." data-incorrect="Start with evidence the harness controls: the exact input to the repeated call." data-shuffle-choices>
+          <legend>The model repeats a successful tool request. What is the first diagnostic action?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-repeated" value="temperature"><span>Lower provider temperature.</span></label><label><input type="radio" name="case-repeated" value="inspect"><span>Inspect the second-call messages.</span></label><label><input type="radio" name="case-repeated" value="retry"><span>Retry the tool immediately.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which artifact can distinguish the causes?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="causal-order" data-answer="ordered" data-correct="Correct. The user task causes the assistant request, which causes the tool observation." data-incorrect="Preserve causal order; the observation must follow the request that produced it." data-shuffle-choices>
+          <legend>Which timeline should the second call receive after a successful tool request?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-order" value="ordered"><span><code>user → assistant → tool</code></span></label><label><input type="radio" name="case-order" value="shortcut"><span><code>user → tool</code></span></label><label><input type="radio" name="case-order" value="reversed"><span><code>tool → assistant → user</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Why does the request need to precede its observation?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="observation-encoding" data-answer="json" data-correct="Correct. JSON preserves a structured result inside the string-valued message contract." data-incorrect="Message content must be text, but the result still needs a stable structure that tests can recover." data-shuffle-choices>
+          <legend>How should <code>{"ok": True, "value": "file contents"}</code> enter message state?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-encoding" value="repr"><span>Use an arbitrary Python representation.</span></label><label><input type="radio" name="case-encoding" value="hidden"><span>Keep it only in a local variable.</span></label><label><input type="radio" name="case-encoding" value="json"><span>Serialize it as JSON tool-message content.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What must the next model call and the proof both receive?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="observation-role" data-answer="tool" data-correct="Correct. The role records that this content is the harness's observation of tool execution." data-incorrect="Do not present an external result as if the user or assistant produced it." data-shuffle-choices>
+          <legend>Which role owns the serialized file-tool result?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-role" value="assistant"><span><code>assistant</code></span></label><label><input type="radio" name="case-role" value="tool"><span><code>tool</code></span></label><label><input type="radio" name="case-role" value="user"><span><code>user</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Who produced the event represented by this message?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="history-preservation" data-answer="append" data-correct="Correct. Appending preserves the causal ledger and adds only the new event." data-incorrect="Replacing or sorting history destroys the relationship between requests and observations." data-shuffle-choices>
+          <legend>What should <code>update_message_state</code> do with existing messages?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-history" value="append"><span>Preserve them and append one event.</span></label><label><input type="radio" name="case-history" value="replace"><span>Replace them with the newest event.</span></label><label><input type="radio" name="case-history" value="sort"><span>Sort them by message role.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which invariant would replacement or sorting violate?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="proof-boundary" data-answer="choice" data-correct="Correct. Complete input context is necessary, but it cannot guarantee a model makes the best decision." data-incorrect="Separate proof of supplied context from a claim about model behavior." data-shuffle-choices>
+          <legend>The second-call test passes. What does it still not establish?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-limit" value="roles"><span>The order of the three message roles.</span></label><label><input type="radio" name="case-limit" value="content"><span>The decoded tool observation content.</span></label><label><input type="radio" name="case-limit" value="choice"><span>The model will always choose the best next action.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What claim is outside this deterministic fake-model proof?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="diagnostic-commitment" data-answer="append" data-correct="Correct. Your rationale should connect the missing tool message to message-state accumulation and the exact second-call regression." data-incorrect="Change the earliest broken harness transition, then name the evidence that would prevent its return." data-shuffle-choices>
+          <legend>The repeated request's second-call roles are only <code>[user, assistant]</code>. What is the smallest safe correction?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-diagnosis" value="retry"><span>Execute <code>read_file</code> again before changing state.</span></label><label><input type="radio" name="case-diagnosis" value="temperature"><span>Lower temperature for every future model call.</span></label><label><input type="radio" name="case-diagnosis" value="append"><span>Append the tool observation before the next call.</span></label></div>
+          <label>Diagnostic rationale<textarea data-rationale placeholder="Name: (1) first bad transition, (2) responsible component, (3) smallest correction, and (4) regression evidence."></textarea></label><button type="button" data-case-submit>Commit diagnosis</button><p data-feedback class="feedback"></p>
+        </fieldset>
+      </section>
+
+      <section>
+        <h2>Build from the scaffold</h2>
+        <p>Open the real <a href="../phase-1/02_message_state/message_state_skeleton.py"><code>message_state_skeleton.py</code></a>. Copy it into your working <code>message_state.py</code> and implement the narrow state transitions.</p>
+        <ol class="compact-list">
+          <li>Validate and append one <code>user</code>, <code>assistant</code>, or <code>tool</code> message without reordering history.</li>
+          <li>Serialize one structured result into a tool-role message.</li>
+          <li>Decode a tool message for test inspection.</li>
+          <li>Call Primitive 1 with current state, then append the returned assistant text.</li>
+        </ol>
+        <p>Do not parse tool requests, execute tools, or call the model again before recording the current output or observation.</p>
+      </section>
+
+      <section>
+        <h2>Run proof, then explain the failure causally</h2>
+        <p>Run <code>uv run pytest curriculum/phase-1/02_message_state/tests_02_message_state.py</code>. Inspect <code>model.calls[1]</code> in <code>test_second_primitive_one_call_receives_the_tool_observation</code>.</p>
+        <div class="grid">
+          <article class="card"><h3>The proof establishes</h3><p>The covered second call receives <code>user → assistant → tool</code> in order, and the tool message decodes to the exact structured result.</p></article>
+          <article class="card"><h3>The proof does not establish</h3><p>That every model will avoid repetition, the tool was safe to execute, or the observation contains every fact a later task may need.</p></article>
+        </div>
+        <p><strong>Explain:</strong> If a repeated request's second-call messages end at <code>assistant</code>, identify the first bad transition, the component that owns the correction, and the exact test evidence that supports your claim.</p>
+      </section>
+
+      <section>
+        <h2>Transfer the reasoning</h2>
+        <p>A tool fails with <code>{"ok": false, "error": "File does not exist"}</code>. Decide whether that failure belongs in message state, which role it uses, and what must be preserved so the model can choose a different next action. Then name one assertion you would add.</p>
+        <p class="small">Ask your teacher to review your message timeline and where your explanation stops being proven by the test.</p>
+      </section>
+    </main>
+  </body>
+</html>

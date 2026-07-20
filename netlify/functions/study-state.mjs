@@ -6,6 +6,11 @@ export const MILESTONE_KEYS = [
   "regression_added", "reconstruction_passed", "recall_passed", "learning_record_written",
 ];
 
+const LEGACY_MILESTONE_KEYS = new Set([
+  "meaningful_practice_passed",
+  "explainer_reviewed",
+]);
+
 export const LOCKED_LESSONS = new Set(
   Object.entries(manifest.lessons)
     .filter(([, lesson]) => lesson.publication.status === "locked")
@@ -97,7 +102,7 @@ export function sanitizeLearning(payload, existing, status, plan, reflection) {
   if (PHASE_ORDER.indexOf(phase) < PHASE_ORDER.indexOf(current.phase || "not_started")) phase = current.phase;
   const incomingMilestones = payload.milestones ?? {};
   if (!incomingMilestones || typeof incomingMilestones !== "object" || Array.isArray(incomingMilestones)) throw new Error("Learning milestones have an invalid shape.");
-  if (Object.keys(incomingMilestones).some((key) => !MILESTONE_KEYS.includes(key))) throw new Error("Learning milestones have an invalid shape.");
+  if (Object.keys(incomingMilestones).some((key) => !MILESTONE_KEYS.includes(key) && !LEGACY_MILESTONE_KEYS.has(key))) throw new Error("Learning milestones have an invalid shape.");
   if (Object.values(incomingMilestones).some((value) => typeof value !== "boolean")) throw new Error("Learning milestones must be booleans.");
   const evidence = { ...emptyStudy("").evidence, ...(current.evidence || {}) };
   if (payload.evidence !== undefined) {
