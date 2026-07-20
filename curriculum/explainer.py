@@ -26,11 +26,11 @@ def build_explainer(
     open_question = state.get("plan", {}).get("open_question", "")
     diff = proof.get("diff", "").strip()
     diff_section = diff if diff else "No uncommitted target diff was present. Use the configured target and passing proof as the evidence boundary."
-    targets = ", ".join(lesson["implementation"]["targets"]) or "No implementation target exists yet."
+    targets = ", ".join(lesson["target_artifacts"]["source_files"]) or "No implementation target exists yet."
     source = lesson.get("micro_world", {}).get("scenario_source")
     questions = [
         f"State the invariant for {lesson_id} without reopening the lesson.",
-        f"Explain how the passing proof `{lesson['implementation']['first_proof']}` demonstrates behavior but not understanding by itself.",
+        "Explain how the passing proof demonstrates behavior but not understanding by itself.",
         "Choose one failure trajectory and explain which component must intervene next.",
     ]
     markdown = f"""# Implementation Explainer: {lesson_id}

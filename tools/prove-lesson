@@ -54,8 +54,9 @@ def main() -> None:
     args = parser.parse_args()
 
     config = lesson_config(args.lesson_id, load_manifest())
-    implementation = config["implementation"]
-    command = implementation["proof_command"]
+    if config["publication"]["status"] != "published":
+        raise SystemExit(f"{args.lesson_id} is not published and cannot be completed.")
+    command = config["proof_artifacts"]["proof_command"]
     if not command:
         raise SystemExit(f"{args.lesson_id} does not have an executable proof yet.")
 
@@ -81,8 +82,8 @@ def main() -> None:
         "passed": result.returncode == 0,
         "stdout": result.stdout[-30_000:],
         "stderr": result.stderr[-30_000:],
-        "targets": implementation["targets"],
-        "diff": git_diff(implementation["targets"]),
+        "targets": config["target_artifacts"]["source_files"],
+        "diff": git_diff(config["target_artifacts"]["source_files"]),
     }
 
     run_directory = CURRICULUM / "data" / "proof-runs"

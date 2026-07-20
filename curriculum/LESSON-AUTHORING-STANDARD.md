@@ -1,76 +1,108 @@
-# Learner-Facing HTML Lesson Standard
+# Evidence-First Lesson Authoring Standard
 
 ## Purpose
 
-Every file in `lessons/` is a learner-facing HTML lesson, not a reference card or a thin wrapper around an exercise. It must build the engineering judgment needed for AI Engineer, Applied AI Engineer, and Forward Deployed Engineer work.
+A learner-facing lesson is an evidence-first learning episode, not a page template. It must move a learner through a real engineering decision:
 
-This standard applies to all new and materially rewritten lessons. It supplements `MISSION.md` and the general teaching skill.
+```text
+failure or decision → prediction → artifact inspection → intervention
+→ implementation or reconstruction → executable proof → causal explanation → transfer
+```
 
-## Required shape
+Filling headings, recognizing an obvious answer, or checking a box is not lesson completion. This standard supplements `MISSION.md` and applies to every Project 1A lesson.
 
-Each lesson teaches one tightly scoped concept, but teaches it deeply enough to use outside the lesson. It must include:
+## Pre-authoring evidence packet
 
-1. **Mission and role framing** — state why the concept matters in a production-shaped AI system and connect it to a realistic engineering responsibility.
-2. **Concrete system walkthrough** — use a running example, code path, message flow, trace, request, or other artifact from this curriculum. Do not teach only through definitions.
-3. **Prediction before explanation** — ask the learner to predict behavior, identify an invariant, or choose an intervention before showing the answer.
-4. **Failure case** — show at least one plausible bad input, failed trajectory, incident, or security/reliability problem. Explain where the harness or service must intervene and why.
-5. **Evidence and observability** — identify the test, eval, trace, metric, log, or reproducible command that would establish confidence in the behavior.
-6. **Engineering tradeoff** — name a real choice such as strictness versus recovery, latency versus validation, flexibility versus permissions, or product speed versus auditability. Explain the appropriate choice for the scenario.
-7. **Meaningful practice with feedback** — require an answer that demonstrates reasoning, such as classifying an input, ordering a trajectory, diagnosing a trace, selecting a test, or explaining a design decision. Keyword-presence checks alone are not sufficient feedback.
-8. **Transfer prompt** — end with a brief question that asks how the primitive would change in a different customer, data, or operational setting.
+Complete this packet before writing lesson prose. A topic alone (for example, “validation” or “message state”) is insufficient.
 
-## Depth without sprawl
+```yaml
+learning_decision: What must the learner decide, diagnose, or build?
+starting_artifacts:
+  # Existing dependencies and evidence the learner can inspect before this lesson.
+  source_files: []
+  symbols: []
+  tests: []
+  traces_or_fixtures: []
+target_artifacts:
+  # Files, tests, or behavior the learner must create or change.
+  source_files: []
+  tests: []
+  expected_artifact: ""
+proof_artifacts:
+  # Runnable tests, traces, and output that demonstrate correctness.
+  proof_command: []
+  assertions: []
+  traces_or_output: []
+invariant: The behavior that must remain true.
+real_failure: A failing test, bad trajectory, defect, ambiguity, or realistic incident.
+design_tension: At least two plausible engineering choices.
+learner_intervention: The code change, diagnosis, test, trace annotation, or reconstruction task.
+reconstruction: annotated | skeleton | blank | none
+```
 
-Keep one central concept per lesson and use progressive disclosure:
+“Real repository artifacts” are actual files or outputs in the learner’s repository: earlier primitives, starter files, types, interfaces, failing tests, fixtures, saved traces, command output, or implementation produced during the lesson. They are never snippets invented only for prose.
 
-1. Establish the system context and the invariant.
-2. Walk through the happy path.
-3. Introduce a realistic failure.
-4. Let the learner make and check a decision.
-5. Connect the result to runnable evidence and the next lesson.
+`starting_artifacts` are what may be inspected before the learner builds. `target_artifacts` are the destination and need not exist at the start. `proof_artifacts` demonstrate the finished result. Do not reveal a current primitive’s completed solution at the beginning unless the lesson is deliberately a debugging, code-reading, or reconstruction lab.
 
-This is in-depth instruction without turning one page into an entire project. Supporting details belong in linked references, code artifacts, traces, or follow-on lessons.
+## Required learner operations
 
-## Role-oriented framing
+Authors may arrange a lesson in the structure that best fits its decision, but it must cause the learner to:
 
-The lesson should answer these questions plainly:
+1. Commit a prediction and short rationale before seeing the answer.
+2. Inspect a real repository artifact available at that point in the path.
+3. Identify the responsible boundary or first bad transition.
+4. Compare plausible interventions or designs.
+5. Implement, debug, test, or reconstruct a narrow slice.
+6. Run an executable proof.
+7. Explain what the proof establishes and what it does not establish.
+8. Apply the reasoning to a changed scenario.
 
-- What breaks for a user, customer, or operator if this primitive is wrong?
-- How would an engineer detect and reproduce that failure?
-- What evidence would be convincing in a design review, customer demo, or incident follow-up?
-- What tradeoff does the engineer own?
+## Lesson types and publication
 
-Use the role connection that genuinely fits the lesson. Do not add generic career language where it does not clarify the engineering decision.
+Valid lesson types are `briefing`, `implementation_lab`, `diagnostic_lab`, `reconstruction_lab`, and `specification`.
 
-## Artifact integrity
+- A briefing can introduce a concept but cannot establish meaningful practice or completion.
+- A specification describes unavailable work and must be `locked`.
+- A published Project 1A lesson must include implementation, diagnosis from actual evidence, test/eval construction, or reconstruction.
+- A learner-facing page alone is not a completed lesson. A lesson cannot be published until its implementation, proof, and evidence artifacts exist.
 
-Every linked code artifact, test, trace, eval, and command must exist and work before the lesson is published. A lesson must not promise a capability that the curriculum repository does not yet provide.
+## Practice requirements
 
-When the lesson teaches a contract or invariant, its practice and linked proof must test the same behavior. If the implementation changes, update the lesson in the same change.
+Practice must require judgment, not recognition. Classification-oriented concepts require 5–8 or more cases (normally at least 6), including an ambiguous or near-boundary case. Cases must use plausible distractors based on real misconceptions, vary correct-answer positions, require a written rationale where judgment matters, and explain the violated boundary after commitment. A single correct recognition answer never establishes mastery.
 
-Every lesson must also have an entry in `learning-flow.json`. The manifest is the machine-readable contract for prerequisites, implementation evidence, unlocks, and the appropriate teaching form.
+For diagnostic practice, require the learner to name the first incorrect transition, responsible component, smallest correction, and regression evidence. For reconstruction, provide an annotated, skeleton, or blank-file handoff tied to a runnable proof.
 
-## Micro-world decision gate
+## Rejections
 
-Use the smallest teaching form that exposes the concept. A quiz tests judgment, a playground tries isolated inputs, and a micro-world exposes an evolving system with hidden state and causal consequences.
+Reject a lesson that:
 
-A micro-world is eligible only when:
+- reveals the prediction answer in the following paragraph;
+- substitutes pseudocode for available real code;
+- uses generic “this matters in production” language;
+- teaches vocabulary rather than decisions;
+- uses absurd distractors or one-answer practice;
+- describes an implementation that does not exist;
+- claims future work as present evidence;
+- removes the implementation’s real ambiguity;
+- tests recall of page wording rather than engineering reasoning; or
+- treats checklist completion as proof of mastery.
 
-1. the goal is a mental model rather than fact recall;
-2. important behavior is hidden, dynamic, spatial, or branching;
-3. learner actions reveal meaningful cause and effect; and
-4. the world is grounded in real code, traces, schemas, or tests.
+## Pedagogical review rubric
 
-Record the decision, score, rationale, scenario source, learner action, and static fallback in `learning-flow.json`. A full micro-world requires a score of at least six. Do not add one when an annotated example or small playground teaches the same thing.
+Before publication, score the lesson and record the evidence for each applicable dimension:
 
-## Author checklist
+| Dimension | Required question |
+| --- | --- |
+| Procedural | Must the learner build or change something? |
+| Diagnostic | Must they locate a failure or responsible component? |
+| Conditional | Must they decide when a rule applies? |
+| Design | Must they compare plausible choices? |
+| Evidence | Must they inspect or produce runnable proof? |
+| Reconstruction | Must they reproduce the mechanism without copying? |
+| Transfer | Must they handle a changed case? |
 
-Before publishing, verify:
+Not every primitive needs the maximum score in every dimension, but no lesson passes with declarative knowledge alone.
 
-- The page has all eight required elements above.
-- The learner must reason about behavior; they cannot pass by repeating vocabulary.
-- Every internal link and runnable proof is valid.
-- The lesson has a primary-source recommendation and links to relevant reference material.
-- The page makes a tangible contribution to the primitive -> micro-system -> benchmarked harness progression.
-- The learning-flow entry is valid, and any micro-world is justified and grounded in a real artifact.
-- The lesson is readable as a standalone page, while still linking forward to the next skill.
+## Publication checklist
+
+Before publishing, verify that the evidence packet is complete, every referenced artifact resolves, the configured proof passes, practice meets its contract, the learner can make and explain a real intervention, and the manifest and lesson linter both pass. Review against `MISSION.md`, not merely HTML structure.

@@ -7,6 +7,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from study_server import StudyStore
 
 
+def ready_payload():
+    attempts = [{"kind": "prediction", "selected": "normalize", "rationale": "The harness owns the decision."}]
+    attempts.extend(
+        {
+            "kind": "case",
+            "case_id": f"case-{number}",
+            "selected": "boundary",
+            "rationale": "This identifies the first responsible boundary.",
+            "passed": number < 6,
+        }
+        for number in range(6)
+    )
+    return {
+        "status": "ready_to_implement",
+        "evidence": {"practice_attempts": attempts},
+        "plan": {
+            "target_function": "run_agent",
+            "smallest_slice": "Stop on submit.",
+            "must_do": "Return the submitted answer.",
+            "must_not_do": "Call an external tool.",
+            "first_proof": "test_submit_stops_loop",
+            "open_question": "When is the assistant message appended?",
+        },
+    }
+
+
 def test_study_store_migrates_legacy_reflections(tmp_path):
     database = tmp_path / "study.sqlite3"
     with sqlite3.connect(database) as connection:
@@ -38,10 +64,8 @@ def test_study_store_migrates_legacy_reflections(tmp_path):
 def test_study_store_round_trip(tmp_path):
     store = StudyStore(tmp_path / "study.sqlite3")
 
-    saved = store.save(
-        "0006-agent-loop-primitive",
-        {
-            "status": "ready_to_implement",
+    payload = ready_payload()
+    payload.update({
             "responses": {
                 "jot_notes": {
                     "answer": "submit, stop condition, no external tool",
@@ -52,22 +76,14 @@ def test_study_store_round_trip(tmp_path):
                     "self_assessment": "clear",
                 }
             },
-            "plan": {
-                "target_function": "run_agent",
-                "smallest_slice": "Stop on submit.",
-                "must_do": "Return the submitted answer.",
-                "must_not_do": "Call an external tool.",
-                "first_proof": "test_submit_stops_loop",
-                "open_question": "When is the assistant message appended?",
-            },
             "reflection": {
                 "feynman_explanation": "The model suggests moves, but the harness is the referee.",
                 "feynman_limit": "The analogy hides JSON parsing and validation details.",
                 "mental_model": "The model proposes; the harness decides.",
                 "next_step": "Implement submit handling at home.",
             },
-        },
-    )
+    })
+    saved = store.save("0006-agent-loop-primitive", payload)
 
     assert saved["status"] == "ready_to_implement"
     assert saved["responses"]["jot_notes"]["answer"] == "submit, stop condition, no external tool"
@@ -81,6 +97,8 @@ def test_study_store_round_trip(tmp_path):
     )
     assert saved["reflection"]["next_step"] == "Implement submit handling at home."
     assert saved["phase"] == "ready_to_implement"
+    assert saved["milestones"]["prediction_committed"] is True
+    assert saved["milestones"]["case_set_passed"] is True
     assert saved["milestones"]["implementation_plan_ready"] is True
     assert saved["milestones"]["proof_passed"] is False
     assert saved["events"][0]["event_type"] == "lesson.ready_to_implement"
@@ -97,20 +115,7 @@ def test_study_store_round_trip(tmp_path):
 
 def test_study_store_requires_proof_before_consolidation(tmp_path):
     store = StudyStore(tmp_path / "study.sqlite3")
-    ready = store.save(
-        "0006-agent-loop-primitive",
-        {
-            "status": "ready_to_implement",
-            "plan": {
-                "target_function": "run_agent",
-                "smallest_slice": "Stop on submit.",
-                "must_do": "Return the answer.",
-                "must_not_do": "Execute submit.",
-                "first_proof": "test_submit_stops_loop",
-                "open_question": "none",
-            },
-        },
-    )
+    ready = store.save("0006-agent-loop-primitive", ready_payload())
 
     try:
         store.save(
@@ -125,3 +130,43 @@ def test_study_store_requires_proof_before_consolidation(tmp_path):
         assert "proof_passed" in str(error)
     else:
         raise AssertionError("Consolidation advanced without a passing proof")
+
+
+def test_single_correct_click_cannot_pass_practice(tmp_path):
+    store = StudyStore(tmp_path / "study.sqlite3")
+    payload = ready_payload()
+    payload["evidence"] = {"practice_attempts": [
+        {"kind": "prediction", "selected": "normalize", "rationale": "The harness owns the decision."},
+        {"kind": "case", "case_id": "one", "selected": "boundary", "rationale": "Because parsing succeeds.", "passed": True},
+    ]}
+
+    try:
+        store.save("0006-agent-loop-primitive", payload)
+    except ValueError as error:
+        assert "case_set_passed" in str(error)
+    else:
+        raise AssertionError("One correct case advanced the lesson")
+
+
+def test_server_rejects_forged_milestones(tmp_path):
+    store = StudyStore(tmp_path / "study.sqlite3")
+    payload = ready_payload()
+    payload.update({"phase": "consolidating", "milestones": {"proof_passed": True}})
+
+    try:
+        store.save("0006-agent-loop-primitive", payload)
+    except ValueError as error:
+        assert "proof_passed" in str(error)
+    else:
+        raise AssertionError("Forged proof milestone was accepted")
+
+
+def test_locked_lesson_cannot_be_marked_learned(tmp_path):
+    store = StudyStore(tmp_path / "study.sqlite3")
+
+    try:
+        store.save("0007-trace-logger", {"status": "studying", "phase": "learned"})
+    except ValueError as error:
+        assert "Locked specifications" in str(error)
+    else:
+        raise AssertionError("Locked lesson was marked learned")

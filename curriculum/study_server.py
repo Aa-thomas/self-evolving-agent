@@ -13,6 +13,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from learning_flow import ManifestError, lesson_config, load_manifest
+
 ROOT = Path(__file__).resolve().parents[1]
 SITE_ROOT = ROOT / "site"
 DEFAULT_DATABASE = ROOT / "curriculum" / "data" / "study.sqlite3"
@@ -27,10 +29,14 @@ PHASES = {
     "learned",
 }
 MILESTONE_KEYS = {
-    "meaningful_practice_passed",
+    "prediction_committed",
+    "case_set_passed",
+    "artifact_inspected",
     "implementation_plan_ready",
     "proof_passed",
-    "explainer_reviewed",
+    "failure_explained",
+    "regression_added",
+    "reconstruction_passed",
     "recall_passed",
     "learning_record_written",
 }
@@ -241,17 +247,13 @@ class StudyStore:
                     requested_phase = current_phase
             if requested_phase not in PHASES:
                 raise ValueError("Invalid lesson phase.")
-            milestones = sanitize_milestones(
-                payload.get("milestones"),
-                json.loads(current_learning["milestones_json"]) if current_learning else None,
-            )
-            if requested_phase == "ready_to_implement" and plan_is_complete(plan):
-                milestones["implementation_plan_ready"] = True
             evidence = sanitize_evidence(
                 payload.get("evidence"),
                 json.loads(current_learning["evidence_json"]) if current_learning else None,
             )
-            validate_learning_transition(current_phase, requested_phase, milestones)
+            lesson = lesson_contract(lesson_id)
+            milestones = derive_milestones(lesson, plan, reflection, evidence)
+            validate_learning_transition(current_phase, requested_phase, milestones, lesson)
             connection.execute(
                 "INSERT INTO lesson_study (lesson_id, status, updated_at) VALUES (?, ?, ?) "
                 "ON CONFLICT(lesson_id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at",
@@ -384,15 +386,20 @@ def empty_milestones() -> dict[str, bool]:
 def empty_evidence() -> dict[str, object]:
     return {
         "practice_attempts": [],
+        "artifact_inspections": [],
         "proof_runs": [],
         "trace_paths": [],
         "explainer_path": None,
+        "failure_explanations": [],
+        "regression_paths": [],
+        "reconstruction_attempts": [],
         "recall_attempts": [],
         "learning_record_path": None,
     }
 
 
 def sanitize_milestones(value: object, existing: dict[str, object] | None = None) -> dict[str, bool]:
+    """Validate legacy payload shape; milestones are always derived from evidence."""
     result = {**empty_milestones(), **(existing or {})}
     if value is None:
         return {key: bool(result[key]) for key in sorted(MILESTONE_KEYS)}
@@ -412,7 +419,10 @@ def sanitize_evidence(value: object, existing: dict[str, object] | None = None) 
     if not isinstance(value, dict) or set(value) - set(empty_evidence()):
         raise ValueError("Learning evidence has an invalid shape.")
     for key, item in value.items():
-        if key in {"practice_attempts", "proof_runs", "trace_paths", "recall_attempts"}:
+        if key in {
+            "practice_attempts", "artifact_inspections", "proof_runs", "trace_paths",
+            "failure_explanations", "regression_paths", "reconstruction_attempts", "recall_attempts",
+        }:
             if not isinstance(item, list):
                 raise ValueError(f"Evidence field {key} must be a list.")
             result[key] = item[-50:]
@@ -423,17 +433,106 @@ def sanitize_evidence(value: object, existing: dict[str, object] | None = None) 
     return result
 
 
-def validate_learning_transition(from_phase: str, to_phase: str, milestones: dict[str, bool]) -> None:
+def lesson_contract(lesson_id: str) -> dict[str, object]:
+    try:
+        return lesson_config(lesson_id, load_manifest())
+    except ManifestError as error:
+        raise ValueError(str(error)) from error
+
+
+def has_textual_evidence(entries: object, *, key: str | None = None) -> bool:
+    if not isinstance(entries, list):
+        return False
+    for entry in entries:
+        if isinstance(entry, str) and entry.strip():
+            return True
+        if isinstance(entry, dict):
+            value = entry.get(key, "") if key else next((item for item in entry.values() if isinstance(item, str)), "")
+            if isinstance(value, str) and value.strip():
+                return True
+    return False
+
+
+def derive_milestones(
+    lesson: dict[str, object],
+    plan: dict[str, object],
+    reflection: dict[str, object],
+    evidence: dict[str, object],
+) -> dict[str, bool]:
+    """Derive completion state from inspectable evidence; never trust browser booleans."""
+    attempts = evidence.get("practice_attempts", [])
+    prediction = any(
+        isinstance(attempt, dict)
+        and attempt.get("kind") == "prediction"
+        and isinstance(attempt.get("selected"), str) and attempt["selected"].strip()
+        and isinstance(attempt.get("rationale"), str) and attempt["rationale"].strip()
+        for attempt in attempts if isinstance(attempts, list)
+    )
+    latest_cases: dict[str, bool] = {}
+    if isinstance(attempts, list):
+        for attempt in attempts:
+            if not isinstance(attempt, dict) or attempt.get("kind") != "case":
+                continue
+            case_id = attempt.get("case_id")
+            if isinstance(case_id, str) and case_id and isinstance(attempt.get("passed"), bool):
+                latest_cases[case_id] = attempt["passed"]
+    practice = lesson["practice_contract"]
+    minimum = practice["minimum_cases"]
+    threshold = practice["passing_threshold"]
+    case_set_passed = len(latest_cases) >= minimum and (sum(latest_cases.values()) / len(latest_cases)) >= threshold
+    proof_passed = any(
+        isinstance(run, dict) and run.get("passed") is True
+        for run in evidence.get("proof_runs", []) if isinstance(evidence.get("proof_runs", []), list)
+    )
+    reconstruction = lesson["reconstruction_contract"]
+    reconstruction_passed = reconstruction["mode"] == "none" or any(
+        isinstance(attempt, dict) and attempt.get("passed") is True
+        for attempt in evidence.get("reconstruction_attempts", []) if isinstance(evidence.get("reconstruction_attempts", []), list)
+    )
+    recall_passed = any(
+        isinstance(attempt, dict) and attempt.get("assessed_as") == "passed"
+        for attempt in evidence.get("recall_attempts", []) if isinstance(evidence.get("recall_attempts", []), list)
+    )
+    record_path = evidence.get("learning_record_path")
+    record_exists = False
+    if isinstance(record_path, str) and record_path:
+        candidate = (ROOT / record_path).resolve()
+        record_exists = ROOT in candidate.parents and candidate.is_file()
+    return {
+        "prediction_committed": prediction,
+        "case_set_passed": case_set_passed,
+        "artifact_inspected": has_textual_evidence(evidence.get("artifact_inspections")),
+        "implementation_plan_ready": plan_is_complete(plan),
+        "proof_passed": proof_passed,
+        "failure_explained": has_textual_evidence(evidence.get("failure_explanations"), key="explanation")
+        or bool(text_value(reflection.get("feynman_explanation")).strip() and text_value(reflection.get("feynman_limit")).strip()),
+        "regression_added": has_textual_evidence(evidence.get("regression_paths")),
+        "reconstruction_passed": reconstruction_passed,
+        "recall_passed": recall_passed,
+        "learning_record_written": record_exists,
+    }
+
+
+def validate_learning_transition(
+    from_phase: str,
+    to_phase: str,
+    milestones: dict[str, bool],
+    lesson: dict[str, object],
+) -> None:
     if PHASE_ORDER[to_phase] < PHASE_ORDER[from_phase]:
         raise ValueError("Lesson phase cannot move backward.")
-    requirements = {
-        "ready_to_implement": "implementation_plan_ready",
-        "consolidating": "proof_passed",
-        "learned": "learning_record_written",
-    }
-    requirement = requirements.get(to_phase)
-    if requirement and not milestones[requirement]:
-        raise ValueError(f"Phase {to_phase} requires milestone {requirement}.")
+    if lesson["publication"]["status"] == "locked" and to_phase == "learned":
+        raise ValueError("Locked specifications cannot be marked learned.")
+    required = {
+        "ready_to_implement": ("prediction_committed", "case_set_passed", "implementation_plan_ready"),
+        "consolidating": ("proof_passed",),
+        "learned": ("failure_explained", "recall_passed", "learning_record_written"),
+    }.get(to_phase, ())
+    if lesson["reconstruction_contract"]["mode"] != "none" and to_phase == "learned":
+        required = (*required, "reconstruction_passed")
+    missing = [milestone for milestone in required if not milestones[milestone]]
+    if missing:
+        raise ValueError(f"Phase {to_phase} requires evidence for: {', '.join(missing)}.")
 
 
 def event_for_phase(phase: str) -> str:
