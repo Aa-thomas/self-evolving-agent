@@ -1,13 +1,155 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Model-call evidence lab</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head><body><main>
-<p class="eyebrow">Primitive 1 · implementation lab</p><h1>Keep the model boundary inspectable</h1>
-<section><h2>Evidence packet</h2><p>Inspect <a href="../phase-1/01_model_call/model_call.py"><code>model_call.py</code></a> and <a href="../phase-1/01_model_call/tests_01_model_call.py"><code>tests_01_model_call.py</code></a>. The target is <code>call_model</code>: it must return <code>ModelCallRecord</code>, retain exact input messages and timing/usage evidence, and reject a provider completion that is not text. Run <code>uv run pytest curriculum/phase-1/01_model_call/tests_01_model_call.py</code>.</p></section>
-<section data-prediction><h2>Commit a prediction</h2><p>A provider returns <code>{"content":"pong"}</code> instead of a string. Which boundary owns the correction?</p><label><input data-prediction-choice type="radio" name="p" value="adapter">call_model</label><label><input data-prediction-choice type="radio" name="p" value="parser">the tool parser</label><label><input data-prediction-choice type="radio" name="p" value="tool">a runtime tool</label><label>Why?<textarea data-prediction-rationale></textarea></label><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>The adapter owns provider normalization. Later primitives must receive raw assistant text, never provider-specific objects.</p></section>
-<section data-case-set><h2>Classify the boundary</h2>
-<fieldset data-case-id="string" data-answer="record"><legend>A fake provider returns <code>"pong"</code>.</legend><label><input type="radio" value="parse">parse tools</label><label><input type="radio" value="record">return a ModelCallRecord</label><label><input type="radio" value="execute">execute text</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="object" data-answer="reject"><legend>A provider returns an object.</legend><label><input type="radio" value="record">record object</label><label><input type="radio" value="reject">raise a type error</label><label><input type="radio" value="tool">call a tool</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="tool-text" data-answer="raw"><legend>Text happens to look like tool JSON.</legend><label><input type="radio" value="raw">keep raw output text</label><label><input type="radio" value="dispatch">dispatch it</label><label><input type="radio" value="schema">validate args</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="usage" data-answer="estimate"><legend>Provider usage is absent.</legend><label><input type="radio" value="fail">fail call</label><label><input type="radio" value="estimate">record an explicit estimate</label><label><input type="radio" value="invent">invent provider values</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="messages" data-answer="exact"><legend>A test must prove input behavior.</legend><label><input type="radio" value="final">assert final UI</label><label><input type="radio" value="exact">capture exact messages sent</label><label><input type="radio" value="network">use live network</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="limit" data-answer="limit"><legend>What does the focused proof not establish?</legend><label><input type="radio" value="limit">provider reliability on every path</label><label><input type="radio" value="string">a string is returned</label><label><input type="radio" value="record">a record exists</label><label>Why?<textarea data-rationale></textarea></label><button data-case-submit>Commit</button><p data-feedback></p></fieldset></section>
-<section><h2>Build and prove</h2><p>Reconstruct <code>call_model</code> from a skeleton: enforce exactly one of prompt/messages, call the model once, reject non-string output, and attach usage source. Prove <code>test_call_model_sends_single_user_message_and_returns_output_record</code> and <code>test_call_model_rejects_non_string_model_output</code>. Explain why the test proves the boundary, not provider reliability. Transfer: how would you add a customer latency SLO without allowing provider details to leak?</p></section>
-</main></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: The model-call boundary</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Project 1A · Primitive 1 · Foundation build</p>
+        <h1>Turn one model call into trustworthy evidence</h1>
+        <p class="lede">A model gives your program data. Before an agent can reason about that data, one small boundary must make its shape, input, and evidence explicit.</p>
+      </header>
+
+      <section>
+        <h2>Why begin here?</h2>
+        <p>An LLM call is not an action. It is a request that returns provider-shaped data. If every later part of the harness reaches into that provider response directly, a provider change becomes a system-wide bug and a failed run becomes hard to explain.</p>
+        <div class="callout">
+          <strong>First principle:</strong> the model returns data; the harness owns the boundary that checks, records, and normalizes that data before anything else uses it.
+        </div>
+        <p>This primitive does not parse tool requests, run tools, retry failures, or maintain an agent conversation. It establishes the smallest useful contract: one call in, assistant text plus evidence out.</p>
+      </section>
+
+      <section>
+        <h2>Start with the evidence, not the finished solution</h2>
+        <p>Before you write <code>call_model</code>, inspect the real <a href="../phase-1/01_model_call/tests_01_model_call.py"><code>tests_01_model_call.py</code></a>. Read <code>FakeModel</code>, <code>FakeModelWithUsage</code>, and <code>BadModel</code>. These are not invented lesson examples: they are the proof artifacts for this primitive.</p>
+        <table class="contract-table">
+          <thead><tr><th>Artifact</th><th>What it gives you now</th><th>What it cannot decide</th></tr></thead>
+          <tbody>
+            <tr><td>The fake models</td><td>A deterministic completion and captured input messages.</td><td>Whether tools should run or what an agent should do next.</td></tr>
+            <tr><td><code>ModelCallRecord</code> in the scaffold</td><td>The internal record shape: text, latency, estimates, optional provider usage.</td><td>Whether every provider is reliable.</td></tr>
+            <tr><td>The focused tests</td><td>The observable behavior the boundary must preserve.</td><td>How to build a multi-step loop.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Target artifact:</strong> your <code>model_call.py</code> implementation. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/01_model_call/tests_01_model_call.py</code>. Do not open the completed target before attempting the scaffold.</p>
+      </section>
+
+      <section>
+        <h2>Walk through one ordinary call</h2>
+        <p>Suppose the caller supplies <code>prompt="ping"</code>. The boundary first creates one message: <code>{"role": "user", "content": "ping"}</code>. It sends that exact list to the model once. When the fake provider returns <code>"pong"</code>, the boundary records the text, the elapsed time, and either provider usage or clearly labeled estimates.</p>
+        <table class="contract-table">
+          <thead><tr><th>Step</th><th>Fact that becomes true</th><th>Why it matters later</th></tr></thead>
+          <tbody>
+            <tr><td>1. Normalize input</td><td>There is one ordered message list.</td><td>A later test can prove exactly what the model saw.</td></tr>
+            <tr><td>2. Complete once</td><td>The provider returns one value and optional usage.</td><td>Timing and usage have a single collection point.</td></tr>
+            <tr><td>3. Enforce text</td><td>The internal completion is a string.</td><td>Later parser code never needs provider-object branches.</td></tr>
+            <tr><td>4. Return a record</td><td>Output and evidence travel together.</td><td>A run can be inspected without re-running the provider.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Now contrast the failure</h2>
+        <p><code>BadModel</code> returns <code>{"content": "not a string"}</code>. It may look tempting to pull out <code>content</code> and keep going. That would silently invent a second provider contract at the wrong layer.</p>
+        <div class="grid">
+          <article class="card">
+            <h3>Coerce it</h3>
+            <p>The loop continues today, but later code now depends on a provider-specific object shape that the record never promised.</p>
+          </article>
+          <article class="card">
+            <h3>Reject it at <code>call_model</code></h3>
+            <p>The failure is early, honest, and local: the provider boundary violated the internal text contract.</p>
+          </article>
+        </div>
+        <p>The second choice wins here. A narrow boundary should not hide a changed provider response just to make a downstream feature appear to work.</p>
+      </section>
+
+      <section class="practice" data-prediction>
+        <h2>Commit your prediction</h2>
+        <p>A provider returns <code>{"content": "pong"}</code> instead of a string. What should happen at this boundary?</p>
+        <div class="choice-list">
+          <label><input data-prediction-choice type="radio" name="prediction" value="coerce"><span>Pull out <code>content</code> and return it as text.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="reject"><span>Raise a type error before constructing a record.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="dispatch"><span>Treat the object as a tool request.</span></label>
+        </div>
+        <label>Why does that boundary own the decision?<textarea data-prediction-rationale placeholder="Name the internal contract that would otherwise leak."></textarea></label>
+        <button type="button" data-prediction-submit>Commit prediction</button>
+        <p data-feedback class="feedback" aria-live="polite"></p>
+        <div data-prediction-answer hidden class="callout"><strong>Evidence:</strong> <code>test_call_model_rejects_non_string_model_output</code> expects a <code>TypeError</code>. The provider-normalization boundary owns the mismatch; later primitives should only receive the promised text contract.</div>
+      </section>
+
+      <section data-case-set>
+        <h2>Practice the boundary, not a slogan</h2>
+        <p>For every case, commit an answer and a short rationale before seeing feedback. Ask: what is the smallest contract this primitive can honestly make?</p>
+
+        <fieldset data-case-id="one-prompt" data-answer="record" data-correct="Correct. One prompt becomes one user message, one completion, and one inspectable record." data-incorrect="Stay at this boundary: normalize the caller input, make one call, and return evidence.">
+          <legend>A fake provider returns <code>"pong"</code> for <code>prompt="ping"</code>. What is the correct result?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" value="parse"><span>Parse it as a tool request.</span></label><label><input type="radio" value="record"><span>Return a <code>ModelCallRecord</code>.</span></label><label><input type="radio" value="execute"><span>Execute the text immediately.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What did the boundary receive and promise?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="provider-object" data-answer="reject" data-correct="Correct. An object breaks the internal string contract, so the provider boundary rejects it." data-incorrect="Do not invent a provider-specific extraction rule in a primitive that promises normalized text.">
+          <legend>The provider returns <code>{"content": "pong"}</code>. Which action preserves the contract?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" value="reject"><span>Raise a type error.</span></label><label><input type="radio" value="record"><span>Store the object as <code>output_text</code>.</span></label><label><input type="radio" value="tool"><span>Call a runtime tool to interpret it.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which later boundary would be forced to guess if this passed through?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="tool-looking-text" data-answer="text" data-correct="Correct. It is still provider output text. Parsing belongs to a later primitive." data-incorrect="Recognizable JSON is not permission to skip the parser boundary.">
+          <legend>The string happens to be <code>{"tool":"read_file","args":{}}</code>. What does this primitive return?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" value="dispatch"><span>Dispatch a file tool.</span></label><label><input type="radio" value="schema"><span>Validate tool arguments.</span></label><label><input type="radio" value="text"><span>Record the raw output text.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What has not happened yet?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="missing-usage" data-answer="estimate" data-correct="Correct. The record distinguishes estimates from provider-reported usage rather than pretending the values are the same." data-incorrect="Missing optional evidence should be labeled, not silently fabricated or turned into a tool concern.">
+          <legend>The fake provider has no <code>last_usage</code>. What should the record say about usage?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" value="fail"><span>Fail the model call.</span></label><label><input type="radio" value="estimate"><span>Keep explicit estimates with <code>usage_source="estimate"</code>.</span></label><label><input type="radio" value="invent"><span>Invent provider token values.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Why is evidence provenance part of the contract?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="message-proof" data-answer="capture" data-correct="Correct. Captured messages prove the boundary sent the expected input; a final output alone cannot." data-incorrect="The proof needs to observe the actual input to the fake model, not just a convenient final string.">
+          <legend>What assertion best proves the prompt was normalized correctly?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" value="capture"><span>Assert the fake model received exactly one user message containing <code>ping</code>.</span></label><label><input type="radio" value="network"><span>Use a live provider request.</span></label><label><input type="radio" value="ui"><span>Assert a UI eventually renders <code>pong</code>.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which observed artifact connects input to the claim?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="proof-limit" data-answer="limit" data-correct="Correct. The fake-provider suite proves this boundary for covered cases, not that a real provider will always be available or useful." data-incorrect="Separate a local contract test from a claim about real-provider reliability.">
+          <legend>What does the focused suite still not establish?</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" value="record"><span>That successful cases return a record.</span></label><label><input type="radio" value="text"><span>That a non-string result is rejected.</span></label><label><input type="radio" value="limit"><span>That a real provider is reliable on every path.</span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Name the difference between a covered fake case and a production claim."></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+      </section>
+
+      <section>
+        <h2>Build from the scaffold</h2>
+        <p>Open the real <a href="../phase-1/01_model_call/model_call_skeleton.py"><code>model_call_skeleton.py</code></a>, not the completed target. Copy it into your working <code>model_call.py</code> and implement only <code>call_model</code>.</p>
+        <ol class="compact-list">
+          <li>Require exactly one of <code>prompt</code> or <code>messages</code>.</li>
+          <li>Turn a prompt into one user message while preserving a supplied message list.</li>
+          <li>Call the model once, time it, and reject non-string output.</li>
+          <li>Return one record with optional provider usage or explicit estimates.</li>
+        </ol>
+        <p>Leave tool parsing, retries, and conversation state untouched. This is a provider boundary, not an agent loop.</p>
+      </section>
+
+      <section>
+        <h2>Run proof, then make a bounded claim</h2>
+        <p>Run <code>uv run pytest curriculum/phase-1/01_model_call/tests_01_model_call.py</code>. Read the output alongside <code>test_call_model_sends_single_user_message_and_returns_output_record</code> and <code>test_call_model_rejects_non_string_model_output</code>.</p>
+        <div class="grid">
+          <article class="card"><h3>The proof establishes</h3><p>For the covered fake providers, the boundary sends the expected input, returns text in a record, records usage provenance, and rejects a non-string completion.</p></article>
+          <article class="card"><h3>The proof does not establish</h3><p>That a real provider is reliable, a tool is safe, or a multi-step agent will recover from a bad trajectory.</p></article>
+        </div>
+        <p><strong>Explain:</strong> In two or three sentences, connect the non-string test to the boundary that owns the correction. Then say why the same test cannot prove a real provider will never change shape.</p>
+      </section>
+
+      <section>
+        <h2>Transfer the reasoning</h2>
+        <p>A second provider returns a rich response object with text, token counts, and a provider request ID. Decide which facts belong in the record, which must be normalized into the internal text contract, and which must stay inside a provider adapter. Name one regression assertion that would keep that decision honest.</p>
+        <p class="small">Ask your teacher to review your boundary claim and the one proof assertion you chose.</p>
+      </section>
+    </main>
+  </body>
+</html>
