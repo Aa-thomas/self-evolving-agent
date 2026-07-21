@@ -11,6 +11,74 @@ async function openWorkspace(page) {
   await expect(page.getByRole("complementary", { name: "Lesson study workspace" })).toBeVisible();
 }
 
+test("sandbox lesson gates its prediction and persists a capability-scoped study handoff", async ({ page }) => {
+  await page.goto("/lessons/0005-sandboxed-file-tools.html");
+
+  const prediction = page.locator("[data-prediction]");
+  await expect(prediction.getByText("Repository decision:")).toBeHidden();
+  await prediction.getByRole("radio", { name: /FORBIDDEN_PATH from the file tool/ }).check();
+  await prediction.getByRole("textbox").fill(
+    "Primitive 4 proves the string shape; the file tool owns the stricter path policy and resolved authority.",
+  );
+  await prediction.getByRole("button", { name: "Commit prediction" }).click();
+  await expect(prediction.getByText("Repository decision:")).toBeVisible();
+  await expect(page.locator("[data-case-id]")).toHaveCount(10);
+
+  await openWorkspace(page);
+  const workspace = page.getByRole("complementary", { name: "Lesson study workspace" });
+  const context = workspace.getByRole("region", { name: "Lesson evidence context" });
+  await expect(context).toContainText("05_sandboxed_file_tools_skeleton.py");
+  await expect(context).toContainText("05_sandboxed_file_tools.py");
+  await expect(context).toContainText("test_read_symlink_resolving_outside_sandbox_rejected");
+
+  await workspace.getByRole("textbox", { name: "Jot notes" }).fill(
+    "A valid path string is not yet an authorized filesystem capability.",
+  );
+  await workspace.getByRole("textbox", { name: "What has Primitive 4 actually proved?" }).fill(
+    "The tool exists and path is a string; it does not prove the resolved resource is inside this sandbox.",
+  );
+  await workspace.getByRole("textbox", { name: "Where does this path stop?" }).fill(
+    "An outside-pointing symlink stops at canonical containment with FORBIDDEN_PATH.",
+  );
+
+  await workspace.getByRole("button", { name: "Plan" }).click();
+  await workspace.getByRole("textbox", { name: "Artifact to build or change" }).fill("validate_path");
+  await workspace.getByRole("textbox", { name: "Smallest authorized behavior" }).fill(
+    "Resolve one symlink and reject its outside target.",
+  );
+  await workspace.getByRole("textbox", { name: "Must preserve" }).fill(
+    "Allowed nested paths and precise Ok/Err observations.",
+  );
+  await workspace.getByRole("textbox", { name: "Must not do" }).fill(
+    "Inspect the outside target before authorization.",
+  );
+  await workspace.getByRole("textbox", { name: "First capability proof" }).fill(
+    "test_read_symlink_resolving_outside_sandbox_rejected",
+  );
+
+  await workspace.getByRole("button", { name: "Reflect" }).click();
+  await workspace.getByRole("textbox", { name: "Explain this to a smart 12-year-old" }).fill(
+    "A folder key opens only that folder, even when a shortcut inside points somewhere else.",
+  );
+  await workspace.getByRole("textbox", { name: "Where does that explanation break?" }).fill(
+    "It hides the difference between checking path spelling and resolving the real target.",
+  );
+  await expect(workspace.getByText("Saved", { exact: true })).toBeVisible();
+
+  await page.reload();
+  await openWorkspace(page);
+  const reloaded = page.getByRole("complementary", { name: "Lesson study workspace" });
+  await expect(reloaded.getByRole("textbox", { name: "Jot notes" })).toHaveValue(
+    "A valid path string is not yet an authorized filesystem capability.",
+  );
+  await reloaded.getByRole("button", { name: "Plan" }).click();
+  await expect(reloaded.getByRole("textbox", { name: "Artifact to build or change" })).toHaveValue("validate_path");
+  await reloaded.getByRole("button", { name: "Reflect" }).click();
+  await expect(reloaded.getByRole("textbox", { name: "Where does that explanation break?" })).toHaveValue(
+    "It hides the difference between checking path spelling and resolving the real target.",
+  );
+});
+
 test("diagnostic workspace renders evidence, persists a handoff, and restores reflections", async ({ page }) => {
   await page.goto("/lessons/0007-trace-logger.html");
   await openWorkspace(page);

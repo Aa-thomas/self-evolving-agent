@@ -1,40 +1,224 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Sandboxed file tools</title><link rel="stylesheet" href="../assets/course.css">
-    <link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/lesson.js"></script>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A: Sandboxed file tools</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <link rel="stylesheet" href="../assets/site.css">
+    <script defer src="../assets/lesson.js"></script>
     <link rel="stylesheet" href="../assets/study.css">
-    <script defer src="../assets/study.js"></script></head>
-<body><main>
+    <script defer src="../assets/study.js"></script>
+  </head>
+  <body>
+    <main>
       <nav class="site-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
         <span>Lesson 5 of 8</span>
-        <span>Project 1A · Primitive 5</span>
+        <span>Project 1A · Primitive 5 · Foundation build</span>
         <div class="nav-spacer"></div>
         <a href="0004-schema-validation.html" aria-label="Previous lesson">Previous</a>
         <a href="0006-agent-loop-primitive.html" aria-label="Next lesson">Next</a>
       </nav>
 
-<header><p class="eyebrow">Project 1A · Primitive 5</p><h1>Make valid file requests safe to execute</h1><p class="lede">Protocol validation can prove that path is a string. Only the file-tool boundary can prove that it stays inside this run’s sandbox and produces a useful observation.</p></header>
-<section><h2>Inspect the boundary you are about to change</h2><p>Primitive 4 may produce a typed <code>read_file</code> request. Inspect <code>05_sandboxed_file_tools.py</code>: <code>validate_path()</code> resolves a user path against <code>sandbox_root</code> before any read, write, or listing occurs. The target is not a generic “safe path” claim; it is a concrete result code and no outside filesystem access.</p><p><strong>Invariant:</strong> every user path is sandbox-relative and containment is established before filesystem effects. Invalid requests return observations such as <code>FORBIDDEN_PATH</code>, not uncaught exceptions.</p></section>
-<section data-prediction><h2>Commit a safety prediction</h2><p>A validated request asks to read <code>../secret.txt</code>. What should own the rejection?</p><label><input data-prediction-choice type="radio" name="prediction" value="sandbox">sandboxed file tool</label><label><input data-prediction-choice type="radio" name="prediction" value="parser">tool-request parser</label><label><input data-prediction-choice type="radio" name="prediction" value="registry">protocol registry</label><textarea data-prediction-rationale placeholder="Explain why a string type is not enough."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>The file-tool boundary returns <code>FORBIDDEN_PATH</code>. Primitive 4 established argument type and tool identity, but it cannot know this run’s sandbox root or filesystem state.</p></section>
-<section><h2>Implement, then produce evidence</h2><p>Implement or reconstruct the path gate and file operations in <code>05_sandboxed_file_tools.py</code>. Run <code>uv run pytest curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py</code>. <code>test_read_forbidden_parent_path_rejected</code> is the regression for traversal. The proof establishes containment behavior for its fixtures; it does not prove every OS-level permission or symlink policy.</p></section>
-<section data-case-set><h2>Diagnose the first file-tool decision</h2>
-<fieldset data-case-id="empty" data-answer="empty" data-correct="Correct: an empty user path is rejected before resolution." data-incorrect="Check validate_path before any filesystem operation."><legend><code>read_file("")</code></legend><label><input type="radio" name="c1" value="empty">EMPTY_PATH</label><label><input type="radio" name="c1" value="missing">FILE_NOT_FOUND</label><label><input type="radio" name="c1" value="forbidden">FORBIDDEN_PATH</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="absolute" data-answer="forbidden" data-correct="Correct: absolute paths are never sandbox-relative." data-incorrect="Containment starts by refusing absolute user input."><legend>read an absolute path outside the sandbox</legend><label><input type="radio" name="c2" value="missing">FILE_NOT_FOUND</label><label><input type="radio" name="c2" value="forbidden">FORBIDDEN_PATH</label><label><input type="radio" name="c2" value="read">READ_ERROR</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="parent" data-answer="forbidden" data-correct="Correct: parent traversal is rejected before resolution." data-incorrect="Do not let existence checks reveal outside paths."><legend><code>read_file("../secret.txt")</code></legend><label><input type="radio" name="c3" value="missing">FILE_NOT_FOUND</label><label><input type="radio" name="c3" value="read">READ_ERROR</label><label><input type="radio" name="c3" value="forbidden">FORBIDDEN_PATH</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="nested" data-answer="ok" data-correct="Correct: a relative nested path may remain inside the sandbox." data-incorrect="Relative does not mean forbidden; containment is the rule."><legend>read <code>notes/today.txt</code> inside the sandbox</legend><label><input type="radio" name="c4" value="ok">read succeeds if the file exists</label><label><input type="radio" name="c4" value="forbidden">FORBIDDEN_PATH</label><label><input type="radio" name="c4" value="args">INVALID_TOOL_ARGS</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="missing" data-answer="missing" data-correct="Correct: containment passes, then existence fails." data-incorrect="Name the first failure after path containment succeeds."><legend>read missing <code>notes.txt</code> inside the sandbox</legend><label><input type="radio" name="c5" value="forbidden">FORBIDDEN_PATH</label><label><input type="radio" name="c5" value="missing">FILE_NOT_FOUND</label><label><input type="radio" name="c5" value="directory">NOT_A_FILE</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="directory" data-answer="not-file" data-correct="Correct: the contained path exists but is not readable as a file." data-incorrect="Existence and file kind are separate gates."><legend>pass a contained directory to <code>read_file</code></legend><label><input type="radio" name="c6" value="not-file">NOT_A_FILE</label><label><input type="radio" name="c6" value="forbidden">FORBIDDEN_PATH</label><label><input type="radio" name="c6" value="missing">FILE_NOT_FOUND</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="large" data-answer="large" data-correct="Correct: a contained file may still exceed the observation budget." data-incorrect="Safety includes bounded output, not only containment."><legend>read a contained file larger than the byte limit</legend><label><input type="radio" name="c7" value="read">READ_ERROR</label><label><input type="radio" name="c7" value="large">CONTENT_TOO_LARGE</label><label><input type="radio" name="c7" value="forbidden">FORBIDDEN_PATH</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="write-directory" data-answer="directory" data-correct="Correct: write_file refuses to replace a directory with file content." data-incorrect="This happens after path containment, at the file-kind gate."><legend>write file content to an existing contained directory</legend><label><input type="radio" name="c8" value="forbidden">FORBIDDEN_PATH</label><label><input type="radio" name="c8" value="directory">IS_DIRECTORY</label><label><input type="radio" name="c8" value="write">WRITE_ERROR</label><textarea data-rationale placeholder="What is the first decision?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-</section>
-<section><h2>Regression and transfer</h2><p>Choose one rejection and add or explain its regression test. Then inspect the resulting <code>Ok</code> or <code>Err</code> value: what exact observation would the agent loop receive? For transfer, decide whether a missing parent directory for <code>write_file</code> should be auto-created or return <code>NOT_A_DIRECTORY</code>; state the smallest safe intervention and which test would distinguish it.</p><p class="small">Ask your teacher to review the path boundary and what the fixture-based proof still cannot establish.</p></section>
+      <header>
+        <p class="eyebrow">Project 1A · Primitive 5 · Foundation build</p>
+        <h1>Turn a valid path into an authorized capability</h1>
+        <p class="lede">Primitive 4 can prove that <code>path</code> is a string. Primitive 5 must decide whether the resource named by that string belongs to this run—and preserve exactly why an operation succeeds or stops.</p>
+      </header>
+
+      <section>
+        <h2>A valid argument can still request forbidden authority</h2>
+        <p>Consider <code>ReadFileRequest(args=ReadFileArgs(path="../secret.txt"))</code>. Its tool exists. Its required argument exists. The path is a string. Every claim made by protocol validation can be true while executing the request would still read outside the agent's working directory.</p>
+        <div class="callout">
+          <strong>First principle:</strong> validating the shape of a resource name is not authorizing the resource it names. Authorization must happen where the concrete sandbox root and filesystem path are both known.
+        </div>
+        <p>The sandbox is a capability boundary: it defines the portion of the filesystem this run is allowed to observe or change. A file tool must establish that boundary before existence checks, reads, writes, or listings can reveal anything.</p>
+      </section>
+
+      <section>
+        <h2>Start with what already exists</h2>
+        <p>Inspect the completed Primitive 4 <code>04_validate_tool_args.py</code> and the current primitive's <code>05_sandboxed_file_tools_skeleton.py</code>. Primitive 4 is a prerequisite you built earlier; the file-tool scaffold is the blank current implementation. Do not open the completed Lesson 5 target before your first build attempt.</p>
+        <table class="contract-table">
+          <thead><tr><th>Artifact</th><th>What it already proves</th><th>What remains open</th></tr></thead>
+          <tbody>
+            <tr><td><code>ReadFileRequest</code></td><td>The tool is known and <code>path</code> is a strict string.</td><td>Which filesystem object the path resolves to.</td></tr>
+            <tr><td><code>sandbox_root</code></td><td>The authority granted to one tool run.</td><td>Whether the requested object stays beneath it.</td></tr>
+            <tr><td><code>Ok</code> / <code>Err</code> in the scaffold</td><td>The observation shape the future agent loop can record.</td><td>Which boundary-specific result code applies.</td></tr>
+            <tr><td>The focused test suite</td><td>Real temporary files and directories for proof.</td><td>Your implementation must make the red scaffold turn green.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Target artifact:</strong> your <code>05_sandboxed_file_tools.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py</code>.</p>
+      </section>
+
+      <section>
+        <h2>Use a decision ladder, not one vague “safe path” check</h2>
+        <p>A useful tool result names the first gate that could no longer make its claim.</p>
+        <table class="contract-table">
+          <thead><tr><th>Gate</th><th>Question</th><th>Representative result</th></tr></thead>
+          <tbody>
+            <tr><td>1. Input policy</td><td>Is the path non-empty, relative, and free of parent-traversal syntax?</td><td><code>EMPTY_PATH</code> or <code>FORBIDDEN_PATH</code></td></tr>
+            <tr><td>2. Canonical containment</td><td>After resolving aliases such as symlinks, is the target still beneath the resolved sandbox root?</td><td><code>FORBIDDEN_PATH</code></td></tr>
+            <tr><td>3. Operation preconditions</td><td>Does the target exist, have the right kind, and stay within the byte budget?</td><td><code>FILE_NOT_FOUND</code>, <code>NOT_A_FILE</code>, or <code>CONTENT_TOO_LARGE</code></td></tr>
+            <tr><td>4. Filesystem effect</td><td>Did the authorized read, write, or listing complete?</td><td><code>Ok</code> or a normalized operation error</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Invariant:</strong> no file operation runs against a path outside the resolved sandbox root, while contained operations retain precise success and failure observations.</p>
+      </section>
+
+      <section>
+        <h2>Walk through an allowed read</h2>
+        <p>The real nested-file case creates <code>sandbox/notes/today.txt</code> and calls <code>read_file("notes/today.txt", sandbox_root)</code>.</p>
+        <ol class="compact-list">
+          <li>The input is non-empty, relative, and contains no <code>..</code> component.</li>
+          <li>The root and requested path are resolved. The result remains relative to the resolved root.</li>
+          <li>The target exists, is a file, and its encoded size is within <code>MAX_FILE_BYTES</code>.</li>
+          <li>The tool reads UTF-8 text and returns <code>Ok(value="nested evidence")</code>.</li>
+        </ol>
+        <p>Containment is necessary, but it is not the entire tool contract. A contained missing path is not forbidden; it is <code>FILE_NOT_FOUND</code>. A contained directory passed to <code>read_file</code> is <code>NOT_A_FILE</code>.</p>
+      </section>
+
+      <section>
+        <h2>Contrast two escape attempts</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Visible traversal</h3>
+            <p><code>../secret.txt</code> contains an explicit parent component. The input-policy gate rejects it before the tool asks whether the outside file exists.</p>
+          </article>
+          <article class="card">
+            <h3>Alias traversal</h3>
+            <p><code>linked.txt</code> may look local while a symlink points outside. Resolving the target before the containment comparison exposes the escape and returns <code>FORBIDDEN_PATH</code>.</p>
+          </article>
+        </div>
+        <p>This is why checking only the characters in a path is insufficient. The file tool authorizes the resolved target, not the spelling alone.</p>
+      </section>
+
+      <section>
+        <h2>Choose strict path policy deliberately</h2>
+        <p>There are two plausible policies for <code>notes/../safe.txt</code> when the final target remains inside the sandbox:</p>
+        <div class="grid">
+          <article class="card"><h3>Canonical containment only</h3><p>Normalize the path and allow it if the final target is inside. More spellings work, but audit evidence contains aliases and traversal syntax.</p></article>
+          <article class="card"><h3>Strict syntax plus containment</h3><p>Reject every explicit <code>..</code>, then also resolve and check containment. The accepted language is smaller and every parent traversal is visible as a rejection.</p></article>
+        </div>
+        <p>Both still require canonical containment to catch symlinks. The repository makes one additional policy choice; commit to your prediction before checking its regression.</p>
+      </section>
+
+      <section class="practice" data-prediction>
+        <h2>Commit your policy prediction</h2>
+        <p><code>safe.txt</code> exists inside the sandbox. What should happen for <code>read_file("notes/../safe.txt", sandbox_root)</code>?</p>
+        <div class="choice-list">
+          <label><input data-prediction-choice type="radio" name="prediction" value="allow"><span>Normalize the path and read the contained file.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="protocol"><span>Return <code>INVALID_TOOL_ARGS</code> from Primitive 4.</span></label>
+          <label><input data-prediction-choice type="radio" name="prediction" value="forbidden"><span>Return <code>FORBIDDEN_PATH</code> from the file tool.</span></label>
+        </div>
+        <label>Which policy and boundary support your choice?<textarea data-prediction-rationale placeholder="Separate argument shape, path syntax, and resolved containment."></textarea></label>
+        <button type="button" data-prediction-submit>Commit prediction</button>
+        <p data-feedback class="feedback" aria-live="polite"></p>
+        <div data-prediction-answer hidden class="callout"><strong>Repository decision:</strong> the file-tool boundary returns <code>FORBIDDEN_PATH</code>. Primitive 4 correctly accepts a string. Primitive 5 deliberately rejects every <code>..</code> component before resolution, as proven by <code>test_parent_syntax_rejected_even_when_result_would_be_inside</code>.</div>
+      </section>
+
+      <section data-case-set>
+        <h2>Locate the first file-tool decision</h2>
+        <p>Commit all ten cases with a rationale. Name the earliest gate that decides the outcome; do not collapse every failure into “unsafe path.”</p>
+
+        <fieldset data-case-id="empty-path" data-answer="empty" data-correct="Correct. Empty input fails the path-policy gate before resolution or filesystem inspection." data-incorrect="Start before existence: the tool cannot authorize an absent resource name." data-shuffle-choices>
+          <legend><code>read_file("")</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-empty" value="missing"><span><code>FILE_NOT_FOUND</code></span></label><label><input type="radio" name="case-empty" value="empty"><span><code>EMPTY_PATH</code></span></label><label><input type="radio" name="case-empty" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which claim fails before a path can be resolved?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="absolute-path" data-answer="forbidden" data-correct="Correct. An absolute user path does not derive its authority from sandbox_root." data-incorrect="A missing outside file must not turn an unauthorized request into an existence probe." data-shuffle-choices>
+          <legend>Read an absolute path outside the sandbox.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-absolute" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label><label><input type="radio" name="case-absolute" value="missing"><span><code>FILE_NOT_FOUND</code></span></label><label><input type="radio" name="case-absolute" value="read"><span><code>READ_ERROR</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which authority would an absolute path bypass?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="parent-traversal" data-answer="forbidden" data-correct="Correct. Explicit parent traversal is rejected before any outside existence check." data-incorrect="Do not let a later file check reveal information beyond the capability root." data-shuffle-choices>
+          <legend><code>read_file("../secret.txt")</code></legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-parent" value="missing"><span><code>FILE_NOT_FOUND</code></span></label><label><input type="radio" name="case-parent" value="read"><span><code>READ_ERROR</code></span></label><label><input type="radio" name="case-parent" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Why must containment precede existence?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="symlink-escape" data-answer="forbidden" data-correct="Correct. Resolution reveals that the apparently local alias points beyond the sandbox." data-incorrect="Lexical appearance is not the final resource; authorize the canonical target." data-shuffle-choices>
+          <legend><code>linked.txt</code> is inside the sandbox but points to an outside file.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-link" value="read"><span>Read the linked file.</span></label><label><input type="radio" name="case-link" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label><label><input type="radio" name="case-link" value="missing"><span><code>FILE_NOT_FOUND</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which fact becomes visible only after resolution?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="nested-file" data-answer="ok" data-correct="Correct. Relative nested paths are allowed when their resolved target remains contained and the file exists." data-incorrect="Sandboxed does not mean root-only; the rule is resolved containment." data-shuffle-choices>
+          <legend>Read existing <code>notes/today.txt</code> beneath the sandbox.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-nested" value="ok"><span>Return the file content in <code>Ok</code>.</span></label><label><input type="radio" name="case-nested" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label><label><input type="radio" name="case-nested" value="missing"><span><code>FILE_NOT_FOUND</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which gates must succeed before the read?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="missing-file" data-answer="missing" data-correct="Correct. Authorization succeeds; the operation precondition then reports that the contained file is absent." data-incorrect="Do not call an allowed-but-absent resource forbidden." data-shuffle-choices>
+          <legend>Read missing <code>notes.txt</code> beneath the sandbox.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-missing" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label><label><input type="radio" name="case-missing" value="notfile"><span><code>NOT_A_FILE</code></span></label><label><input type="radio" name="case-missing" value="missing"><span><code>FILE_NOT_FOUND</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="What did containment prove before existence failed?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="directory-read" data-answer="notfile" data-correct="Correct. The target is contained and exists, but its kind violates read_file's contract." data-incorrect="Existence and file kind are different preconditions." data-shuffle-choices>
+          <legend>Pass an existing contained directory to <code>read_file</code>.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-directory" value="missing"><span><code>FILE_NOT_FOUND</code></span></label><label><input type="radio" name="case-directory" value="notfile"><span><code>NOT_A_FILE</code></span></label><label><input type="radio" name="case-directory" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which precondition fails after existence succeeds?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="oversized-read" data-answer="large" data-correct="Correct. The file is authorized but exceeds the bounded observation budget." data-incorrect="Containment does not make an arbitrarily large observation safe for the agent loop." data-shuffle-choices>
+          <legend>Read a contained file larger than <code>MAX_FILE_BYTES</code>.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-large" value="large"><span><code>CONTENT_TOO_LARGE</code></span></label><label><input type="radio" name="case-large" value="read"><span><code>READ_ERROR</code></span></label><label><input type="radio" name="case-large" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Why is output size a separate safety boundary?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="write-directory" data-answer="isdir" data-correct="Correct. The authorized target exists as a directory and cannot be replaced by file content." data-incorrect="This is an operation-kind failure after containment, not a generic write exception." data-shuffle-choices>
+          <legend>Write file content to an existing contained directory.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-write-dir" value="write"><span><code>WRITE_ERROR</code></span></label><label><input type="radio" name="case-write-dir" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label><label><input type="radio" name="case-write-dir" value="isdir"><span><code>IS_DIRECTORY</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Which target-kind check owns this failure?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+
+        <fieldset data-case-id="missing-parent" data-answer="notdir" data-correct="Correct. This implementation refuses to create missing authority implicitly and reports the parent precondition." data-incorrect="The write target may be contained while its required parent directory is absent." data-shuffle-choices>
+          <legend><code>write_file("missing/answer.txt", ...)</code> when <code>missing/</code> does not exist.</legend>
+          <div class="choice-list" data-choice-list><label><input type="radio" name="case-parent-missing" value="write"><span><code>WRITE_ERROR</code></span></label><label><input type="radio" name="case-parent-missing" value="notdir"><span><code>NOT_A_DIRECTORY</code></span></label><label><input type="radio" name="case-parent-missing" value="forbidden"><span><code>FORBIDDEN_PATH</code></span></label></div>
+          <label>Rationale<textarea data-rationale placeholder="Why is implicit directory creation a separate design choice?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+        </fieldset>
+      </section>
+
+      <section>
+        <h2>Build from the current primitive's scaffold</h2>
+        <p>Copy <code>05_sandboxed_file_tools_skeleton.py</code> into your working target. The test suite should initially fail at <code>NotImplementedError</code>; that red run proves only that the handoff is real. It is not completion evidence.</p>
+        <ol class="compact-list">
+          <li>Implement <code>validate_path</code>: resolve the root, enforce the input policy, resolve the candidate, and establish containment.</li>
+          <li>Implement <code>read_file</code>: authorize first, then check existence, kind, size, and the read result.</li>
+          <li>Implement <code>write_file</code>: authorize first, bound encoded content, require a real parent directory, then report bytes written.</li>
+          <li>Implement <code>list_files</code>: authorize a directory and return a deterministic sorted list.</li>
+        </ol>
+        <p>Do not change parser syntax, protocol registry rules, or the future agent loop. Do not auto-create directories or silently follow an outside alias to make a test pass.</p>
+      </section>
+
+      <section>
+        <h2>Run the proof and explain the boundary</h2>
+        <p>Run <code>uv run pytest curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py</code>. Inspect <code>test_read_forbidden_parent_path_rejected</code>, <code>test_read_symlink_resolving_outside_sandbox_rejected</code>, <code>test_read_nested_file_passes</code>, and <code>test_write_with_missing_parent_rejected</code>.</p>
+        <div class="grid">
+          <article class="card"><h3>The proof establishes</h3><p>Across twenty temporary-filesystem cases, the implementation preserves containment, distinguishes operation preconditions, bounds content, prevents covered outside writes, and returns stable <code>Ok</code>/<code>Err</code> observations.</p></article>
+          <article class="card"><h3>The proof does not establish</h3><p>It does not eliminate filesystem races, define every platform's symlink policy, prove arbitrary encodings are readable, or authorize future network and shell tools.</p></article>
+        </div>
+        <p>After your green run, inspect your completed <code>05_sandboxed_file_tools.py</code>. For the symlink regression, explain request → resolved target → first failed invariant → owning function → exact assertion. Then state why the same test cannot prove race-free authorization.</p>
+      </section>
+
+      <section>
+        <h2>Transfer the capability reasoning</h2>
+        <p>A future <code>fetch_url</code> tool receives a syntactically valid URL. Decide which part of this lesson transfers, what replaces <code>sandbox_root</code> as the authority boundary, and what new redirect or address-resolution regression is required.</p>
+        <p>For the current file tool, also decide whether creating missing parent directories should ever be allowed. Name the additional authority, interface change, and test evidence that would make that behavior explicit rather than accidental.</p>
+        <p class="small">Primary sources: the real file-tool proof suite and Python's <a href="https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve">path resolution documentation</a>. Ask your teacher to review one causal explanation and the limit of your proof.</p>
+      </section>
 
       <nav class="site-nav bottom-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
         <span>Lesson 5 of 8</span>
-        <span>Project 1A · Primitive 5</span>
+        <span>Project 1A · Primitive 5 · Foundation build</span>
         <div class="nav-spacer"></div>
         <a href="0004-schema-validation.html" aria-label="Previous lesson">Previous</a>
         <a href="0006-agent-loop-primitive.html" aria-label="Next lesson">Next</a>
       </nav>
-    </main></body></html>
+    </main>
+  </body>
+</html>
