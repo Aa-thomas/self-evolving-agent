@@ -1,4 +1,13 @@
 {
+  "include": [
+    "curriculum/phase-1/result.py",
+    "curriculum/phase-1/primitive_03_parse_tool_request.py",
+    "curriculum/phase-1/primitive_04_validate_tool_args.py"
+  ],
+  "extraPaths": ["curriculum/phase-1"],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "standard",
+  "reportMatchNotExhaustive": "error",
   "venvPath": ".",
   "venv": ".venv"
 }
