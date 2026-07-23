@@ -14,6 +14,8 @@
   Use later for framework anatomy: where an SDK places agents, tools, state, guardrails, and traces.
 - [Anthropic engineering: Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)
   Use for the principle of starting with the simplest viable workflow and adding agentic complexity only when the task needs it.
+- [OpenAI docs: Evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices)
+  Use for the objective → dataset → metric → comparison workflow, task-specific eval design, and the distinction between interpretable case evidence and a score alone.
 
 ## Wisdom (Communities)
 
@@ -24,4 +26,4 @@
 
 ## Gaps
 
-- Add one high-quality source on trajectory tracing and evaluation design before Project 1A reaches `07_trace_logger.py` and `08_eval_runner.py`.
+- Add one high-quality source focused specifically on versioned causal trace schemas and replay design.
