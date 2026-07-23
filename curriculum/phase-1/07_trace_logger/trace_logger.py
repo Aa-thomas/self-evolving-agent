@@ -8,10 +8,11 @@ stable schema without supplying the finished logging mechanism.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal, TypeAlias, assert_never
+import json
 
 from pydantic import JsonValue
 
@@ -25,7 +26,10 @@ from validate_tool_args import (
     ParseAndValidateResult,
     UnknownToolError,
 )
-from result import Err, Ok
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_loop import ExitReason
 
 
 ## =============================================================================
@@ -101,7 +105,6 @@ ToolOutcome: TypeAlias = ToolSucceeded | ToolFailed
 
 @dataclass(frozen=True, slots=True)
 class TraceStep:
-    step_number: int
     assistant_output: str
     request_outcome: RequestOutcome
     action: TraceAction | None
@@ -125,15 +128,10 @@ def request_result_to_trace(
     result: ParseAndValidateResult,
 ) -> RequestOutcome:
     """Remove runtime Result/error types before an outcome is persisted."""
-    if isinstance(result, Ok):
-        return RequestAccepted(tool=result.value.tool)
+    if result.is_ok():
+        return RequestAccepted(tool=result.unwrap().tool)
 
-    if not isinstance(result, Err):
-        raise TypeError(
-            f"Unsupported Result variant: {type(result).__name__}"
-        )
-
-    error = result.error
+    error = result.unwrap_err()
 
     if isinstance(error, InvalidJsonError):
         return RequestRejected(
@@ -166,7 +164,7 @@ def request_result_to_trace(
     assert_never(error)
 
 
-def exit_reason_to_trace(exit_reason: str) -> TraceExitReason:
+def exit_reason_to_trace(exit_reason: ExitReason) -> TraceExitReason:
     """Translate a runtime exit value into the versioned trace vocabulary."""
     return TraceExitReason(exit_reason)
 
@@ -184,7 +182,22 @@ class TraceLogger:
 
     def start(self, initial_messages: list[dict[str, str]]) -> None:
         """Record the exact message state supplied to the first model call."""
-        raise NotImplementedError("Implement trace initialization in this lesson.")
+
+        # Go through each starting message and make a TraceMessage copy with its role and text.
+        self.initial_messages = []
+
+        for message in initial_messages:
+            trace_message = TraceMessage(
+                role=message["role"],
+                content=message["content"],
+            )
+            self.initial_messages.append(trace_message)
+
+        # Start with no recorded loop steps for this run.
+        self.steps = []
+
+        # A completed trace does not exist until finish() is called.
+        self.trace = None
 
     def record_step(
         self,
@@ -195,7 +208,15 @@ class TraceLogger:
         tool_outcome: ToolOutcome | None,
         exit_reason: TraceExitReason | None,
     ) -> None:
-        raise NotImplementedError("Implement causal trace-step capture in this lesson.")
+        self.steps.append(
+            TraceStep(
+                assistant_output=assistant_output,
+                request_outcome=request_outcome,
+                action=action,
+                tool_outcome=tool_outcome,
+                exit_reason=exit_reason,
+            )
+        )
 
     def finish(
         self,
@@ -203,7 +224,22 @@ class TraceLogger:
         final_answer: str | None,
         exit_reason: TraceExitReason,
     ) -> AgentTrace:
-        raise NotImplementedError("Implement trace finalization in this lesson.")
+        completed_trace = AgentTrace(
+            initial_messages=tuple(self.initial_messages),
+            steps=tuple(self.steps),
+            final_answer=final_answer,
+            exit_reason=exit_reason,
+            schema_version=1,
+        )
+        self.trace = completed_trace
+        return completed_trace
 
     def write_json(self, destination: Path, trace: AgentTrace) -> None:
-        raise NotImplementedError("Implement replayable trace serialization in this lesson.")
+        # Make the folder if it does not already exist.
+        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        # Turn the trace into readable JSON and save it.
+        destination.write_text(
+            json.dumps(asdict(trace), indent=2),
+            encoding="utf-8",
+        )

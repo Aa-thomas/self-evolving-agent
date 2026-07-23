@@ -43,6 +43,16 @@ class Result(ABC, Generic[T, E]):
         pass
 
     @abstractmethod
+    def unwrap(self) -> T:
+        """Return the Ok value or raise if this Result is an Err."""
+        pass
+
+    @abstractmethod
+    def unwrap_err(self) -> E:
+        """Return the Err value or raise if this Result is an Ok."""
+        pass
+
+    @abstractmethod
     def is_ok(self) -> bool:
         pass
 
@@ -80,6 +90,12 @@ class Ok(Result[T, Never], Generic[T]):
     ) -> Result[T | U, F]:
         return self
 
+    def unwrap(self) -> T:
+        return self.value
+
+    def unwrap_err(self) -> Never:
+        raise ValueError("Called unwrap_err() on an Ok result")
+
     def is_ok(self) -> bool:
         return True
 
@@ -115,6 +131,12 @@ class Err(Result[Never, E], Generic[E]):
         operation: Callable[[E], Result[U, F]],
     ) -> Result[U, F]:
         return operation(self.error)
+
+    def unwrap(self) -> Never:
+        raise ValueError("Called unwrap() on an Err result")
+
+    def unwrap_err(self) -> E:
+        return self.error
 
     def is_ok(self) -> bool:
         return False
