@@ -68,7 +68,7 @@
           <label><input type="radio" value="parser"> Parser</label><label><input type="radio" value="validator"> Argument validator</label><label><input type="radio" value="dispatch"> Runtime dispatch</label>
           <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
         </fieldset>
-        <fieldset data-case-id="unknown-protocol" data-answer="validator" data-correct="Correct. delete_file is absent from TOOL_REGISTRY, so it never reaches dispatch." data-incorrect="The registry check happens before runtime dispatch.">
+        <fieldset data-case-id="unknown-protocol" data-answer="validator" data-correct="Correct. delete_file is absent from Primitive 04's TOOL_SPECS, so it never reaches dispatch." data-incorrect="The registry check happens before runtime dispatch.">
           <legend>delete_file has valid JSON and arguments. Where is the first bad transition?</legend>
           <label><input type="radio" value="dispatch"> Runtime dispatch</label><label><input type="radio" value="validator"> Protocol registry validation</label><label><input type="radio" value="tool"> File-tool execution</label>
           <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>

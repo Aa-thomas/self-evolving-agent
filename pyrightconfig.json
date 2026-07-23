@@ -3,7 +3,9 @@
     "curriculum/phase-1/result.py",
     "curriculum/phase-1/primitive_03_parse_tool_request.py",
     "curriculum/phase-1/primitive_04_validate_tool_args.py",
-    "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"
+    "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py",
+    "curriculum/phase-1/06_agent_loop/agent_loop.py",
+    "curriculum/phase-1/07_trace_logger/trace_logger.py"
   ],
   "extraPaths": ["curriculum/phase-1"],
   "pythonVersion": "3.11",
