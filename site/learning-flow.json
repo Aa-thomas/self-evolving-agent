@@ -127,11 +127,11 @@
       "learner_decision": "Locate the first failed parser gate without assigning registry or tool-specific argument failures to Primitive 3.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
       "starting_artifacts": {"source_files": ["curriculum/phase-1/02_message_state/message_state.py", "curriculum/phase-1/03_parse_tool_request_skeleton.py"], "symbols": ["Message", "ToolRequest", "parse_json", "validate_tool_request", "parse_tool_request"], "tests": ["curriculum/phase-1/03_parse_tool_request_tests.py"], "scenario_sources": []},
-      "target_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py"], "tests": ["curriculum/phase-1/03_parse_tool_request_tests.py"], "expected_artifact": "A structured ToolRequest or a parse/outer-shape error, without tool-registry or argument validation."},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/primitive_03_parse_tool_request.py"], "tests": ["curriculum/phase-1/03_parse_tool_request_tests.py"], "expected_artifact": "A structured ToolRequest or a parse/outer-shape error, without tool-registry or argument validation."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request_tests.py"], "assertions": ["test_malformed_json_is_rejected", "test_json_string_is_not_a_tool_request", "test_valid_request_produces_tool_request", "test_trailing_prose_is_not_json", "test_unknown_tool_name_still_produces_tool_request", "test_tool_specific_argument_type_is_left_for_validation"], "traces_or_output": []},
       "failure_contract": {"source": "curriculum/phase-1/03_parse_tool_request_tests.py", "symptom": "Assistant output is malformed JSON or not a ToolRequest-shaped object.", "responsible_boundary": "tool-request parser", "regression_target": "test_trailing_prose_is_not_json"},
       "practice_contract": {"kind": "case_set", "minimum_cases": 10, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "test"},
-      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/03_parse_tool_request.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request_tests.py"]},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/primitive_03_parse_tool_request.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request_tests.py"]},
       "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_parser_inputs", "fallback": "input_output_playground", "rationale": "Immediate input and output feedback is useful, but persistent world state is not."}
     },
@@ -164,12 +164,12 @@
       "learning_goal": "Validate registered tool arguments at the trust boundary before execution.",
       "learner_decision": "Consume Primitive 3's ToolRequest and assign protocol registry, argument schema, and runtime-handler availability to their responsible source of truth.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py"], "symbols": ["ToolRequest"], "tests": [], "scenario_sources": []},
-      "target_artifacts": {"source_files": ["curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py"], "tests": ["curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"], "expected_artifact": "Validation that accepts a Primitive 3 ToolRequest only when its tool and arguments are executable by the protocol contract."},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/primitive_03_parse_tool_request.py"], "symbols": ["ToolRequest"], "tests": [], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/primitive_04_validate_tool_args.py"], "tests": ["curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"], "expected_artifact": "Validation that accepts a Primitive 3 ToolRequest only when its tool and arguments are executable by the protocol contract."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"], "assertions": ["test_wrong_tool_arg_type_is_rejected"], "traces_or_output": []},
       "failure_contract": {"source": "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py", "symptom": "A parsed read_file request has path=123.", "responsible_boundary": "tool argument validation", "regression_target": "test_wrong_tool_arg_type_is_rejected"},
       "practice_contract": {"kind": "case_set", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "implement"},
-      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"]},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/primitive_04_validate_tool_args.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"]},
       "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_validation_inputs", "fallback": "input_output_playground", "rationale": "Validation outcomes are immediate and do not require an evolving simulated world."}
     },
@@ -212,7 +212,7 @@
       "learning_goal": "Authorize resolved filesystem capabilities inside one sandbox while returning precise, bounded file-tool observations.",
       "learner_decision": "Locate the earliest path or operation gate, choose its result, and keep protocol validation separate from resource authorization.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools_skeleton.py"], "symbols": ["ReadFileRequest", "validate_tool_args", "validate_path", "read_file", "write_file", "list_files", "Ok", "Err"], "tests": ["curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "scenario_sources": []},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/primitive_04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools_skeleton.py"], "symbols": ["ValidatedToolRequest", "ReadFileArgs", "validate_tool_args", "validate_path", "read_file", "write_file", "list_files", "Ok", "Err"], "tests": ["curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "scenario_sources": []},
       "target_artifacts": {"source_files": ["curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "tests": ["curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "expected_artifact": "Capability-scoped read, write, and list tools that preserve containment and return precise Ok/Err observations."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "assertions": ["test_read_forbidden_parent_path_rejected", "test_parent_syntax_rejected_even_when_result_would_be_inside", "test_read_symlink_resolving_outside_sandbox_rejected", "test_read_nested_file_passes", "test_read_missing_file_returns_file_not_found", "test_write_to_forbidden_path_rejected", "test_write_with_missing_parent_rejected", "test_list_file_returns_not_a_directory"], "traces_or_output": []},
       "failure_contract": {"source": "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py", "symptom": "A lexically local file path resolves through a symlink to a resource outside the configured sandbox.", "responsible_boundary": "validate_path canonical containment", "regression_target": "test_read_symlink_resolving_outside_sandbox_rejected"},
@@ -283,7 +283,7 @@
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",
       "learner_decision": "Diagnose the first bad transition and choose the smallest safe correction across parser, validator, runtime registry, and loop control.",
       "established_by": ["curriculum/learning-records/0002-agent-loop-contract.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/04_validate_tool_args/04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/primitive_04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
       "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "expected_artifact": "A bounded loop that normalizes failures and preserves message-state observations."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "assertions": ["test_submit_stops_loop", "test_unregistered_runtime_tool_is_rejected_without_execution"], "traces_or_output": ["curriculum/traces/agent-loop-scenarios.json"]},
       "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "A protocol-valid tool can be absent from the runtime handlers.", "responsible_boundary": "agent-loop runtime dispatch", "regression_target": "test_unregistered_runtime_tool_is_rejected_without_execution"},
@@ -306,13 +306,13 @@
           "first_principle": "A symptom is not a root cause; the earliest violated contract must be supported by recorded evidence, and missing evidence is itself a valid diagnosis.",
           "candidate_causes": [
             {"cause": "The model repeatedly requested a tool until max_steps.", "would_explain": "A max-steps result with no final answer.", "distinguishing_evidence": "Assistant output and ordered step records."},
-            {"cause": "A parser, validator, or runtime boundary rejected work before it could complete.", "would_explain": "A max-steps result after repeated normalized observations.", "distinguishing_evidence": "Per-step parse, validation, runtime-handler, and tool-result fields."},
+            {"cause": "The request pipeline, action classifier, or runtime boundary rejected work before it could complete.", "would_explain": "A max-steps result after repeated normalized observations.", "distinguishing_evidence": "Per-step request outcome, classified action, and tool-outcome variants."},
             {"cause": "The run has no causal record at all.", "would_explain": "Why the supplied final result cannot distinguish either prior cause.", "distinguishing_evidence": "A trace schema produced at the loop boundaries where each fact becomes authoritative."}
           ],
           "ownership_rule": "When existing output cannot distinguish plausible first bad transitions, the owning intervention is the boundary that first knows the missing fact—not an invented guess about model behavior."
         },
         "worked_investigation": {
-          "observations": ["partial-run.json contains only final_answer and exit_reason.", "The current agent loop already knows assistant output, validation results, runtime handler availability, tool results, and stopping decisions while it executes."],
+          "observations": ["partial-run.json contains only final_answer and exit_reason.", "The current agent loop already knows assistant output, the composed request result, classified action, tool outcome, and stopping decision while it executes."],
           "elimination_steps": ["The final result cannot rule in malformed output, an unavailable handler, a tool exception, or repeated valid work.", "Because no recorded artifact distinguishes those causes, claiming one would be speculation rather than diagnosis."],
           "current_conclusion": "The incident is evidence-insufficient: causal loop transitions must be recorded before this run can be explained.",
           "confidence_limit": "The partial fixture proves neither that the model was at fault nor which loop boundary first changed the trajectory."
@@ -329,18 +329,18 @@
         },
         "intervention_strategy": {
           "mode": "add_evidence",
-          "smallest_safe_intervention": "Implement TraceLogger and add only the hooks needed for run_agent to capture initial messages, one causal record per step, and the terminal result without changing loop behavior.",
+          "smallest_safe_intervention": "Implement TraceLogger and add only the hooks needed for run_agent to adapt runtime values into stable request, action, tool, and exit records without changing loop behavior.",
           "leave_unchanged": ["Parser, validator, runtime dispatch, tool behavior, and max_steps policy unless the new trace actually identifies one as responsible."],
-          "regression_target": "test_trace_logger_records_causal_fields_and_writes_replayable_json",
-          "forbidden_shortcuts": ["Synthesizing a trace after the run from the final result.", "Logging only final_answer and calling it diagnosis.", "Changing loop control flow solely to make output easier to explain."]
+          "regression_target": "test_trace_logger_records_typed_causal_outcomes_and_writes_versioned_json",
+          "forbidden_shortcuts": ["Synthesizing a trace after the run from the final result.", "Persisting raw Result, Pydantic, or agent-action objects instead of the stable trace variants.", "Changing loop control flow solely to make output easier to explain."]
         },
         "diagnostic_proof": {
-          "required_evidence": ["The original non-diagnostic partial fixture.", "A real agent-loop trajectory that produces a structured JSON trace.", "The trace test that asserts each required causal field and replayable serialization."],
-          "establishes": "The covered run records the fields needed to distinguish its assistant output, validation, runtime dispatch, tool outcome, and terminal decision.",
-          "does_not_establish": "The trace does not prove the model chose the best action, capture every external cause, or make an untested trajectory diagnosable."
+          "required_evidence": ["The original non-diagnostic partial fixture.", "Passing adapter cases for every request-pipeline failure stage.", "A real agent-loop trajectory that produces a versioned JSON trace with request, action, tool, and exit variants."],
+          "establishes": "The covered run adapts runtime decisions into stable causal records that distinguish request rejection, action classification, tool outcome, and terminal decision.",
+          "does_not_establish": "The trace does not prove the model chose the best action, capture every external cause, preserve secrets safely, or make an untested trajectory diagnosable."
         },
         "causal_explanation_prompt": "Use one produced trace to explain the incident as evidence gap or first bad transition → owning boundary → intervention → regression, without defaulting to the model as the cause.",
-        "transfer_prompt": "Given a trace that records validation but omits runtime-handler and tool-result fields, decide which hypotheses remain ambiguous, the smallest additional event needed, and the regression proof you would add."
+        "transfer_prompt": "Given a request accepted by the protocol registry but rejected because its runtime handler is absent, choose the trace variants that distinguish that failure from an unknown protocol tool and name the regression proof."
       },
       "study_contract": {
         "version": 1,
@@ -377,27 +377,27 @@
           "fields": {
             "target_function": {
               "label": "Artifact to build or change",
-              "placeholder": "TraceLogger plus the narrow run_agent hooks that emit causal records."
+              "placeholder": "TraceLogger plus the narrow run_agent hooks that adapt runtime values into trace-owned variants."
             },
             "smallest_slice": {
               "label": "Smallest evidence slice",
-              "placeholder": "Record initial messages, one ordered step fact, and the terminal result."
+              "placeholder": "Record initial messages, one typed request/action/tool step, and the terminal result."
             },
             "must_do": {
               "label": "Must preserve",
-              "placeholder": "Existing loop behavior while recording authoritative causal fields and replayable JSON."
+              "placeholder": "Existing loop behavior while recording stable causal variants, immutable completed snapshots, and versioned JSON."
             },
             "must_not_do": {
               "label": "Must not do",
-              "placeholder": "Infer a trace after the run, change control flow to fit a story, or claim a model cause without evidence."
+              "placeholder": "Infer a trace after the run, persist raw runtime objects, or change control flow to fit a story."
             },
             "first_proof": {
               "label": "First diagnostic proof",
-              "placeholder": "test_trace_logger_records_causal_fields_and_writes_replayable_json"
+              "placeholder": "test_trace_logger_records_typed_causal_outcomes_and_writes_versioned_json"
             },
             "open_question": {
               "label": "One evidence question",
-              "placeholder": "At which boundary does each trace field first become authoritative?"
+              "placeholder": "At which boundary should each runtime value become a stable trace variant?"
             }
           }
         },
@@ -428,12 +428,12 @@
       "requires": ["0006-agent-loop-primitive"],
       "unlocks": ["0008-eval-runner"],
       "learning_goal": "Use a causal trace to separate model behavior from harness behavior.",
-      "learner_decision": "Design and implement the smallest causal trace that distinguishes model output, harness decisions, tool outcomes, and stop reason.",
+      "learner_decision": "Design and implement the smallest stable trace boundary that distinguishes model output, request outcome, harness action, tool outcome, and stop reason without persisting runtime objects.",
       "established_by": [],
       "starting_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/phase-1/07_trace_logger/fixtures/partial-run.json"]},
-      "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py", "curriculum/phase-1/07_trace_logger/trace_logger.py"], "tests": ["curriculum/phase-1/07_trace_logger/tests_trace_logger.py"], "expected_artifact": "A replayable JSON trace with one causal record for every agent-loop decision."},
-      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/07_trace_logger/tests_trace_logger.py"], "assertions": ["test_trace_logger_records_causal_fields_and_writes_replayable_json"], "traces_or_output": ["curriculum/phase-1/07_trace_logger/fixtures/partial-run.json"]},
-      "failure_contract": {"source": "curriculum/phase-1/07_trace_logger/tests_trace_logger.py", "symptom": "A final answer without causal fields cannot diagnose the run.", "responsible_boundary": "trace logger", "regression_target": "test_trace_logger_records_causal_fields_and_writes_replayable_json"},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py", "curriculum/phase-1/07_trace_logger/trace_logger.py"], "tests": ["curriculum/phase-1/07_trace_logger/tests_trace_logger.py"], "expected_artifact": "An immutable causal trace whose trace-owned variants serialize to versioned JSON without exposing runtime Result or Pydantic objects."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/07_trace_logger/tests_trace_logger.py"], "assertions": ["test_request_adapter_preserves_the_first_failed_stage", "test_trace_logger_records_typed_causal_outcomes_and_writes_versioned_json"], "traces_or_output": ["curriculum/phase-1/07_trace_logger/fixtures/partial-run.json"]},
+      "failure_contract": {"source": "curriculum/phase-1/07_trace_logger/tests_trace_logger.py", "symptom": "A final answer without stable causal outcomes cannot diagnose the run.", "responsible_boundary": "runtime-to-trace adapter and trace logger", "regression_target": "test_trace_logger_records_typed_causal_outcomes_and_writes_versioned_json"},
       "practice_contract": {"kind": "trace_diagnosis", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "diagnose"},
       "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/07_trace_logger/trace_logger.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/07_trace_logger/tests_trace_logger.py"]},
       "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
