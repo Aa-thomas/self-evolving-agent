@@ -29,7 +29,7 @@
 
       <section>
         <h2>A valid argument can still request forbidden authority</h2>
-        <p>Consider <code>ReadFileRequest(args=ReadFileArgs(path="../secret.txt"))</code>. Its tool exists. Its required argument exists. The path is a string. Every claim made by protocol validation can be true while executing the request would still read outside the agent's working directory.</p>
+        <p>Consider <code>ValidatedToolRequest(tool="read_file", args=ReadFileArgs(path="../secret.txt"))</code>. Its tool exists. Its required argument exists. The path is a string. Every claim made by protocol validation can be true while executing the request would still read outside the agent's working directory.</p>
         <div class="callout">
           <strong>First principle:</strong> validating the shape of a resource name is not authorizing the resource it names. Authorization must happen where the concrete sandbox root and filesystem path are both known.
         </div>
@@ -38,11 +38,11 @@
 
       <section>
         <h2>Start with what already exists</h2>
-        <p>Inspect the completed Primitive 4 <code>04_validate_tool_args.py</code> and the current primitive's <code>05_sandboxed_file_tools_skeleton.py</code>. Primitive 4 is a prerequisite you built earlier; the file-tool scaffold is the blank current implementation. Do not open the completed Lesson 5 target before your first build attempt.</p>
+        <p>Inspect the completed Primitive 4 <code>primitive_04_validate_tool_args.py</code> and the current primitive's <code>05_sandboxed_file_tools_skeleton.py</code>. Primitive 4 is a prerequisite you built earlier; the file-tool scaffold is the blank current implementation. Do not open the completed Lesson 5 target before your first build attempt.</p>
         <table class="contract-table">
           <thead><tr><th>Artifact</th><th>What it already proves</th><th>What remains open</th></tr></thead>
           <tbody>
-            <tr><td><code>ReadFileRequest</code></td><td>The tool is known and <code>path</code> is a strict string.</td><td>Which filesystem object the path resolves to.</td></tr>
+            <tr><td><code>ValidatedToolRequest</code></td><td>The tool is known and <code>ReadFileArgs.path</code> is a strict string.</td><td>Which filesystem object the path resolves to.</td></tr>
             <tr><td><code>sandbox_root</code></td><td>The authority granted to one tool run.</td><td>Whether the requested object stays beneath it.</td></tr>
             <tr><td><code>Ok</code> / <code>Err</code> in the scaffold</td><td>The observation shape the future agent loop can record.</td><td>Which boundary-specific result code applies.</td></tr>
             <tr><td>The focused test suite</td><td>Real temporary files and directories for proof.</td><td>Your implementation must make the red scaffold turn green.</td></tr>

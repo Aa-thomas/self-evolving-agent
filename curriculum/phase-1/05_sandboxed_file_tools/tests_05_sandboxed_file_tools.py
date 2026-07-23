@@ -1,8 +1,15 @@
 import importlib.util
 from pathlib import Path
+import sys
+from tempfile import TemporaryDirectory
 
+from hypothesis import given
+from hypothesis import strategies as st
 import pytest
 
+
+PHASE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PHASE_ROOT))
 
 MODULE_PATH = Path(__file__).resolve().parent / "05_sandboxed_file_tools.py"
 
@@ -12,6 +19,7 @@ module = importlib.util.module_from_spec(spec)
 assert spec is not None
 assert spec.loader is not None
 
+sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 
@@ -45,7 +53,8 @@ def assert_ok(result):
 
 def assert_rejected(result, expected_error_code: str):
     assert isinstance(result, module.Err)
-    assert result.error_code == expected_error_code
+    assert result.error.code == expected_error_code
+    assert result.error.message
 
 
 # =============================================================================
@@ -65,6 +74,69 @@ def sandbox_root(tmp_path):
 # =============================================================================
 # read_file tests
 # =============================================================================
+
+
+def test_validate_path_returns_sandbox_path(sandbox_root):
+    result = module.validate_path("notes.txt", sandbox_root)
+
+    assert_ok(result)
+    sandbox_path = result.value
+
+    assert isinstance(sandbox_path, module.SandboxPath)
+    assert sandbox_path.resolved_path == (sandbox_root / "notes.txt").resolve()
+
+
+PATH_TEXT = st.text(
+    alphabet=st.characters(
+        exclude_categories=("Cs",),
+        exclude_characters="\x00",
+    ),
+    max_size=40,
+)
+
+
+@given(raw_path=PATH_TEXT)
+def test_successful_paths_never_escape_sandbox(raw_path: str):
+    with TemporaryDirectory() as directory:
+        sandbox_root = Path(directory).resolve()
+
+        result = module.validate_path(raw_path, sandbox_root)
+
+        if isinstance(result, module.Ok):
+            sandbox_path = result.value
+            assert sandbox_path.resolved_path.is_relative_to(sandbox_root)
+
+
+def test_read_validated_file_reads_authorized_path(sandbox_root):
+    target = sandbox_root / "notes.txt"
+    target.write_text("authorized contents", encoding="utf-8")
+    path_result = module.validate_path("notes.txt", sandbox_root)
+    assert_ok(path_result)
+
+    result = module.read_validated_file(path_result.value)
+
+    assert_ok(result)
+    assert result.value == "authorized contents"
+
+
+def test_invalid_path_short_circuits_before_read_execution(
+    sandbox_root,
+    monkeypatch,
+):
+    def unexpected_read(sandbox_path):
+        raise AssertionError(
+            f"read executor received invalid path: {sandbox_path}"
+        )
+
+    monkeypatch.setattr(
+        module,
+        "read_validated_file",
+        unexpected_read,
+    )
+
+    result = read_file("../secret.txt", sandbox_root)
+
+    assert_rejected(result, "FORBIDDEN_PATH")
 
 
 def test_empty_path_rejected(sandbox_root):
@@ -160,6 +232,43 @@ def test_read_oversized_file_rejected(sandbox_root):
 # =============================================================================
 
 
+def test_write_validated_file_returns_utf8_byte_count(sandbox_root):
+    path_result = module.validate_path("answer.txt", sandbox_root)
+    assert_ok(path_result)
+
+    result = module.write_validated_file(
+        path_result.value,
+        "café",
+    )
+
+    assert_ok(result)
+    assert result.value == 5
+    assert (sandbox_root / "answer.txt").read_text(
+        encoding="utf-8"
+    ) == "café"
+
+
+def test_invalid_path_short_circuits_before_write_execution(
+    sandbox_root,
+    monkeypatch,
+):
+    def unexpected_write(sandbox_path, content):
+        raise AssertionError(
+            "write executor received invalid input: "
+            f"{sandbox_path}, {content}"
+        )
+
+    monkeypatch.setattr(
+        module,
+        "write_validated_file",
+        unexpected_write,
+    )
+
+    result = write_file("../secret.txt", "leaked content", sandbox_root)
+
+    assert_rejected(result, "FORBIDDEN_PATH")
+
+
 def test_write_inside_sandbox_passes(sandbox_root):
     result = write_file("answer.txt", "correct answer", sandbox_root)
 
@@ -214,6 +323,40 @@ def test_write_oversized_content_rejected(sandbox_root):
 # =============================================================================
 # list_files tests
 # =============================================================================
+
+
+def test_list_files_at_validated_path_lists_authorized_directory(
+    sandbox_root,
+):
+    (sandbox_root / "a.txt").write_text("A", encoding="utf-8")
+    (sandbox_root / "b.txt").write_text("B", encoding="utf-8")
+    path_result = module.validate_path(".", sandbox_root)
+    assert_ok(path_result)
+
+    result = module.list_files_at_validated_path(path_result.value)
+
+    assert_ok(result)
+    assert result.value == ["a.txt", "b.txt"]
+
+
+def test_invalid_path_short_circuits_before_list_execution(
+    sandbox_root,
+    monkeypatch,
+):
+    def unexpected_list(sandbox_path):
+        raise AssertionError(
+            f"list executor received invalid path: {sandbox_path}"
+        )
+
+    monkeypatch.setattr(
+        module,
+        "list_files_at_validated_path",
+        unexpected_list,
+    )
+
+    result = list_files("..", sandbox_root)
+
+    assert_rejected(result, "FORBIDDEN_PATH")
 
 
 def test_list_files_inside_sandbox_passes(sandbox_root):
