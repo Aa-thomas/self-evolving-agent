@@ -62,7 +62,7 @@ def classify_action(
 class UnavailableRuntimeToolError:
     tool: KnownToolName
     message: str
-    code: Literal["UNKNOWN_TOOL"] = "UNKNOWN_TOOL"
+    code: Literal["RUNTIME_TOOL_UNAVAILABLE"] = "RUNTIME_TOOL_UNAVAILABLE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,13 +155,13 @@ def args_to_dict(args: BaseModel) -> dict[str, Any]:
     return args.model_dump(exclude_none=True)
 
 
-def unknown_tool_result(
+def unavailable_runtime_tool_result(
     tool_name: KnownToolName,
 ) -> Result[Any, UnavailableRuntimeToolError]:
     return Err(
         UnavailableRuntimeToolError(
             tool=tool_name,
-            message=f"Unknown tool: {tool_name}",
+            message=f"No runtime handler registered for tool: {tool_name}",
         )
     )
 
@@ -173,7 +173,7 @@ def execute_tool_action(
     request = action.request
 
     if request.tool not in tools:
-        return unknown_tool_result(request.tool)
+        return unavailable_runtime_tool_result(request.tool)
 
     try:
         return tools[request.tool](**args_to_dict(request.args))

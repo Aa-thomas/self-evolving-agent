@@ -459,7 +459,7 @@
         },
         "worked_trajectories": {
           "success_path": ["The model requests read_file with valid JSON and arguments.", "The registered runtime handler returns a result that is appended as a tool observation before the next call, which submits the final answer."],
-          "failure_or_edge_path": ["The protocol registry accepts read_file, but runtime dispatch finds no read_file handler.", "The loop appends UNKNOWN_TOOL as an observation, gives the model another bounded turn, and eventually returns submit or max_steps."],
+          "failure_or_edge_path": ["The protocol registry accepts read_file, but runtime dispatch finds no read_file handler.", "The loop appends RUNTIME_TOOL_UNAVAILABLE as an observation, gives the model another bounded turn, and eventually returns submit or max_steps."],
           "comparison_question": "What evidence distinguishes an unknown protocol tool from a protocol-valid tool whose runtime handler is missing?"
         },
         "design_tension": {

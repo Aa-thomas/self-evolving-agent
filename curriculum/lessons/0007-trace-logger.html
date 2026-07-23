@@ -114,8 +114,8 @@ versioned JSON</code></pre>
           <p>A protocol-known tool with no runtime handler follows a longer path:</p>
           <pre><code>RequestAccepted(tool="read_file")
 → ExecuteToolSelected(tool="read_file")
-→ ToolFailed(tool="read_file", code="UNKNOWN_TOOL")</code></pre>
-          <p>The current implementation reuses <code>UNKNOWN_TOOL</code>, but ordered variants preserve the distinction. A future, more specific runtime-unavailable code may be clearer, yet changing persisted vocabulary requires an explicit compatibility decision rather than a quiet logger rewrite.</p>
+→ ToolFailed(tool="read_file", code="RUNTIME_TOOL_UNAVAILABLE")</code></pre>
+          <p>The distinct code keeps runtime configuration drift separate from protocol rejection in both live observations and persisted traces. The ordered variants additionally preserve where each failure occurred.</p>
         </section>
 
         <section>
@@ -186,7 +186,7 @@ versioned JSON</code></pre>
           <h2>Run proof, then state its limit</h2>
           <p>When the test turns green, inspect the JSON you wrote. Explain one trajectory as assistant output → request outcome → action → tool outcome or exit. Identify the first bad transition and the boundary that owns it.</p>
           <p>The proof establishes that one covered run crosses the runtime-to-trace boundary, preserves typed causal outcomes, freezes its completed snapshot, and writes versioned JSON. It does not prove redaction, retention, backward-compatible migrations, truthful external systems, model quality, or that every future branch records an event.</p>
-          <p><strong>Transfer:</strong> add the smallest regression for a request accepted by the protocol registry but rejected because its runtime handler is absent. Assert <code>RequestAccepted</code> → <code>ExecuteToolSelected</code> → <code>ToolFailed(code="UNKNOWN_TOOL")</code>, and assert that it is not a <code>RequestRejected(stage="tool_lookup")</code>.</p>
+          <p><strong>Transfer:</strong> add the smallest regression for a request accepted by the protocol registry but rejected because its runtime handler is absent. Assert <code>RequestAccepted</code> → <code>ExecuteToolSelected</code> → <code>ToolFailed(code="RUNTIME_TOOL_UNAVAILABLE")</code>, and assert that it is not a <code>RequestRejected(stage="tool_lookup")</code>.</p>
         </section>
       </section>
 

@@ -188,8 +188,11 @@ def test_execute_tool_action_rejects_missing_handler():
     result = execute_tool_action(action, {})
 
     assert isinstance(result, Err)
-    assert result.error.code == "UNKNOWN_TOOL"
+    assert result.error.code == "RUNTIME_TOOL_UNAVAILABLE"
     assert result.error.tool == "read_file"
+    assert result.error.message == (
+        "No runtime handler registered for tool: read_file"
+    )
 
 
 def test_execute_tool_action_normalizes_handler_exception():
@@ -383,8 +386,13 @@ def test_unregistered_runtime_tool_is_rejected_without_execution():
     assert result.exit_reason == "submitted"
 
     assert len(model.calls) == 2
-    observation = assert_err_observation(model.calls[1], "UNKNOWN_TOOL")
-    assert observation["error"] == "Unknown tool: read_file"
+    observation = assert_err_observation(
+        model.calls[1],
+        "RUNTIME_TOOL_UNAVAILABLE",
+    )
+    assert observation["error"] == (
+        "No runtime handler registered for tool: read_file"
+    )
 
 
 def test_unknown_protocol_tool_is_rejected_without_execution():
