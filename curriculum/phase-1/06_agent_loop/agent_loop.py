@@ -1,10 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields, is_dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, fields, is_dataclass
+from enum import StrEnum
 import json
-from typing import Any, Callable, Generic, Literal, Protocol, TypeAlias, TypeVar
+from typing import Any, Literal, Protocol, TypeAlias, assert_never
 
-from pydantic import BaseModel, ConfigDict, StrictStr, ValidationError
+from pydantic import BaseModel
+
+from primitive_04_validate_tool_args import (
+    KnownToolName,
+    SubmitArgs,
+    ValidatedToolRequest,
+    parse_and_validate_tool_request,
+)
+from result import Err, Ok, Result
 
 
 ## =============================================================================
@@ -14,148 +24,60 @@ class Model(Protocol):
     def complete(self, messages: list[dict[str, str]]) -> str: ...
 
 
-T = TypeVar("T")
+class ExitReason(StrEnum):
+    SUBMITTED = "submitted"
+    MAX_STEPS = "max_steps"
 
 
-@dataclass(frozen=True)
-class Ok(Generic[T]):
-    value: T
-    ok: Literal[True] = field(default=True, init=False)
-
-
-@dataclass(frozen=True)
-class Err:
-    error: str
-    error_code: str
-    ok: Literal[False] = field(default=False, init=False)
-
-
-Result: TypeAlias = Ok[T] | Err
-ExitReason: TypeAlias = Literal["submitted", "max_steps"]
-
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AgentResult:
     exit_reason: ExitReason
     final_answer: str | None
 
 
-class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+@dataclass(frozen=True, slots=True)
+class SubmitAction:
+    answer: str
 
 
-class ToolRequest(StrictModel):
-    tool: StrictStr
-    args: dict[str, Any]
+@dataclass(frozen=True, slots=True)
+class ExecuteToolAction:
+    request: ValidatedToolRequest
 
 
-@dataclass(frozen=True)
-class ToolSpec:
-    name: str
-    args_schema: type[BaseModel]
+AgentAction: TypeAlias = SubmitAction | ExecuteToolAction
 
 
-@dataclass(frozen=True)
-class ValidatedToolRequest:
-    tool: str
-    args: BaseModel
+def classify_action(
+    request: ValidatedToolRequest,
+) -> AgentAction:
+    if request.tool == "submit":
+        assert isinstance(request.args, SubmitArgs)
+        return SubmitAction(answer=request.args.answer)
+
+    return ExecuteToolAction(request=request)
 
 
-## =============================================================================
-## Tool Arg Schemas
-## =============================================================================
-class ReadFileArgs(StrictModel):
-    path: StrictStr
+@dataclass(frozen=True, slots=True)
+class UnavailableRuntimeToolError:
+    tool: KnownToolName
+    message: str
+    code: Literal["UNKNOWN_TOOL"] = "UNKNOWN_TOOL"
 
 
-class WriteFileArgs(StrictModel):
-    path: StrictStr
-    content: StrictStr
+@dataclass(frozen=True, slots=True)
+class ToolExceptionError:
+    tool: KnownToolName
+    message: str
+    code: Literal["TOOL_EXCEPTION"] = "TOOL_EXCEPTION"
 
 
-class ListFilesArgs(StrictModel):
-    path: StrictStr | None = None
+RuntimeToolError: TypeAlias = (
+    UnavailableRuntimeToolError | ToolExceptionError
+)
 
-
-class SubmitArgs(StrictModel):
-    answer: StrictStr
-
-
-TOOL_REGISTRY: dict[str, ToolSpec] = {
-    "read_file": ToolSpec(name="read_file", args_schema=ReadFileArgs),
-    "write_file": ToolSpec(name="write_file", args_schema=WriteFileArgs),
-    "list_files": ToolSpec(name="list_files", args_schema=ListFilesArgs),
-    "submit": ToolSpec(name="submit", args_schema=SubmitArgs),
-}
-
-
-## =============================================================================
-## Validation Helpers
-## =============================================================================
-def parse_json(raw_text: str) -> Result[Any]:
-    try:
-        return Ok(json.loads(raw_text))
-    except json.JSONDecodeError as error:
-        return Err(
-            error=str(error),
-            error_code="INVALID_JSON",
-        )
-
-
-def validate_tool_request_shape(data: Any) -> Result[ToolRequest]:
-    try:
-        return Ok(ToolRequest.model_validate(data))
-    except ValidationError as error:
-        return Err(
-            error=str(error),
-            error_code="INVALID_TOOL_REQUEST_SHAPE",
-        )
-
-
-def validate_tool_exists(tool_request: ToolRequest) -> Result[ToolRequest]:
-    if tool_request.tool not in TOOL_REGISTRY:
-        return Err(
-            error=f"Unknown tool: {tool_request.tool}",
-            error_code="UNKNOWN_TOOL",
-        )
-
-    return Ok(tool_request)
-
-
-def validate_tool_args(tool_request: ToolRequest) -> Result[ValidatedToolRequest]:
-    try:
-        tool_spec = TOOL_REGISTRY[tool_request.tool]
-        validated_args = tool_spec.args_schema.model_validate(tool_request.args)
-        return Ok(
-            ValidatedToolRequest(
-                tool=tool_request.tool,
-                args=validated_args,
-            )
-        )
-    except ValidationError as error:
-        return Err(
-            error=str(error),
-            error_code="INVALID_TOOL_ARGS",
-        )
-
-
-def validate_tool_request(raw_text: str) -> Result[ValidatedToolRequest]:
-    json_result = parse_json(raw_text)
-
-    if isinstance(json_result, Err):
-        return json_result
-
-    shape_result = validate_tool_request_shape(json_result.value)
-
-    if isinstance(shape_result, Err):
-        return shape_result
-
-    exists_result = validate_tool_exists(shape_result.value)
-
-    if isinstance(exists_result, Err):
-        return exists_result
-
-    return validate_tool_args(exists_result.value)
+RuntimeToolResult: TypeAlias = Result[Any, RuntimeToolError]
+ToolHandlers: TypeAlias = Mapping[str, Callable[..., Any]]
 
 
 ## =============================================================================
@@ -182,10 +104,19 @@ def to_jsonable(value: Any) -> Any:
 
 def result_to_dict(result: Any) -> dict[str, Any]:
     if isinstance(result, Err):
+        typed_error = result.error
+
+        if hasattr(typed_error, "code") and hasattr(typed_error, "message"):
+            return {
+                "ok": False,
+                "error_code": to_jsonable(typed_error.code),
+                "error": to_jsonable(typed_error.message),
+            }
+
         return {
             "ok": False,
-            "error_code": result.error_code,
-            "error": result.error,
+            "error_code": "UNKNOWN_ERROR",
+            "error": str(typed_error),
         }
 
     if isinstance(result, Ok):
@@ -224,11 +155,35 @@ def args_to_dict(args: BaseModel) -> dict[str, Any]:
     return args.model_dump(exclude_none=True)
 
 
-def unknown_tool_result(tool_name: str) -> Err:
+def unknown_tool_result(
+    tool_name: KnownToolName,
+) -> Result[Any, UnavailableRuntimeToolError]:
     return Err(
-        error=f"Unknown tool: {tool_name}",
-        error_code="UNKNOWN_TOOL",
+        UnavailableRuntimeToolError(
+            tool=tool_name,
+            message=f"Unknown tool: {tool_name}",
+        )
     )
+
+
+def execute_tool_action(
+    action: ExecuteToolAction,
+    tools: ToolHandlers,
+) -> Any:
+    request = action.request
+
+    if request.tool not in tools:
+        return unknown_tool_result(request.tool)
+
+    try:
+        return tools[request.tool](**args_to_dict(request.args))
+    except Exception as error:
+        return Err(
+            ToolExceptionError(
+                tool=request.tool,
+                message=str(error),
+            )
+        )
 
 
 ## =============================================================================
@@ -237,7 +192,7 @@ def unknown_tool_result(tool_name: str) -> Err:
 def run_agent(
     user_task: str,
     model: Model,
-    tools: dict[str, Callable[..., Any]],
+    tools: ToolHandlers,
     max_steps: int,
 ) -> AgentResult:
     messages = [{"role": "user", "content": user_task}]
@@ -246,7 +201,7 @@ def run_agent(
         assistant_output = model.complete(messages)
         messages.append({"role": "assistant", "content": assistant_output})
 
-        request_result = validate_tool_request(assistant_output)
+        request_result = parse_and_validate_tool_request(assistant_output)
 
         if isinstance(request_result, Err):
             messages.append(
@@ -254,29 +209,34 @@ def run_agent(
             )
             continue
 
-        request = request_result.value
-
-        if request.tool == "submit":
-            final_answer = request.args.model_dump()["answer"]
-            return AgentResult(
-                exit_reason="submitted",
-                final_answer=final_answer,
+        if not isinstance(request_result, Ok):
+            raise TypeError(
+                f"Unsupported Result variant: {type(request_result).__name__}"
             )
 
-        if request.tool not in tools:
-            tool_result = unknown_tool_result(request.tool)
-        else:
-            try:
-                tool_result = tools[request.tool](**args_to_dict(request.args))
-            except Exception as error:
-                tool_result = Err(
-                    error=str(error),
-                    error_code="TOOL_EXCEPTION",
+        action = classify_action(request_result.value)
+
+        match action:
+            case SubmitAction(answer=answer):
+                return AgentResult(
+                    exit_reason=ExitReason.SUBMITTED,
+                    final_answer=answer,
                 )
 
-        messages.append({"role": "tool", "content": observation_content(tool_result)})
+            case ExecuteToolAction():
+                tool_result = execute_tool_action(action, tools)
+
+                messages.append(
+                    {
+                        "role": "tool",
+                        "content": observation_content(tool_result),
+                    }
+                )
+
+            case _:
+                assert_never(action)
 
     return AgentResult(
-        exit_reason="max_steps",
+        exit_reason=ExitReason.MAX_STEPS,
         final_answer=None,
     )

@@ -3,11 +3,16 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parent
+PHASE_ROOT = ROOT.parent
+sys.path.insert(0, str(PHASE_ROOT))
+
 MODULE_PATH = ROOT / "trace_logger.py"
 FIXTURE_PATH = ROOT / "fixtures" / "partial-run.json"
-AGENT_LOOP_PATH = ROOT.parent / "06_agent_loop" / "agent_loop.py"
+AGENT_LOOP_PATH = PHASE_ROOT / "06_agent_loop" / "agent_loop.py"
 spec = importlib.util.spec_from_file_location("trace_logger", MODULE_PATH)
 assert spec is not None and spec.loader is not None
 module = importlib.util.module_from_spec(spec)
@@ -41,7 +46,55 @@ def test_partial_run_fixture_is_not_diagnostic():
     assert "assistant_output" not in partial
 
 
-def test_trace_logger_records_causal_fields_and_writes_replayable_json(tmp_path):
+@pytest.mark.parametrize(
+    ("raw_output", "expected_stage", "expected_code"),
+    [
+        ('{"tool":', module.RequestStage.JSON, "INVALID_JSON"),
+        (
+            '{"tool":"read_file"}',
+            module.RequestStage.REQUEST_SHAPE,
+            "INVALID_TOOL_REQUEST_SHAPE",
+        ),
+        (
+            '{"tool":"delete_file","args":{}}',
+            module.RequestStage.TOOL_LOOKUP,
+            "UNKNOWN_TOOL",
+        ),
+        (
+            '{"tool":"read_file","args":{}}',
+            module.RequestStage.TOOL_ARGUMENTS,
+            "INVALID_TOOL_ARGS",
+        ),
+    ],
+)
+def test_request_adapter_preserves_the_first_failed_stage(
+    raw_output,
+    expected_stage,
+    expected_code,
+):
+    runtime_result = agent_loop.parse_and_validate_tool_request(raw_output)
+
+    outcome = module.request_result_to_trace(runtime_result)
+
+    assert isinstance(outcome, module.RequestRejected)
+    assert outcome.stage is expected_stage
+    assert outcome.code == expected_code
+
+
+def test_request_adapter_removes_runtime_result_details_on_success():
+    runtime_result = agent_loop.parse_and_validate_tool_request(
+        '{"tool":"read_file","args":{"path":"notes.txt"}}'
+    )
+
+    outcome = module.request_result_to_trace(runtime_result)
+
+    assert outcome == module.RequestAccepted(tool="read_file")
+    assert not hasattr(outcome, "value")
+
+
+def test_trace_logger_records_typed_causal_outcomes_and_writes_versioned_json(
+    tmp_path,
+):
     logger = module.TraceLogger()
     result = agent_loop.run_agent(
         user_task="Read notes.txt.",
@@ -62,11 +115,30 @@ def test_trace_logger_records_causal_fields_and_writes_replayable_json(tmp_path)
     logger.write_json(destination, trace)
 
     saved = json.loads(destination.read_text(encoding="utf-8"))
+    assert saved["schema_version"] == 1
     assert saved["initial_messages"] == [{"role": "user", "content": "Read notes.txt."}]
     assert saved["steps"][0]["assistant_output"].startswith('{"tool":"read_file"')
-    assert saved["steps"][0]["parse_result"]["ok"] is True
-    assert saved["steps"][0]["validation_result"]["ok"] is True
-    assert saved["steps"][0]["runtime_handler"] == "read_file"
-    assert saved["steps"][0]["tool_result"] == {"ok": True, "value": "lesson notes"}
+    assert saved["steps"][0]["request_outcome"] == {
+        "kind": "accepted",
+        "tool": "read_file",
+    }
+    assert saved["steps"][0]["action"] == {
+        "kind": "execute_tool",
+        "tool": "read_file",
+    }
+    assert saved["steps"][0]["tool_outcome"] == {
+        "kind": "succeeded",
+        "tool": "read_file",
+        "value": "lesson notes",
+    }
+    assert saved["steps"][1]["request_outcome"] == {
+        "kind": "accepted",
+        "tool": "submit",
+    }
+    assert saved["steps"][1]["action"] == {
+        "answer": "done",
+        "kind": "submit",
+    }
+    assert saved["steps"][1]["tool_outcome"] is None
     assert saved["steps"][1]["exit_reason"] == "submitted"
     assert saved["exit_reason"] == "submitted"

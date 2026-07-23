@@ -5,9 +5,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
+PHASE_ROOT = ROOT.parent
+sys.path.insert(0, str(PHASE_ROOT))
+
 MODULE_PATH = ROOT / "eval_runner.py"
 FIXTURE_PATH = ROOT / "fixtures" / "eval-cases.json"
-AGENT_LOOP_PATH = ROOT.parent / "06_agent_loop" / "agent_loop.py"
+AGENT_LOOP_PATH = PHASE_ROOT / "06_agent_loop" / "agent_loop.py"
 spec = importlib.util.spec_from_file_location("eval_runner", MODULE_PATH)
 assert spec is not None and spec.loader is not None
 module = importlib.util.module_from_spec(spec)
