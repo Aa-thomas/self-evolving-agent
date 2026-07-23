@@ -70,7 +70,7 @@
           <p>The protocol registry contains <code>read_file</code>; the runtime <code>tools</code> dictionary is empty. What should happen after validation succeeds?</p>
           <div class="choice-list">
             <label><input data-prediction-choice type="radio" name="prediction" value="execute"><span>Execute through an implicit fallback.</span></label>
-            <label><input data-prediction-choice type="radio" name="prediction" value="observe"><span>Append a <code>RUNTIME_TOOL_UNAVAILABLE</code> observation and continue within the budget.</span></label>
+            <label><input data-prediction-choice type="radio" name="prediction" value="observe"><span>Append an <code>UNKNOWN_TOOL</code> observation and continue within the budget.</span></label>
             <label><input data-prediction-choice type="radio" name="prediction" value="submit"><span>Treat the request as a final answer.</span></label>
           </div>
           <label>Why does that boundary own the decision?<textarea data-prediction-rationale placeholder="Separate protocol support from runtime availability."></textarea></label>
@@ -87,7 +87,7 @@
 
 known protocol tool, absent handler
 → request accepted → execute selected → runtime failure</code></pre>
-          <p>The error codes preserve the boundary distinction: an unknown protocol name produces <code>UNKNOWN_TOOL</code>, while an accepted tool without an installed handler produces <code>RUNTIME_TOOL_UNAVAILABLE</code>. Their ordered variants also show that the failures occur at different transitions.</p>
+          <p>The current implementation uses <code>UNKNOWN_TOOL</code> for both observations. That duplicated vocabulary is awkward, but their ordered variants and owning boundaries remain different. Do not “simplify” the real ambiguity away.</p>
         </section>
 
         <section data-case-set>
