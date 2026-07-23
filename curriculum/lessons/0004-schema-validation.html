@@ -32,7 +32,7 @@
 
         <section>
           <h2>Inspect the real contracts</h2>
-          <p>Read Primitive 3’s <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>, then inspect the Lesson 4 compatibility entry point <a href="../phase-1/04_validate_tool_args/04_validate_tool_args.py"><code>04_validate_tool_args.py</code></a> and the focused <a href="../phase-1/04_validate_tool_args/validate_tool_args_tests.py"><code>validate_tool_args_tests.py</code></a>. These artifacts expose three different kinds of evidence:</p>
+          <p>Read Primitive 3’s <a href="../phase-1/03_parse_tool_request/parse_tool_request.py"><code>parse_tool_request.py</code></a>, then inspect the Lesson 4 compatibility entry point <a href="../phase-1/04_validate_tool_args/validate_tool_args.py"><code>validate_tool_args.py</code></a> and the focused <a href="../phase-1/04_validate_tool_args/tests_04_validate_tool_args.py"><code>tests_04_validate_tool_args.py</code></a>. These artifacts expose three different kinds of evidence:</p>
           <table class="contract-table">
             <thead>
               <tr><th>Artifact</th><th>What it establishes</th><th>What it leaves open</th></tr>
@@ -43,7 +43,7 @@
               <tr><td>The focused tests</td><td>Observable outcomes for known, unknown, missing, wrong-type, extra-field, and control requests.</td><td>Filesystem safety, runtime dispatch, and end-to-end agent behavior.</td></tr>
             </tbody>
           </table>
-          <p><strong>Target artifact:</strong> <code>validate_tool_args()</code> in the Primitive 4 implementation. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py</code>.</p>
+          <p><strong>Target artifact:</strong> <code>validate_tool_args()</code> in the Primitive 4 implementation. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/04_validate_tool_args/tests_04_validate_tool_args.py</code>.</p>
         </section>
 
         <section data-lecture-obligation="four-gate-validation">
@@ -179,7 +179,7 @@
 
         <section>
           <h2>Build the narrow validation boundary</h2>
-          <p>Implement or reconstruct <a href="../phase-1/primitive_04_validate_tool_args.py"><code>validate_tool_args()</code></a> while preserving the registry and result contracts:</p>
+          <p>Implement or reconstruct <a href="../phase-1/04_validate_tool_args/validate_tool_args.py"><code>validate_tool_args()</code></a> while preserving the registry and result contracts:</p>
           <ol class="compact-list">
             <li>Look up <code>request.tool</code> in <code>TOOL_SPECS</code> before selecting an argument model.</li>
             <li>Return <code>UnknownToolError</code> when lookup fails; do not run a speculative schema.</li>
@@ -191,7 +191,7 @@
 
         <section>
           <h2>Run proof and interpret the result</h2>
-          <p>Run <code>uv run pytest curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py</code>. Trace <code>test_wrong_tool_arg_type_is_rejected</code> through the four gates and compare it with <code>test_rejects_unknown_tool</code> and <code>test_submit_is_protocol_valid_but_returns_a_control_request</code>.</p>
+          <p>Run <code>uv run pytest curriculum/phase-1/04_validate_tool_args/tests_04_validate_tool_args.py</code>. Trace <code>test_wrong_tool_arg_type_is_rejected</code> through the four gates and compare it with <code>test_rejects_unknown_tool</code> and <code>test_submit_is_protocol_valid_but_returns_a_control_request</code>.</p>
           <div class="grid">
             <article class="card">
               <h3>The proof establishes</h3>

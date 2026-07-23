@@ -5,14 +5,14 @@ from pathlib import Path
 PHASE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PHASE_ROOT))
 
-from primitive_03_parse_tool_request import (
+from parse_tool_request import (
     Err,
     InvalidJsonError,
     InvalidToolRequestShapeError,
     Ok,
     parse_tool_request,
 )
-from primitive_04_validate_tool_args import (
+from validate_tool_args import (
     InvalidToolArgsError,
     ReadFileArgs,
     UnknownToolError,

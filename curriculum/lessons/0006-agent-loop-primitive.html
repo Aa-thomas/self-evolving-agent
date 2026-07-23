@@ -58,7 +58,7 @@
 
         <section>
           <h2>Inspect the real evidence packet</h2>
-          <p><strong>Starting artifacts:</strong> <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>, <a href="../phase-1/primitive_04_validate_tool_args.py"><code>primitive_04_validate_tool_args.py</code></a>, and <a href="../phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"><code>05_sandboxed_file_tools.py</code></a>.</p>
+          <p><strong>Starting artifacts:</strong> <a href="../phase-1/03_parse_tool_request/parse_tool_request.py"><code>parse_tool_request.py</code></a>, <a href="../phase-1/04_validate_tool_args/validate_tool_args.py"><code>validate_tool_args.py</code></a>, and <a href="../phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"><code>05_sandboxed_file_tools.py</code></a>.</p>
           <p><strong>Target:</strong> reconstruct the narrow control-flow slice in <a href="../phase-1/06_agent_loop/agent_loop.py"><code>agent_loop.py</code></a>. <strong>Proof:</strong> <a href="../phase-1/06_agent_loop/tests_agent_loop.py"><code>tests_agent_loop.py</code></a>.</p>
           <p>The prior primitives prove local contracts. None of them owns their composition, recovery policy, runtime registry, or stopping decision. Primitive 6 exists because integration creates new responsibilities.</p>
         </section>

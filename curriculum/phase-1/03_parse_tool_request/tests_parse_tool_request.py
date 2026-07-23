@@ -5,7 +5,7 @@ from pathlib import Path
 PHASE_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PHASE_ROOT))
 
-from primitive_03_parse_tool_request import (
+from parse_tool_request import (
     Err,
     InvalidJsonError,
     InvalidToolRequestShapeError,

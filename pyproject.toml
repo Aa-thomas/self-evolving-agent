@@ -19,7 +19,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["curriculum/phase-1/01_model_call"]
+pythonpath = ["curriculum/phase-1", "curriculum/phase-1/01_model_call", "curriculum/phase-1/03_parse_tool_request", "curriculum/phase-1/04_validate_tool_args"]
 
 [tool.ruff.lint]
 fixable = []

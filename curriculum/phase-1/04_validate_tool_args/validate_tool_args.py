@@ -5,7 +5,7 @@ from typing import Literal, TypeAlias, cast
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from primitive_03_parse_tool_request import (
+from parse_tool_request import (
     ParseToolRequestError,
     ToolRequest,
     parse_tool_request,

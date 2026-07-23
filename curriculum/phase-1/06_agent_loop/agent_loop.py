@@ -8,7 +8,7 @@ from typing import Any, Literal, Protocol, TypeAlias, assert_never
 
 from pydantic import BaseModel
 
-from primitive_04_validate_tool_args import (
+from validate_tool_args import (
     KnownToolName,
     SubmitArgs,
     ValidatedToolRequest,

@@ -171,7 +171,7 @@
           {"id": "proof-limits", "claim": "Parser success proves structure only, not known tools, valid arguments, permissions, or runtime availability."}
         ],
         "worked_example": {
-          "artifact": "curriculum/phase-1/03_parse_tool_request_skeleton.py",
+          "artifact": "curriculum/phase-1/03_parse_tool_request/parse_tool_request_skeleton.py",
           "arc": ["Raw assistant text enters the JSON decoder.", "The decoded value crosses the outer ToolRequest shape gate.", "The parser returns a ToolRequest or a stage-specific structured rejection."]
         },
         "study_prompt_coverage": {
@@ -215,7 +215,7 @@
         "conditional": {"score": 2, "evidence": "Ten cases require distinguishing decoding, outer shape, and later validation."},
         "design": {"score": 2, "evidence": "The learner compares permissive extraction with one strict complete-document protocol."},
         "evidence": {"score": 2, "evidence": "The learner inspects predecessor output, scaffold, and tests, then runs the focused proof."},
-        "reconstruction": {"score": 2, "evidence": "03_parse_tool_request_skeleton.py exposes contracts while withholding all three parser bodies."},
+        "reconstruction": {"score": 2, "evidence": "parse_tool_request_skeleton.py exposes contracts while withholding all three parser bodies."},
         "transfer": {"score": 2, "evidence": "The learner applies envelope ownership to a proposed request_id field and names cross-boundary regressions."}
       },
       "study_contract": {
@@ -231,12 +231,12 @@
       "learning_goal": "Turn one assistant string into a narrow ToolRequest while distinguishing decoding, outer-shape, and later validation claims.",
       "learner_decision": "Locate the first failed parser gate without assigning registry or tool-specific argument failures to Primitive 3.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/02_message_state/message_state.py", "curriculum/phase-1/03_parse_tool_request_skeleton.py"], "symbols": ["Message", "ToolRequest", "parse_json", "validate_tool_request", "parse_tool_request"], "tests": ["curriculum/phase-1/03_parse_tool_request_tests.py"], "scenario_sources": []},
-      "target_artifacts": {"source_files": ["curriculum/phase-1/primitive_03_parse_tool_request.py"], "tests": ["curriculum/phase-1/03_parse_tool_request_tests.py"], "expected_artifact": "A structured ToolRequest or a parse/outer-shape error, without tool-registry or argument validation."},
-      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request_tests.py"], "assertions": ["test_malformed_json_is_rejected", "test_json_string_is_not_a_tool_request", "test_valid_request_produces_tool_request", "test_trailing_prose_is_not_json", "test_unknown_tool_name_still_produces_tool_request", "test_tool_specific_argument_type_is_left_for_validation"], "traces_or_output": []},
-      "failure_contract": {"source": "curriculum/phase-1/03_parse_tool_request_tests.py", "symptom": "Assistant output is malformed JSON or not a ToolRequest-shaped object.", "responsible_boundary": "tool-request parser", "regression_target": "test_trailing_prose_is_not_json"},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/02_message_state/message_state.py", "curriculum/phase-1/03_parse_tool_request/parse_tool_request_skeleton.py"], "symbols": ["Message", "ToolRequest", "parse_json", "validate_tool_request", "parse_tool_request"], "tests": ["curriculum/phase-1/03_parse_tool_request/tests_parse_tool_request.py"], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request/parse_tool_request.py"], "tests": ["curriculum/phase-1/03_parse_tool_request/tests_parse_tool_request.py"], "expected_artifact": "A structured ToolRequest or a parse/outer-shape error, without tool-registry or argument validation."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request/tests_parse_tool_request.py"], "assertions": ["test_malformed_json_is_rejected", "test_json_string_is_not_a_tool_request", "test_valid_request_produces_tool_request", "test_trailing_prose_is_not_json", "test_unknown_tool_name_still_produces_tool_request", "test_tool_specific_argument_type_is_left_for_validation"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/03_parse_tool_request/tests_parse_tool_request.py", "symptom": "Assistant output is malformed JSON or not a ToolRequest-shaped object.", "responsible_boundary": "tool-request parser", "regression_target": "test_trailing_prose_is_not_json"},
       "practice_contract": {"kind": "case_set", "minimum_cases": 10, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "test"},
-      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/primitive_03_parse_tool_request.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request_tests.py"]},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/03_parse_tool_request/parse_tool_request.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/03_parse_tool_request/tests_parse_tool_request.py"]},
       "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_parser_inputs", "fallback": "input_output_playground", "rationale": "Immediate input and output feedback is useful, but persistent world state is not."}
     },
@@ -255,7 +255,7 @@
           {"id": "proof-limits", "claim": "Validator tests establish typed acceptance and rejection without proving execution, permissions, or loop recovery."}
         ],
         "worked_example": {
-          "artifact": "curriculum/phase-1/primitive_03_parse_tool_request.py",
+          "artifact": "curriculum/phase-1/03_parse_tool_request/parse_tool_request.py",
           "arc": ["A parsed read_file envelope reaches protocol validation.", "Registry lookup accepts the tool name before its path argument is checked.", "Typed arguments are accepted or the first failed stage returns a structured rejection."]
         },
         "study_prompt_coverage": {
@@ -306,12 +306,12 @@
       "learning_goal": "Validate registered tool arguments at the trust boundary before execution.",
       "learner_decision": "Consume Primitive 3's ToolRequest and assign protocol registry, argument schema, and runtime-handler availability to their responsible source of truth.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/primitive_03_parse_tool_request.py"], "symbols": ["ToolRequest"], "tests": [], "scenario_sources": []},
-      "target_artifacts": {"source_files": ["curriculum/phase-1/primitive_04_validate_tool_args.py"], "tests": ["curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"], "expected_artifact": "Validation that accepts a Primitive 3 ToolRequest only when its tool and arguments are executable by the protocol contract."},
-      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"], "assertions": ["test_wrong_tool_arg_type_is_rejected"], "traces_or_output": []},
-      "failure_contract": {"source": "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py", "symptom": "A parsed read_file request has path=123.", "responsible_boundary": "tool argument validation", "regression_target": "test_wrong_tool_arg_type_is_rejected"},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request/parse_tool_request.py"], "symbols": ["ToolRequest"], "tests": [], "scenario_sources": []},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/04_validate_tool_args/validate_tool_args.py"], "tests": ["curriculum/phase-1/04_validate_tool_args/tests_04_validate_tool_args.py"], "expected_artifact": "Validation that accepts a Primitive 3 ToolRequest only when its tool and arguments are executable by the protocol contract."},
+      "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/tests_04_validate_tool_args.py"], "assertions": ["test_wrong_tool_arg_type_is_rejected"], "traces_or_output": []},
+      "failure_contract": {"source": "curriculum/phase-1/04_validate_tool_args/tests_04_validate_tool_args.py", "symptom": "A parsed read_file request has path=123.", "responsible_boundary": "tool argument validation", "regression_target": "test_wrong_tool_arg_type_is_rejected"},
       "practice_contract": {"kind": "case_set", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "implement"},
-      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/primitive_04_validate_tool_args.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py"]},
+      "reconstruction_contract": {"mode": "skeleton", "target": "curriculum/phase-1/04_validate_tool_args/validate_tool_args.py", "proof_command": ["uv", "run", "pytest", "curriculum/phase-1/04_validate_tool_args/tests_04_validate_tool_args.py"]},
       "completion_contract": {"required_milestones": ["prediction_committed", "case_set_passed", "artifact_inspected", "implementation_plan_ready", "proof_passed", "failure_explained", "reconstruction_passed", "recall_passed", "learning_record_written"]},
       "micro_world": {"decision": "optional", "score": 3, "component": null, "scenario_source": null, "learner_action": "try_validation_inputs", "fallback": "input_output_playground", "rationale": "Validation outcomes are immediate and do not require an evolving simulated world."}
     },
@@ -389,7 +389,7 @@
       "learning_goal": "Authorize resolved filesystem capabilities inside one sandbox while returning precise, bounded file-tool observations.",
       "learner_decision": "Locate the earliest path or operation gate, choose its result, and keep protocol validation separate from resource authorization.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/primitive_04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools_skeleton.py"], "symbols": ["ValidatedToolRequest", "ReadFileArgs", "validate_tool_args", "validate_path", "read_file", "write_file", "list_files", "Ok", "Err"], "tests": ["curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "scenario_sources": []},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/04_validate_tool_args/validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools_skeleton.py"], "symbols": ["ValidatedToolRequest", "ReadFileArgs", "validate_tool_args", "validate_path", "read_file", "write_file", "list_files", "Ok", "Err"], "tests": ["curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "scenario_sources": []},
       "target_artifacts": {"source_files": ["curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "tests": ["curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "expected_artifact": "Capability-scoped read, write, and list tools that preserve containment and return precise Ok/Err observations."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py"], "assertions": ["test_read_forbidden_parent_path_rejected", "test_parent_syntax_rejected_even_when_result_would_be_inside", "test_read_symlink_resolving_outside_sandbox_rejected", "test_read_nested_file_passes", "test_read_missing_file_returns_file_not_found", "test_write_to_forbidden_path_rejected", "test_write_with_missing_parent_rejected", "test_list_file_returns_not_a_directory"], "traces_or_output": []},
       "failure_contract": {"source": "curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py", "symptom": "A lexically local file path resolves through a symlink to a resource outside the configured sandbox.", "responsible_boundary": "validate_path canonical containment", "regression_target": "test_read_symlink_resolving_outside_sandbox_rejected"},
@@ -497,7 +497,7 @@
       "learning_goal": "Predict and explain how the harness advances, rejects, executes, recovers, and stops.",
       "learner_decision": "Diagnose the first bad transition and choose the smallest safe correction across parser, validator, runtime registry, and loop control.",
       "established_by": ["curriculum/learning-records/0002-agent-loop-contract.md"],
-      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request.py", "curriculum/phase-1/primitive_04_validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
+      "starting_artifacts": {"source_files": ["curriculum/phase-1/03_parse_tool_request/parse_tool_request.py", "curriculum/phase-1/04_validate_tool_args/validate_tool_args.py", "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools.py"], "symbols": [], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "scenario_sources": ["curriculum/traces/agent-loop-scenarios.json"]},
       "target_artifacts": {"source_files": ["curriculum/phase-1/06_agent_loop/agent_loop.py"], "tests": ["curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "expected_artifact": "A bounded loop that normalizes failures and preserves message-state observations."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/06_agent_loop/tests_agent_loop.py"], "assertions": ["test_submit_stops_loop", "test_unregistered_runtime_tool_is_rejected_without_execution"], "traces_or_output": ["curriculum/traces/agent-loop-scenarios.json"]},
       "failure_contract": {"source": "curriculum/phase-1/06_agent_loop/tests_agent_loop.py", "symptom": "A protocol-valid tool can be absent from the runtime handlers.", "responsible_boundary": "agent-loop runtime dispatch", "regression_target": "test_unregistered_runtime_tool_is_rejected_without_execution"},

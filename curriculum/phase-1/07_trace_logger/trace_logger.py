@@ -15,11 +15,11 @@ from typing import Literal, TypeAlias, assert_never
 
 from pydantic import JsonValue
 
-from primitive_03_parse_tool_request import (
+from parse_tool_request import (
     InvalidJsonError,
     InvalidToolRequestShapeError,
 )
-from primitive_04_validate_tool_args import (
+from validate_tool_args import (
     InvalidToolArgsError,
     KnownToolName,
     ParseAndValidateResult,

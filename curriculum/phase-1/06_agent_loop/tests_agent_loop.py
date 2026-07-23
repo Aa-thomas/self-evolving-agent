@@ -26,7 +26,7 @@ from agent_loop import (
     execute_tool_action,
     run_agent,
 )
-from primitive_04_validate_tool_args import (
+from validate_tool_args import (
     SubmitArgs,
     ValidatedToolRequest,
 )

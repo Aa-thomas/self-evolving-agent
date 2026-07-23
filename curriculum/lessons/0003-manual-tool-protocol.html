@@ -28,7 +28,7 @@
 
       <section>
         <h2>Start from artifacts that already exist</h2>
-        <p>Inspect Primitive 2's completed <a href="../phase-1/02_message_state/message_state.py"><code>message_state.py</code></a>, the real <a href="../phase-1/03_parse_tool_request_tests.py"><code>03_parse_tool_request_tests.py</code></a>, and the current primitive's <a href="../phase-1/03_parse_tool_request_skeleton.py"><code>03_parse_tool_request_skeleton.py</code></a>. Do not open the completed parser before your first implementation attempt.</p>
+        <p>Inspect Primitive 2's completed <a href="../phase-1/02_message_state/message_state.py"><code>message_state.py</code></a>, the real <a href="../phase-1/03_parse_tool_request/tests_parse_tool_request.py"><code>tests_parse_tool_request.py</code></a>, and the current primitive's <a href="../phase-1/03_parse_tool_request/parse_tool_request_skeleton.py"><code>parse_tool_request_skeleton.py</code></a>. Do not open the completed parser before your first implementation attempt.</p>
         <table class="contract-table">
           <thead><tr><th>Starting artifact</th><th>What it already gives you</th><th>What remains missing</th></tr></thead>
           <tbody>
@@ -37,7 +37,7 @@
             <tr><td>The focused tests</td><td>Real inputs and observable result codes for this boundary.</td><td>Your parser must make every case pass without doing Lesson 4's work.</td></tr>
           </tbody>
         </table>
-        <p><strong>Target artifact:</strong> your <code>03_parse_tool_request.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>.</p>
+        <p><strong>Target artifact:</strong> your <code>parse_tool_request.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/03_parse_tool_request/tests_parse_tool_request.py</code>.</p>
       </section>
 
       <section data-lecture-obligation="ordered-parser-gates">
@@ -181,7 +181,7 @@
 
       <section>
         <h2>Build from the scaffold</h2>
-        <p>Copy the real <a href="../phase-1/03_parse_tool_request_skeleton.py"><code>03_parse_tool_request_skeleton.py</code></a> into your working <code>03_parse_tool_request.py</code>. Implement only the three withheld functions.</p>
+        <p>Copy the real <a href="../phase-1/03_parse_tool_request/parse_tool_request_skeleton.py"><code>parse_tool_request_skeleton.py</code></a> into your working <code>parse_tool_request.py</code>. Implement only the three withheld functions.</p>
         <ol class="compact-list">
           <li>In <code>parse_json</code>, decode exactly one complete document and normalize only <code>JSONDecodeError</code> into <code>InvalidJsonError</code>.</li>
           <li>In <code>validate_tool_request</code>, use the supplied strict model and normalize its <code>ValidationError</code> into <code>InvalidToolRequestShapeError</code>.</li>
@@ -192,12 +192,12 @@
 
       <section>
         <h2>Run proof, then inspect what you built</h2>
-        <p>Run <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>. Pay particular attention to <code>test_trailing_prose_is_not_json</code>, <code>test_unknown_tool_name_still_produces_tool_request</code>, and <code>test_tool_specific_argument_type_is_left_for_validation</code>.</p>
+        <p>Run <code>uv run pytest curriculum/phase-1/03_parse_tool_request/tests_parse_tool_request.py</code>. Pay particular attention to <code>test_trailing_prose_is_not_json</code>, <code>test_unknown_tool_name_still_produces_tool_request</code>, and <code>test_tool_specific_argument_type_is_left_for_validation</code>.</p>
         <div class="grid">
           <article class="card"><h3>The proof establishes</h3><p>For the raw outputs covered by the focused suite, the implementation distinguishes decoding failure, outer-shape failure, and a structured request without swallowing suffixes or consulting later boundaries.</p></article>
           <article class="card"><h3>The proof does not establish</h3><p>That a tool name is registered, its arguments are valid for that tool, a runtime handler exists, or execution is safe.</p></article>
         </div>
-        <p>Now inspect your completed <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>. Trace where <code>INVALID_JSON</code> can originate, where <code>INVALID_TOOL_REQUEST_SHAPE</code> can originate, and why neither code can originate in <code>read_file</code>.</p>
+        <p>Now inspect your completed <a href="../phase-1/03_parse_tool_request/parse_tool_request.py"><code>parse_tool_request.py</code></a>. Trace where <code>INVALID_JSON</code> can originate, where <code>INVALID_TOOL_REQUEST_SHAPE</code> can originate, and why neither code can originate in <code>read_file</code>.</p>
         <p><strong>Explain causally:</strong> for the trailing-prose failure, connect raw input → first failed claim → responsible function → regression test. Then state why that test says nothing about registry membership.</p>
       </section>
 
