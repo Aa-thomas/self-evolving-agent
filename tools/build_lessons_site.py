@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import sys
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +28,7 @@ LOCAL_LINK_PATTERN = re.compile(
 )
 H1_PATTERN = re.compile(r"<h1>(.*?)</h1>", re.DOTALL)
 EYEBROW_PATTERN = re.compile(r'<p class="eyebrow">(.*?)</p>', re.DOTALL)
+TITLE_PATTERN = re.compile(r"<title>.*?</title>", re.DOTALL)
 TAG_PATTERN = re.compile(r"<[^>]+>")
 
 
@@ -34,6 +36,9 @@ TAG_PATTERN = re.compile(r"<[^>]+>")
 class Lesson:
     source: Path
     output_name: str
+    number: int
+    technical_name: str
+    memorable_phrase: str
     title: str
     eyebrow: str
 
@@ -47,19 +52,26 @@ def text_from_html(raw: str) -> str:
     return " ".join(without_tags.split())
 
 
-def read_lesson(source: Path) -> Lesson:
+def read_lesson(source: Path, config: dict[str, Any] | None = None) -> Lesson:
     html = source.read_text(encoding="utf-8")
     h1_match = H1_PATTERN.search(html)
     eyebrow_match = EYEBROW_PATTERN.search(html)
 
-    title = text_from_html(h1_match.group(1)) if h1_match else source.stem
-    eyebrow = text_from_html(eyebrow_match.group(1)) if eyebrow_match else "Project 1A"
+    authored_title = text_from_html(h1_match.group(1)) if h1_match else source.stem
+    authored_eyebrow = text_from_html(eyebrow_match.group(1)) if eyebrow_match else "Project 1A"
+    identity = config.get("identity", {}) if config else {}
+    number = identity.get("number", 0)
+    technical_name = identity.get("technical_name", authored_eyebrow)
+    memorable_phrase = identity.get("memorable_phrase", authored_title)
 
     return Lesson(
         source=source,
         output_name=source.name,
-        title=title,
-        eyebrow=eyebrow,
+        number=number,
+        technical_name=technical_name,
+        memorable_phrase=memorable_phrase,
+        title=memorable_phrase,
+        eyebrow=f"Primitive {number} · {technical_name}" if number else authored_eyebrow,
     )
 
 
@@ -116,7 +128,13 @@ def add_site_assets(html: str) -> str:
     return html
 
 
-def nav_html(lessons: list[Lesson], index: int, *, bottom: bool = False) -> str:
+def nav_html(
+    lessons: list[Lesson],
+    index: int,
+    *,
+    total_lessons: int | None = None,
+    bottom: bool = False,
+) -> str:
     lesson = lessons[index]
     navigation_links: list[str] = []
 
@@ -133,36 +151,48 @@ def nav_html(lessons: list[Lesson], index: int, *, bottom: bool = False) -> str:
         )
 
     nav_class = "site-nav bottom-nav" if bottom else "site-nav"
+    joined_links = "\n".join(navigation_links)
+    course_size = total_lessons if total_lessons is not None else len(lessons)
 
     return f"""
       <nav class="{nav_class}" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson {index + 1} of {len(lessons)}</span>
-        <span>{escape(lesson.eyebrow)}</span>
+        <span>Lesson {lesson.number} of {course_size} · {escape(lesson.technical_name)}</span>
         <div class="nav-spacer"></div>
-{"\n".join(navigation_links)}
+{joined_links}
       </nav>
 """
 
 
-def render_lesson(lessons: list[Lesson], index: int) -> str:
+def render_lesson(
+    lessons: list[Lesson],
+    index: int,
+    *,
+    total_lessons: int | None = None,
+) -> str:
     lesson = lessons[index]
     html = lesson.source.read_text(encoding="utf-8")
+    browser_title = f"Project 1A · {lesson.technical_name} · {lesson.memorable_phrase}"
+    html = TITLE_PATTERN.sub(f"<title>{escape(browser_title)}</title>", html, count=1)
     html = strip_private_links(html)
     html = add_site_assets(html)
-    html = html.replace("<main>", "<main>" + nav_html(lessons, index), 1)
+    html = html.replace(
+        "<main>",
+        "<main>" + nav_html(lessons, index, total_lessons=total_lessons),
+        1,
+    )
     html = re.sub(
         r"(?m)^[ \t]*</main>",
-        nav_html(lessons, index, bottom=True) + "    </main>",
+        nav_html(lessons, index, total_lessons=total_lessons, bottom=True) + "    </main>",
         html,
         count=1,
     )
     return html
 
 
-def write_lessons(lessons: list[Lesson]) -> None:
+def write_lessons(lessons: list[Lesson], *, total_lessons: int | None = None) -> None:
     for index, lesson in enumerate(lessons):
-        output = render_lesson(lessons, index)
+        output = render_lesson(lessons, index, total_lessons=total_lessons)
         (LESSONS_OUT / lesson.output_name).write_text(output, encoding="utf-8")
 
 
@@ -175,14 +205,14 @@ def write_locked_lessons(lessons: list[Lesson], manifest: dict[str, object]) -> 
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{escape(lesson.title)} — Upcoming</title>
+    <title>Project 1A · {escape(lesson.technical_name)} · {escape(lesson.memorable_phrase)} — Upcoming</title>
     <link rel="stylesheet" href="../assets/course.css">
     <link rel="stylesheet" href="../assets/site.css">
   </head>
   <body>
     <main class="course-home">
-      <p class="eyebrow">Upcoming specification</p>
-      <h1>{escape(lesson.title)}</h1>
+      <p class="eyebrow">Primitive {lesson.number} · {escape(lesson.technical_name)} · Upcoming specification</p>
+      <h1>{escape(lesson.memorable_phrase)}</h1>
       <p>This lesson is locked. Implement its prerequisite capability and produce runnable evidence before studying it as a completed lesson.</p>
       <p>{escape(reason)}</p>
       <p><a href="../index.html">Return to course home</a></p>
@@ -198,8 +228,8 @@ def render_index(lessons: list[Lesson], locked_lessons: list[Lesson], manifest: 
         f"""
         <li>
           <a href="lessons/{lesson.output_name}">
-            <span>{escape(lesson.eyebrow)}</span>
-            <strong>{escape(lesson.title)}</strong>
+            <strong>{escape(lesson.memorable_phrase)}</strong>
+            <span class="lesson-technical">Primitive {lesson.number} · {escape(lesson.technical_name)}</span>
           </a>
         </li>"""
         for lesson in lessons
@@ -207,13 +237,18 @@ def render_index(lessons: list[Lesson], locked_lessons: list[Lesson], manifest: 
     locked_rows = "\n".join(
         f"""
         <li class="lesson-locked">
-          <span>
-            <span>{escape(lesson.eyebrow)}</span>
-            <strong>{escape(lesson.title)}</strong>
+          <div>
+            <strong>{escape(lesson.memorable_phrase)}</strong>
+            <span class="lesson-technical">Primitive {lesson.number} · {escape(lesson.technical_name)}</span>
             <small>Upcoming: {escape(manifest['lessons'][lesson.lesson_id]['publication']['reason'])}</small>
-          </span>
+          </div>
         </li>"""
         for lesson in locked_lessons
+    )
+    all_lessons = sorted([*lessons, *locked_lessons], key=lambda lesson: lesson.number)
+    course_map = "\n".join(
+        f'        <div><span>{lesson.number}</span>{escape(lesson.technical_name)}</div>'
+        for lesson in all_lessons
     )
     active_section = lesson_rows or "        <li>No lessons are published while the current primitives are rebuilt against evidence-first contracts.</li>"
     upcoming_section = (
@@ -253,14 +288,7 @@ def render_index(lessons: list[Lesson], locked_lessons: list[Lesson], manifest: 
       </section>
 
       <section class="course-map" aria-label="Project 1A primitive flow">
-        <div>Model call</div>
-        <div>Message state</div>
-        <div>Tool JSON</div>
-        <div>Validation</div>
-        <div>Sandbox tools</div>
-        <div>Agent loop</div>
-        <div>Trace</div>
-        <div>Eval</div>
+{course_map}
       </section>
 
       <section>
@@ -282,13 +310,18 @@ def write_index(lessons: list[Lesson], locked_lessons: list[Lesson], manifest: d
 
 def main() -> None:
     manifest = load_manifest()
-    lessons = [read_lesson(path) for path in sorted(LESSONS_SRC.glob("*.html"))]
-    lesson_ids = {lesson.source.stem for lesson in lessons}
+    lesson_sources = sorted(LESSONS_SRC.glob("*.html"))
+    lesson_ids = {source.stem for source in lesson_sources}
     manifest_ids = set(manifest["lessons"])
     if lesson_ids != manifest_ids:
         missing = sorted(lesson_ids - manifest_ids)
         extra = sorted(manifest_ids - lesson_ids)
         raise ValueError(f"Lesson manifest mismatch. Missing: {missing}; extra: {extra}")
+    lessons = [
+        read_lesson(source, manifest["lessons"][source.stem])
+        for source in lesson_sources
+    ]
+    lessons.sort(key=lambda lesson: lesson.number)
 
     lint_errors = lint(manifest)
     if lint_errors:
@@ -300,7 +333,7 @@ def main() -> None:
     clean_site()
     copy_assets()
     write_review_page()
-    write_lessons(published)
+    write_lessons(published, total_lessons=len(lessons))
     write_locked_lessons(locked, manifest)
     write_index(published, locked, manifest)
 
@@ -367,6 +400,15 @@ SITE_CSS = """
   padding: 12px;
 }
 
+.course-map div span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
 .lesson-index {
   display: grid;
   gap: 10px;
@@ -389,6 +431,16 @@ SITE_CSS = """
   text-decoration: none;
 }
 
+.lesson-index .lesson-locked > div {
+  background: #f4f1e9;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  min-height: 72px;
+  padding: 14px;
+}
+
 .lesson-index span {
   color: var(--muted);
   font-size: 0.82rem;
@@ -399,7 +451,21 @@ SITE_CSS = """
 
 .lesson-index strong {
   color: var(--ink);
+  display: block;
   font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.lesson-index small {
+  color: var(--muted);
+  display: block;
+  margin-top: 4px;
+}
+
+@media (max-width: 680px) {
+  .site-nav.bottom-nav {
+    padding-bottom: 92px;
+  }
 }
 
 @media (min-width: 480px) {

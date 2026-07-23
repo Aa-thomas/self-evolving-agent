@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Project 1A: The model-call boundary</title>
+    <title>Project 1A · Model-Call Boundary · A model call is text in, text out, plus evidence</title>
     <link rel="stylesheet" href="../assets/course.css">
     <link rel="stylesheet" href="../assets/site.css">
     <script defer src="../assets/lesson.js"></script>
@@ -14,19 +14,19 @@
     <main>
       <nav class="site-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 1 of 8</span>
-        <span>Project 1A · Primitive 1 · Foundation build</span>
+        <span>Lesson 1 of 8 · Model-Call Boundary</span>
         <div class="nav-spacer"></div>
         <a href="0002-message-state-primitive.html" aria-label="Next lesson">Next</a>
       </nav>
 
-      <header>
-        <p class="eyebrow">Project 1A · Primitive 1 · Foundation build</p>
-        <h1>Turn one model call into trustworthy evidence</h1>
+      <header data-lesson-identity>
+        <p class="eyebrow">Primitive 1 · Model-Call Boundary</p>
+        <h1>A model call is text in, text out, plus evidence</h1>
         <p class="lede">A model gives your program data. Before an agent can reason about that data, one small boundary must make its shape, input, and evidence explicit.</p>
       </header>
 
-      <section>
+      <article data-lecture>
+      <section data-lecture-obligation="provider-boundary">
         <h2>Why begin here?</h2>
         <p>An LLM call is not an action. It is a request that returns provider-shaped data. If every later part of the harness reaches into that provider response directly, a provider change becomes a system-wide bug and a failed run becomes hard to explain.</p>
         <div class="callout">
@@ -35,7 +35,7 @@
         <p>This primitive does not parse tool requests, run tools, retry failures, or maintain an agent conversation. It establishes the smallest useful contract: one call in, assistant text plus evidence out.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="evidence-provenance">
         <h2>Start with the evidence, not the finished solution</h2>
         <p>Before you write <code>call_model</code>, inspect the real <code>tests_01_model_call.py</code>. Read <code>FakeModel</code>, <code>FakeModelWithUsage</code>, and <code>BadModel</code>. These are not invented lesson examples: they are the proof artifacts for this primitive.</p>
         <table class="contract-table">
@@ -49,7 +49,7 @@
         <p><strong>Target artifact:</strong> your <code>model_call.py</code> implementation. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/01_model_call/tests_01_model_call.py</code>. Do not open the completed target before attempting the scaffold.</p>
       </section>
 
-      <section>
+      <section data-worked-example>
         <h2>Walk through one ordinary call</h2>
         <p>Suppose the caller supplies <code>prompt="ping"</code>. The boundary first creates one message: <code>{"role": "user", "content": "ping"}</code>. It sends that exact list to the model once. When the fake provider returns <code>"pong"</code>, the boundary records the text, the elapsed time, and either provider usage or clearly labeled estimates.</p>
         <table class="contract-table">
@@ -63,7 +63,7 @@
         </table>
       </section>
 
-      <section>
+      <section data-lecture-obligation="failure-localization">
         <h2>Now contrast the failure</h2>
         <p><code>BadModel</code> returns <code>{"content": "not a string"}</code>. It may look tempting to pull out <code>content</code> and keep going. That would silently invent a second provider contract at the wrong layer.</p>
         <div class="grid">
@@ -79,6 +79,14 @@
         <p>The second choice wins here. A narrow boundary should not hide a changed provider response just to make a downstream feature appear to work.</p>
       </section>
 
+      <section data-lecture-obligation="proof-limits">
+        <h2>The boundary makes a bounded claim</h2>
+        <p>A deterministic fake model can prove what messages crossed this boundary, what value came back, and how the harness normalized that value. It cannot prove that a live provider will be available, that its text is useful, or that a later agent loop will choose a sound action. This separation is not cautionary boilerplate: it prevents a local contract test from being misreported as end-to-end reliability evidence.</p>
+        <p>The durable rule is to make the strongest claim supported by the observed artifact—and stop there. That is why the record carries both output and provenance while the provider adapter owns any provider-specific response shape.</p>
+      </section>
+      </article>
+
+      <section data-engineering-lab aria-label="Engineering lab">
       <section class="practice" data-prediction>
         <h2>Commit your prediction</h2>
         <p>A provider returns <code>{"content": "pong"}</code> instead of a string. What should happen at this boundary?</p>
@@ -161,11 +169,27 @@
         <p>A second provider returns a rich response object with text, token counts, and a provider request ID. Decide which facts belong in the record, which must be normalized into the internal text contract, and which must stay inside a provider adapter. Name one regression assertion that would keep that decision honest.</p>
         <p class="small">Ask your teacher to review your boundary claim and the one proof assertion you chose.</p>
       </section>
+      </section>
+
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="eyebrow">Primary source</p>
+            <h3><a href="https://developers.openai.com/api/docs/guides/function-calling">OpenAI docs: Function calling</a></h3>
+            <p>Read the request–tool-output sequence as the larger workflow this local boundary will support; application code, not the model, owns execution.</p>
+          </article>
+          <article class="source-card">
+            <p class="eyebrow">Go deeper</p>
+            <h3><a href="https://docs.python.org/3/library/typing.html#typing.Protocol">Python docs: typing.Protocol</a></h3>
+            <p>See how structural typing accepts any model adapter with the promised complete(messages) method without coupling the harness to one provider class.</p>
+          </article>
+        </div>
+      </section>
 
       <nav class="site-nav bottom-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 1 of 8</span>
-        <span>Project 1A · Primitive 1 · Foundation build</span>
+        <span>Lesson 1 of 8 · Model-Call Boundary</span>
         <div class="nav-spacer"></div>
         <a href="0002-message-state-primitive.html" aria-label="Next lesson">Next</a>
       </nav>

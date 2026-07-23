@@ -1,15 +1,50 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "lessons": {
     "0001-model-call-primitive": {
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "episode_pattern": "foundation_build",
+      "identity": {"number": 1, "technical_name": "Model-Call Boundary", "memorable_phrase": "A model call is text in, text out, plus evidence"},
+      "lecture_contract": {
+        "central_thesis": "A model completion becomes trustworthy harness input only when one explicit application boundary sends the intended request, enforces returned text, and records provider evidence.",
+        "explanatory_obligations": [
+          {"id": "provider-boundary", "claim": "The model returns data while the harness owns normalization, recording, and every downstream action."},
+          {"id": "evidence-provenance", "claim": "Focused call evidence proves the messages sent, while the returned record preserves output text, timing, and labeled usage evidence for later diagnosis."},
+          {"id": "failure-localization", "claim": "A non-string completion is rejected where provider data first crosses into the harness contract."},
+          {"id": "proof-limits", "claim": "A focused boundary proof does not establish message-state accumulation, tool execution, or end-to-end task success."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/phase-1/01_model_call/model_call_skeleton.py",
+          "arc": ["A supplied message list enters call_model.", "The model adapter returns a completion and evidence.", "The boundary produces one stable ModelCallRecord or a localized rejection."]
+        },
+        "study_prompt_coverage": {
+          "think.model": ["provider-boundary", "evidence-provenance"],
+          "think.decision": ["provider-boundary", "failure-localization"],
+          "think.evidence_or_uncertainty": ["evidence-provenance", "proof-limits"],
+          "plan.target_function": ["provider-boundary"],
+          "plan.smallest_slice": ["provider-boundary", "evidence-provenance"],
+          "plan.must_do": ["evidence-provenance", "failure-localization"],
+          "plan.must_not_do": ["provider-boundary", "proof-limits"],
+          "plan.first_proof": ["failure-localization", "proof-limits"],
+          "plan.open_question": ["proof-limits"],
+          "reflect.feynman": ["provider-boundary", "evidence-provenance"],
+          "reflect.feynman_limit": ["proof-limits"],
+          "reflect.prediction_vs_evidence": ["failure-localization", "evidence-provenance"],
+          "reflect.mental_model": ["provider-boundary", "proof-limits"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "OpenAI docs: Function calling", "url": "https://developers.openai.com/api/docs/guides/function-calling", "why": "Read the request–tool-output sequence as the larger workflow this local boundary will support; application code, not the model, owns execution."},
+        "further": [
+          {"title": "Python docs: typing.Protocol", "url": "https://docs.python.org/3/library/typing.html#typing.Protocol", "why": "See how structural typing accepts any model adapter with the promised complete(messages) method without coupling the harness to one provider class."}
+        ]
+      },
       "teaching_contract": {
-        "concrete_problem": "A model completion cannot be debugged or trusted when the harness loses the exact messages sent, returned text, and provider evidence.",
+        "concrete_problem": "A model completion cannot be debugged or trusted when the harness cannot prove what it sent or inspect the returned text and provider evidence.",
         "first_principle": "The model returns data; the harness owns the boundary that records and normalizes that data before the rest of the system uses it.",
         "worked_walkthrough": ["Follow one FakeModel call from the supplied message list to a provider response.", "Trace how call_model turns the response into one ModelCallRecord instead of exposing provider-specific data throughout the system."],
-        "boundary_and_invariant": {"boundary": "call_model is the provider-normalization boundary.", "invariant": "Every successful call preserves the exact input messages, returns assistant text as a string, and retains inspectable evidence."},
+        "boundary_and_invariant": {"boundary": "call_model is the provider-normalization boundary.", "invariant": "Every successful call sends the intended ordered messages, returns assistant text as a string, and retains inspectable timing and usage evidence."},
         "design_tension": {"options": ["Coerce arbitrary provider output into text so the loop continues.", "Reject a non-string completion at the provider boundary."], "decision_rule": "Reject data that violates the internal text contract; preserving an explicit failure is safer than hiding a provider-shape change."},
         "prediction_prompt": "Before opening the implementation, predict what call_model should do when FakeModel returns a non-string completion and explain why.",
         "artifact_inspection_prompt": "Inspect the starter types and failing FakeModel test; identify which facts exist before call_model is implemented and which record fields the test can prove.",
@@ -22,7 +57,7 @@
         "objective": "Leave with a plain-language model of the provider boundary, a narrow call_model change, and a testable claim about its record.",
         "context_cards": ["starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"],
         "think": {"jot_notes": {"label": "Jot notes", "placeholder": "Raw provider shapes, record fields, test output, and questions. Keep this messy."}, "prompts": [{"id": "model", "label": "What is this primitive?", "prompt": "Explain the provider boundary in one sentence.", "kind": "explanation"}, {"id": "decision", "label": "What must it protect?", "prompt": "Name the output contract call_model must enforce.", "kind": "judgment"}, {"id": "evidence_or_uncertainty", "label": "What would prove it?", "prompt": "Name the focused test assertion or uncertainty you still need to inspect.", "kind": "evidence"}]},
-        "plan": {"intro": "Plan only the provider-normalization slice; do not grow an agent loop.", "fields": {"target_function": {"label": "Artifact to change", "placeholder": "call_model or its record type"}, "smallest_slice": {"label": "Smallest behavior", "placeholder": "Reject a non-string completion while preserving the record."}, "must_do": {"label": "Must preserve", "placeholder": "Exact messages, string output, and evidence fields."}, "must_not_do": {"label": "Must not add", "placeholder": "Tools, retries, or message-state policy."}, "first_proof": {"label": "First proof", "placeholder": "The non-string FakeModel test."}, "open_question": {"label": "One uncertainty", "placeholder": "Which provider metadata belongs in the record?"}}},
+        "plan": {"intro": "Plan only the provider-normalization slice; do not grow an agent loop.", "fields": {"target_function": {"label": "Artifact to change", "placeholder": "call_model or its record type"}, "smallest_slice": {"label": "Smallest behavior", "placeholder": "Reject a non-string completion while preserving the record."}, "must_do": {"label": "Must preserve", "placeholder": "Message order at the call boundary, string output, and evidence fields."}, "must_not_do": {"label": "Must not add", "placeholder": "Tools, retries, or message-state policy."}, "first_proof": {"label": "First proof", "placeholder": "The non-string FakeModel test."}, "open_question": {"label": "One uncertainty", "placeholder": "Which provider metadata belongs in the record?"}}},
         "reflect": {"feynman": {"label": "Explain this to a smart 12-year-old", "subject": "why a harness records and checks model output", "placeholder": "Use plain language and one analogy."}, "feynman_limit": {"label": "Where does that explanation break?", "prompt": "What provider-specific detail does the analogy hide?"}, "prediction_vs_evidence": {"label": "What did the test change or confirm?", "prompt": "Compare your prediction with the exact proof output."}, "mental_model": {"label": "What changed in your mental model?", "prompt": "Capture the boundary between provider data and harness contract."}, "next_step": {"label": "Next smallest step", "prompt": "Name one focused implementation or inspection step."}}
       },
       "requires": [],
@@ -31,7 +66,7 @@
       "learner_decision": "Decide which provider response data belongs in ModelCallRecord and reject a non-string completion.",
       "established_by": ["curriculum/learning-records/0001-ready-for-agent-loop.md"],
       "starting_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call_skeleton.py"], "symbols": ["ModelCallRecord", "call_model"], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "scenario_sources": []},
-      "target_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call.py"], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "expected_artifact": "A ModelCallRecord with exact messages, string output, and evidence fields."},
+      "target_artifacts": {"source_files": ["curriculum/phase-1/01_model_call/model_call.py"], "tests": ["curriculum/phase-1/01_model_call/tests_01_model_call.py"], "expected_artifact": "A ModelCallRecord with string output and timing and usage evidence, plus focused proof of the messages sent."},
       "proof_artifacts": {"proof_command": ["uv", "run", "pytest", "curriculum/phase-1/01_model_call/tests_01_model_call.py"], "assertions": ["test_call_model_rejects_non_string_model_output"], "traces_or_output": []},
       "failure_contract": {"source": "curriculum/phase-1/01_model_call/tests_01_model_call.py", "symptom": "A provider response contains a non-string completion.", "responsible_boundary": "call_model provider normalization", "regression_target": "test_call_model_rejects_non_string_model_output"},
       "practice_contract": {"kind": "code_change", "minimum_cases": 6, "passing_threshold": 0.8, "rationale_required": true, "productive_action": "implement"},
@@ -43,6 +78,41 @@
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "episode_pattern": "foundation_build",
+      "identity": {"number": 2, "technical_name": "Message State", "memorable_phrase": "Memory is the context you pass back in"},
+      "lecture_contract": {
+        "central_thesis": "In a stateless model API, agent memory is the ordered message evidence the harness deliberately carries into the next call.",
+        "explanatory_obligations": [
+          {"id": "explicit-context", "claim": "The next model call knows prior work only through the context the harness sends again."},
+          {"id": "causal-ordering", "claim": "User, assistant, and tool messages form an ordered causal ledger whose sequence changes behavior."},
+          {"id": "observation-encoding", "claim": "Tool success and failure become stable tool-role observations before another model call."},
+          {"id": "diagnostic-evidence", "claim": "A focused two-call proof can expose a missing observation without claiming the whole agent loop works."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/phase-1/02_message_state/message_state_skeleton.py",
+          "arc": ["The first call receives the user's request.", "The harness appends assistant output and a structured tool observation.", "The second call receives the expanded ordered message state."]
+        },
+        "study_prompt_coverage": {
+          "think.model": ["explicit-context", "causal-ordering"],
+          "think.decision": ["causal-ordering", "observation-encoding"],
+          "think.evidence_or_uncertainty": ["diagnostic-evidence"],
+          "plan.target_function": ["explicit-context"],
+          "plan.smallest_slice": ["causal-ordering", "observation-encoding"],
+          "plan.must_do": ["causal-ordering", "observation-encoding"],
+          "plan.must_not_do": ["explicit-context", "diagnostic-evidence"],
+          "plan.first_proof": ["diagnostic-evidence"],
+          "plan.open_question": ["diagnostic-evidence"],
+          "reflect.feynman": ["explicit-context", "causal-ordering"],
+          "reflect.feynman_limit": ["observation-encoding", "diagnostic-evidence"],
+          "reflect.prediction_vs_evidence": ["diagnostic-evidence"],
+          "reflect.mental_model": ["explicit-context", "causal-ordering"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "OpenAI docs: Function calling", "url": "https://developers.openai.com/api/docs/guides/function-calling", "why": "Focus on returning a function result to the model: it is the production analogue of appending a tool-role observation before the next call."},
+        "further": [
+          {"title": "Anthropic engineering: Building Effective Agents", "url": "https://www.anthropic.com/engineering/building-effective-agents", "why": "Use its workflow-versus-agent framing to see why explicit, inspectable state should precede more autonomous control flow."}
+        ]
+      },
       "teaching_contract": {
         "concrete_problem": "An agent repeats read_file even after the tool succeeded because the next model call cannot see the observation.",
         "first_principle": "An agent has no hidden durable memory between calls; its message sequence is the state handed back to the model.",
@@ -91,6 +161,41 @@
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "episode_pattern": "foundation_build",
+      "identity": {"number": 3, "technical_name": "Tool-Request Parser", "memorable_phrase": "A tool call starts as untrusted text"},
+      "lecture_contract": {
+        "central_thesis": "Model text becomes a candidate tool request only after strict whole-document JSON decoding and outer-envelope validation, while tool-specific validity remains a later responsibility.",
+        "explanatory_obligations": [
+          {"id": "untrusted-text", "claim": "Assistant output is untrusted text, not executable intent or an authorized tool call."},
+          {"id": "ordered-parser-gates", "claim": "JSON decoding and outer request-shape validation are ordered gates with distinct errors."},
+          {"id": "strict-protocol", "claim": "Strict parsing rejects trailing prose and extra envelope fields rather than guessing what the model meant."},
+          {"id": "proof-limits", "claim": "Parser success proves structure only, not known tools, valid arguments, permissions, or runtime availability."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/phase-1/03_parse_tool_request_skeleton.py",
+          "arc": ["Raw assistant text enters the JSON decoder.", "The decoded value crosses the outer ToolRequest shape gate.", "The parser returns a ToolRequest or a stage-specific structured rejection."]
+        },
+        "study_prompt_coverage": {
+          "think.model": ["untrusted-text", "ordered-parser-gates"],
+          "think.decision": ["strict-protocol", "proof-limits"],
+          "think.evidence_or_uncertainty": ["ordered-parser-gates", "proof-limits"],
+          "plan.target_function": ["ordered-parser-gates"],
+          "plan.smallest_slice": ["ordered-parser-gates", "strict-protocol"],
+          "plan.must_do": ["strict-protocol"],
+          "plan.must_not_do": ["proof-limits"],
+          "plan.first_proof": ["ordered-parser-gates", "proof-limits"],
+          "plan.open_question": ["proof-limits"],
+          "reflect.feynman": ["untrusted-text", "ordered-parser-gates"],
+          "reflect.feynman_limit": ["proof-limits"],
+          "reflect.prediction_vs_evidence": ["strict-protocol", "ordered-parser-gates"],
+          "reflect.mental_model": ["untrusted-text", "proof-limits"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "Python docs: json", "url": "https://docs.python.org/3/library/json.html", "why": "Read json.loads and JSONDecodeError to understand exactly what complete-document decoding establishes before schema validation begins."},
+        "further": [
+          {"title": "Pydantic docs: Models", "url": "https://docs.pydantic.dev/latest/concepts/models/", "why": "Connect model validation and forbidden extra fields to the separate outer-envelope gate; do not confuse it with tool-specific validation."}
+        ]
+      },
       "teaching_contract": {
         "concrete_problem": "Primitive 2 preserves assistant output as text, but tool-looking text may be malformed JSON, a valid JSON value with the wrong outer shape, or a structured request whose tool-specific validity is still unknown.",
         "first_principle": "Text becomes structured data only when an explicit parser establishes a small, testable claim; looking structured is not the same as being parsed.",
@@ -139,6 +244,43 @@
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "episode_pattern": "foundation_build",
+      "identity": {"number": 4, "technical_name": "Schema Validation", "memorable_phrase": "Validation is a four-gate checkpoint"},
+      "lecture_contract": {
+        "central_thesis": "A parsed request becomes executable protocol data only after the harness preserves the first failure across JSON, request shape, tool lookup, and tool-argument gates.",
+        "explanatory_obligations": [
+          {"id": "structured-not-executable", "claim": "Structured JSON is still untrusted and is not executable merely because parsing succeeded."},
+          {"id": "four-gate-validation", "claim": "Four ordered gates identify the earliest failed contract and preserve successful earlier facts."},
+          {"id": "registry-schema-separation", "claim": "Tool-name membership and tool-specific argument schemas answer different validation questions."},
+          {"id": "runtime-availability-boundary", "claim": "Protocol acceptance does not prove a runtime handler exists or that filesystem authority permits the action."},
+          {"id": "proof-limits", "claim": "Validator tests establish typed acceptance and rejection without proving execution, permissions, or loop recovery."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/phase-1/primitive_03_parse_tool_request.py",
+          "arc": ["A parsed read_file envelope reaches protocol validation.", "Registry lookup accepts the tool name before its path argument is checked.", "Typed arguments are accepted or the first failed stage returns a structured rejection."]
+        },
+        "study_prompt_coverage": {
+          "think.model": ["structured-not-executable", "four-gate-validation"],
+          "think.decision": ["registry-schema-separation", "runtime-availability-boundary"],
+          "think.evidence_or_uncertainty": ["proof-limits", "runtime-availability-boundary"],
+          "plan.target_function": ["four-gate-validation"],
+          "plan.smallest_slice": ["registry-schema-separation", "four-gate-validation"],
+          "plan.must_do": ["four-gate-validation", "registry-schema-separation"],
+          "plan.must_not_do": ["runtime-availability-boundary", "proof-limits"],
+          "plan.first_proof": ["proof-limits", "four-gate-validation"],
+          "plan.open_question": ["runtime-availability-boundary"],
+          "reflect.feynman": ["structured-not-executable", "four-gate-validation"],
+          "reflect.feynman_limit": ["runtime-availability-boundary", "proof-limits"],
+          "reflect.prediction_vs_evidence": ["four-gate-validation"],
+          "reflect.mental_model": ["registry-schema-separation", "runtime-availability-boundary"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "Pydantic docs: Models", "url": "https://docs.pydantic.dev/latest/concepts/models/", "why": "Study model validation, field constraints, and validation errors as the mechanism that turns a generic ToolRequest into typed arguments."},
+        "further": [
+          {"title": "Pydantic docs: Strict mode", "url": "https://docs.pydantic.dev/latest/concepts/strict_mode/", "why": "See why strict validation rejects path=123 instead of silently coercing it into the string contract."},
+          {"title": "OpenAI docs: Function calling", "url": "https://developers.openai.com/api/docs/guides/function-calling", "why": "Compare the local registry and schema gate with declared tool parameters while keeping runtime execution as a separate application responsibility."}
+        ]
+      },
       "teaching_contract": {
         "concrete_problem": "ToolRequest(tool=read_file, args={path: 123}) is parsed correctly but is not safe or meaningful to execute.",
         "first_principle": "A parsed request is only structured text; a validation boundary must establish the tool-specific contract before runtime execution.",
@@ -177,6 +319,41 @@
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "episode_pattern": "foundation_build",
+      "identity": {"number": 5, "technical_name": "Sandboxed File Tools", "memorable_phrase": "Tools are permissioned code paths"},
+      "lecture_contract": {
+        "central_thesis": "A validated tool request gains file authority only through a capability-scoped implementation that canonicalizes every path and proves containment before access.",
+        "explanatory_obligations": [
+          {"id": "capability-boundary", "claim": "A file tool is a permission boundary, not a convenience wrapper around filesystem functions."},
+          {"id": "canonical-containment", "claim": "Lexical checks are insufficient; the resolved target must remain within the configured sandbox root."},
+          {"id": "safe-failure", "claim": "Forbidden, missing, wrong-kind, and oversized resources become precise non-access observations."},
+          {"id": "proof-limits", "claim": "Focused filesystem tests do not establish broader data policy, race freedom, or production authorization."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/phase-1/05_sandboxed_file_tools/05_sandboxed_file_tools_skeleton.py",
+          "arc": ["A validated relative path enters a capability-scoped file tool.", "The tool resolves and compares the canonical target with sandbox_root before access.", "It returns an Ok value or a structured Err without touching forbidden data."]
+        },
+        "study_prompt_coverage": {
+          "think.model": ["capability-boundary", "canonical-containment"],
+          "think.decision": ["canonical-containment", "safe-failure"],
+          "think.evidence_or_uncertainty": ["safe-failure", "proof-limits"],
+          "plan.target_function": ["capability-boundary"],
+          "plan.smallest_slice": ["canonical-containment"],
+          "plan.must_do": ["canonical-containment", "safe-failure"],
+          "plan.must_not_do": ["capability-boundary", "proof-limits"],
+          "plan.first_proof": ["safe-failure", "proof-limits"],
+          "plan.open_question": ["proof-limits"],
+          "reflect.feynman": ["capability-boundary", "canonical-containment"],
+          "reflect.feynman_limit": ["proof-limits"],
+          "reflect.prediction_vs_evidence": ["safe-failure"],
+          "reflect.mental_model": ["capability-boundary", "canonical-containment"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "Python docs: pathlib.Path.resolve", "url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve", "why": "Study canonical path resolution as the mechanism used before enforcing containment; resolution is necessary but policy still belongs to the harness."},
+        "further": [
+          {"title": "MITRE CWE-22: Path Traversal", "url": "https://cwe.mitre.org/data/definitions/22.html", "why": "Connect the local symlink and parent-path cases to the broader restricted-directory failure class and its consequences."}
+        ]
+      },
       "teaching_contract": {
         "concrete_problem": "Primitive 4 can produce a protocol-valid read_file request whose path escapes the run's sandbox through parent syntax, an absolute path, or a filesystem alias.",
         "first_principle": "Validating a resource name's shape is not authorizing the resource it names; authorization belongs where the concrete capability root and resolved target are both known.",
@@ -225,6 +402,43 @@
       "publication": {"status": "published", "reason": null},
       "lesson_type": "reconstruction_lab",
       "episode_pattern": "integration_build",
+      "identity": {"number": 6, "technical_name": "Agent Loop", "memorable_phrase": "The agent loop is the harness's control flow"},
+      "lecture_contract": {
+        "central_thesis": "The model proposes text, but the harness owns every state transition that validates, classifies, executes, observes, recovers, and stops.",
+        "explanatory_obligations": [
+          {"id": "harness-control", "claim": "The model never executes a tool or ends the loop directly; the harness interprets untrusted output."},
+          {"id": "transition-model", "claim": "Each turn advances through model output, request result, classified action, observation, and stop decision."},
+          {"id": "bounded-recovery", "claim": "Structured failures return as observations while max_steps bounds repeated or unproductive work."},
+          {"id": "dispatch-ambiguity", "claim": "A protocol-valid tool can still be missing from the runtime registry, exposing two distinct sources of truth."},
+          {"id": "proof-limits", "claim": "Focused transition tests establish loop mechanics, not arbitrary task quality or provider reliability."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/traces/agent-loop-scenarios.json",
+          "arc": ["The model emits a protocol-shaped read_file request.", "The harness validates, classifies, dispatches, and appends the tool observation.", "A later submit request becomes internal control flow and terminates the bounded run."]
+        },
+        "study_prompt_coverage": {
+          "think.model": ["harness-control", "transition-model"],
+          "think.decision": ["dispatch-ambiguity", "bounded-recovery"],
+          "think.evidence_or_uncertainty": ["proof-limits", "transition-model"],
+          "plan.target_function": ["transition-model"],
+          "plan.smallest_slice": ["transition-model", "bounded-recovery"],
+          "plan.must_do": ["harness-control", "bounded-recovery"],
+          "plan.must_not_do": ["harness-control", "dispatch-ambiguity"],
+          "plan.first_proof": ["proof-limits", "dispatch-ambiguity"],
+          "plan.open_question": ["dispatch-ambiguity", "proof-limits"],
+          "reflect.feynman": ["harness-control", "transition-model"],
+          "reflect.feynman_limit": ["dispatch-ambiguity", "proof-limits"],
+          "reflect.prediction_vs_evidence": ["transition-model", "bounded-recovery"],
+          "reflect.mental_model": ["harness-control", "dispatch-ambiguity"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "OpenAI docs: Function calling", "url": "https://developers.openai.com/api/docs/guides/function-calling", "why": "Follow the application-owned request, execution, and tool-output round trip that the local loop implements explicitly."},
+        "further": [
+          {"title": "Anthropic engineering: Building Effective Agents", "url": "https://www.anthropic.com/engineering/building-effective-agents", "why": "Compare the local bounded loop with the recommendation to start from simple, inspectable workflows before adding autonomy."},
+          {"title": "OpenAI docs: Conversation state", "url": "https://developers.openai.com/api/docs/guides/conversation-state", "why": "Relate the loop's explicit message accumulation to application-managed state across otherwise stateless calls."}
+        ]
+      },
       "teaching_contract": {
         "system_problem": "A protocol-valid read_file request can reach the agent loop while the runtime tools dictionary has no read_file handler; the harness still has to preserve a bounded, explainable trajectory.",
         "integration_responsibility": "The loop coordinates already-built boundaries in a defined order, turns recoverable failures into observations, maintains message state, and stops safely.",
@@ -245,7 +459,7 @@
         },
         "worked_trajectories": {
           "success_path": ["The model requests read_file with valid JSON and arguments.", "The registered runtime handler returns a result that is appended as a tool observation before the next call, which submits the final answer."],
-          "failure_or_edge_path": ["The protocol registry accepts read_file, but runtime dispatch finds no read_file handler.", "The loop appends UNKNOWN_TOOL as an observation, gives the model another bounded turn, and eventually returns submit or max_steps."],
+          "failure_or_edge_path": ["The protocol registry accepts read_file, but runtime dispatch finds no read_file handler.", "The loop appends RUNTIME_TOOL_UNAVAILABLE as an observation, gives the model another bounded turn, and eventually returns submit or max_steps."],
           "comparison_question": "What evidence distinguishes an unknown protocol tool from a protocol-valid tool whose runtime handler is missing?"
         },
         "design_tension": {
@@ -296,6 +510,44 @@
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "episode_pattern": "diagnostic_clinic",
+      "identity": {"number": 7, "technical_name": "Trace Logger", "memorable_phrase": "A trace is replayable evidence"},
+      "lecture_contract": {
+        "central_thesis": "A terminal result reports where an agent run ended; a stable causal trace records the authoritative transitions needed to explain how it got there.",
+        "explanatory_obligations": [
+          {"id": "outcome-vs-cause", "claim": "An observed terminal symptom does not identify a root cause, and insufficient evidence is a valid diagnosis."},
+          {"id": "boundary-ownership", "claim": "The boundary that first knows a causal fact owns recording that fact before it is lost."},
+          {"id": "stable-trace-model", "claim": "Trace-owned discriminated variants preserve meaning without persisting runtime Result or Pydantic objects."},
+          {"id": "immutable-evidence", "claim": "Mutable collection is finalized into an immutable, versioned snapshot for later inspection."},
+          {"id": "protocol-runtime-distinction", "claim": "Unknown protocol tools and unavailable runtime handlers have distinct error codes as well as distinct ordered variants."},
+          {"id": "proof-limits", "claim": "One green trajectory does not prove complete instrumentation, redaction, retention, migration safety, or model quality."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/phase-1/07_trace_logger/fixtures/partial-run.json",
+          "arc": ["The partial result reports max_steps but contains no causal transition.", "A future run records assistant output, request outcome, action, and tool outcome at their owning boundaries.", "The completed immutable trace identifies the first supported failure or preserves uncertainty."]
+        },
+        "study_prompt_coverage": {
+          "think.incident_facts": ["outcome-vs-cause"],
+          "think.next_evidence": ["boundary-ownership", "stable-trace-model"],
+          "think.rejected_hypothesis": ["outcome-vs-cause", "proof-limits"],
+          "plan.target_function": ["boundary-ownership", "stable-trace-model"],
+          "plan.smallest_slice": ["stable-trace-model", "immutable-evidence"],
+          "plan.must_do": ["boundary-ownership", "immutable-evidence"],
+          "plan.must_not_do": ["stable-trace-model", "proof-limits"],
+          "plan.first_proof": ["proof-limits", "stable-trace-model"],
+          "plan.open_question": ["boundary-ownership", "protocol-runtime-distinction"],
+          "reflect.feynman": ["outcome-vs-cause", "boundary-ownership"],
+          "reflect.feynman_limit": ["protocol-runtime-distinction", "proof-limits"],
+          "reflect.prediction_vs_evidence": ["outcome-vs-cause", "stable-trace-model"],
+          "reflect.mental_model": ["boundary-ownership", "immutable-evidence"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "OpenAI Agents SDK: Tracing", "url": "https://openai.github.io/openai-agents-python/tracing/", "why": "Compare the hand-built causal step schema with a production system that records model generations, tool calls, errors, spans, and sensitive-data choices."},
+        "further": [
+          {"title": "OpenTelemetry docs: Traces", "url": "https://opentelemetry.io/docs/concepts/signals/traces/", "why": "Use trace and span vocabulary to place the local ordered steps in a broader observability model without treating it as this project's schema."},
+          {"title": "OpenTelemetry specification: Versioning and stability", "url": "https://opentelemetry.io/docs/specs/otel/versioning-and-stability/", "why": "Study compatibility promises and stability levels when thinking about future versions of persisted trace JSON."}
+        ]
+      },
       "teaching_contract": {
         "incident": {
           "symptom": "A completed run reports final_answer=null and exit_reason=max_steps, but contains no causal fields explaining how it reached that result.",
@@ -443,6 +695,43 @@
       "publication": {"status": "published", "reason": null},
       "lesson_type": "implementation_lab",
       "episode_pattern": "experiment_lab",
+      "identity": {"number": 8, "technical_name": "Eval Runner", "memorable_phrase": "Evals define what working means"},
+      "lecture_contract": {
+        "central_thesis": "An eval turns a scoped behavioral claim into repeatable per-case evidence under controlled conditions; a score alone cannot explain failure.",
+        "explanatory_obligations": [
+          {"id": "behavioral-claim", "claim": "Evaluation starts from an explicit behavior, scope, and expected failure modes rather than a generic quality score."},
+          {"id": "measurement-contract", "claim": "Each case declares inputs, controlled conditions, expected outcomes, and pass criteria."},
+          {"id": "controlled-trajectories", "claim": "Fixed model outputs, tools, and budgets make composed trajectories comparable and reproducible."},
+          {"id": "failure-evidence", "claim": "Per-case actual behavior, failure reason, and trace path remain available behind the aggregate result."},
+          {"id": "proof-limits", "claim": "A deterministic local suite supports only its declared cases, not arbitrary provider behavior or universal agent quality."}
+        ],
+        "worked_example": {
+          "artifact": "curriculum/phase-1/08_eval_runner/fixtures/eval-cases.json",
+          "arc": ["A copy-file case declares fixed inputs, scripted outputs, and expected filesystem behavior.", "The composed loop runs under controlled tools and a fixed step budget.", "The runner records expected versus actual behavior, trace evidence, and the aggregate outcome."]
+        },
+        "study_prompt_coverage": {
+          "think.behavioral_claim": ["behavioral-claim"],
+          "think.controlled_conditions": ["measurement-contract", "controlled-trajectories"],
+          "think.failure_evidence": ["failure-evidence", "proof-limits"],
+          "plan.target_function": ["measurement-contract"],
+          "plan.smallest_slice": ["measurement-contract", "controlled-trajectories"],
+          "plan.must_do": ["failure-evidence", "controlled-trajectories"],
+          "plan.must_not_do": ["behavioral-claim", "proof-limits"],
+          "plan.first_proof": ["failure-evidence", "proof-limits"],
+          "plan.open_question": ["measurement-contract", "proof-limits"],
+          "reflect.feynman": ["behavioral-claim", "measurement-contract"],
+          "reflect.feynman_limit": ["proof-limits"],
+          "reflect.prediction_vs_evidence": ["behavioral-claim", "failure-evidence"],
+          "reflect.mental_model": ["measurement-contract", "failure-evidence"]
+        }
+      },
+      "reading_contract": {
+        "primary": {"title": "OpenAI docs: Evaluation best practices", "url": "https://developers.openai.com/api/docs/guides/evaluation-best-practices", "why": "Use its objective, dataset, metric, and comparison discipline to situate the local deterministic cases in a broader evaluation workflow."},
+        "further": [
+          {"title": "OpenAI docs: Agent evals", "url": "https://developers.openai.com/api/docs/guides/agent-evals", "why": "Connect trace inspection and repeatable runs to workflow-level evaluation while keeping this lesson's local runner intentionally small."},
+          {"title": "pytest docs: Assertions", "url": "https://docs.pytest.org/en/stable/how-to/assert.html", "why": "Review the executable assertion mechanics that turn expected versus actual local behavior into precise failure output."}
+        ]
+      },
       "teaching_contract": {
         "decision_question": "Does the composed file-agent harness satisfy the explicitly claimed copy-file behavior across defined trajectories, rather than merely passing its focused component tests?",
         "behavioral_claim": {

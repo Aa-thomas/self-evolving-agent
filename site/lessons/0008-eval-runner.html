@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Project 1A: Build an eval runner</title>
+    <title>Project 1A · Eval Runner · Evals define what working means</title>
     <link rel="stylesheet" href="../assets/course.css">
     <link rel="stylesheet" href="../assets/site.css">
     <script defer src="../assets/lesson.js"></script>
@@ -14,19 +14,19 @@
     <main>
       <nav class="site-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 8 of 8</span>
-        <span>Project 1A · Primitive 8 · Experiment lab</span>
+        <span>Lesson 8 of 8 · Eval Runner</span>
         <div class="nav-spacer"></div>
         <a href="0007-trace-logger.html" aria-label="Previous lesson">Previous</a>
       </nav>
 
-      <header>
-        <p class="eyebrow">Project 1A · Primitive 8 · Experiment lab</p>
-        <h1>Turn a behavioral claim into inspectable evidence</h1>
+      <header data-lesson-identity>
+        <p class="eyebrow">Project 1A · Primitive 8 · Eval Runner</p>
+        <h1>Evals define what working means</h1>
         <p class="lede">Build the smallest eval runner that can distinguish a successful composed workflow from a nearly identical failure—and preserve enough evidence to explain the difference.</p>
       </header>
 
-      <section>
+      <article data-lecture>
+      <section data-lecture-obligation="behavioral-claim">
         <h2>A green unit suite is not the decision</h2>
         <p>The parser, validator, loop, and trace logger each have focused tests. Those tests are necessary, but the user does not ask for an isolated transition. The user asks the harness to copy <code>a.txt</code> to <code>b.txt</code> and report completion across three model outputs, two tool calls, message-state updates, and a final <code>submit</code>.</p>
         <p><strong>Decision question:</strong> does this composed harness satisfy the declared copy-file behavior for the configured trajectories, or do its component tests merely make that outcome plausible?</p>
@@ -35,7 +35,7 @@
         </div>
       </section>
 
-      <section>
+      <section data-lecture-obligation="proof-limits">
         <h2>Inspect the baseline before designing the measurement</h2>
         <p>Open the real <code>eval-cases.json</code>, <code>tests_agent_loop.py</code>, and <code>tests_trace_logger.py</code>. Do not treat their guarantees as interchangeable.</p>
         <table class="contract-table">
@@ -49,7 +49,7 @@
         <p><strong>Target artifact:</strong> implement <code>evaluate_case</code> and <code>run_eval_suite</code> in <code>eval_runner.py</code>. <strong>Proof artifact:</strong> <code>tests_eval_runner.py</code>.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="measurement-contract">
         <h2>State the claim before looking at the score</h2>
         <p><strong>Hypothesis:</strong> if each configured case runs with fixed model outputs, tools, step budget, and expected fields, then the runner can determine whether the actual trajectory satisfies every declared outcome and retain causal evidence for a mismatch.</p>
         <p><strong>Scope:</strong> the deterministic Project 1A cases in this repository. This does not claim a production success rate, generalization to unlisted tasks, statistical significance, or reliable behavior from an arbitrary provider.</p>
@@ -69,7 +69,7 @@
         </div>
       </section>
 
-      <section>
+      <section data-lecture-obligation="controlled-trajectories">
         <h2>Control the comparison or lose attribution</h2>
         <table class="contract-table">
           <thead><tr><th>Keep fixed</th><th>Why</th></tr></thead>
@@ -81,7 +81,9 @@
         </table>
         <p><strong>Confounder:</strong> if you change the model outputs, tool implementation, expected answer, and evaluator in the same comparison, a different result cannot be attributed to one boundary. Likewise, an aggregate score without per-case evidence can hide which behavior changed.</p>
       </section>
+      </article>
 
+      <section data-engineering-lab>
       <section class="practice" data-prediction>
         <h2>Commit the wrong-answer outcome</h2>
         <p>Two runs use the same task, tools, step budget, file side effect, and expected record. Both write <code>b.txt="hello"</code> and exit through <code>submit</code>. The second run submits <code>"wrong"</code> instead of the expected <code>"copied"</code>. How should the configured eval classify the second run?</p>
@@ -98,7 +100,7 @@
         </div>
       </section>
 
-      <section>
+      <section data-lecture-continuation data-worked-example data-lecture-reveal="after-prediction" hidden data-lecture-obligation="failure-evidence">
         <h2>Walk through the measured comparison</h2>
         <table class="contract-table">
           <thead><tr><th>Case</th><th>Conditions</th><th>Expected vs. actual</th><th>Interpretation</th></tr></thead>
@@ -217,13 +219,34 @@
       <section>
         <h2>Transfer: redesign the measurement</h2>
         <p>Add a new behavior: “Never modify a file until the user has confirmed the write.” Decide which task and expected fields belong in the new eval case, which fake outputs, tools, and budget must stay fixed, whether the permission boundary also needs a focused unit regression, and what a failed result must preserve for diagnosis.</p>
-        <p class="small">Primary sources: the real eval-runner proof suite and OpenAI’s <a href="https://developers.openai.com/api/docs/guides/evaluation-best-practices">evaluation best-practices guide</a>, especially its objective → dataset → metric → comparison workflow. Ask your teacher to review your first failed case, your controlled conditions, and the limit of your claim.</p>
+      </section>
+      </section>
+
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="source-kind">Primary source</p>
+            <h3><a href="https://developers.openai.com/api/docs/guides/evaluation-best-practices">OpenAI docs: Evaluation best practices</a></h3>
+            <p>Use its objective, dataset, metric, and comparison discipline to situate the local deterministic cases in a broader evaluation workflow.</p>
+          </article>
+          <article class="source-card">
+            <p class="source-kind">Go deeper</p>
+            <h3><a href="https://developers.openai.com/api/docs/guides/agent-evals">OpenAI docs: Agent evals</a></h3>
+            <p>Connect trace inspection and repeatable runs to workflow-level evaluation while keeping this lesson's local runner intentionally small.</p>
+          </article>
+          <article class="source-card">
+            <p class="source-kind">Go deeper</p>
+            <h3><a href="https://docs.pytest.org/en/stable/how-to/assert.html">pytest docs: Assertions</a></h3>
+            <p>Review the executable assertion mechanics that turn expected versus actual local behavior into precise failure output.</p>
+          </article>
+        </div>
+        <p class="small">Local proof: the eval-runner test suite. Ask your teacher to review your first failed case, controlled conditions, and claim limit.</p>
       </section>
 
       <nav class="site-nav bottom-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 8 of 8</span>
-        <span>Project 1A · Primitive 8 · Experiment lab</span>
+        <span>Lesson 8 of 8 · Eval Runner</span>
         <div class="nav-spacer"></div>
         <a href="0007-trace-logger.html" aria-label="Previous lesson">Previous</a>
       </nav>

@@ -1,122 +1,216 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Project 1A: Build a trace logger</title>
-  <link rel="stylesheet" href="../assets/course.css">
-  <script defer src="../assets/lesson.js"></script>
-</head>
-<body>
-<main>
-  <header>
-    <p class="eyebrow">Project 1A · Primitive 7</p>
-    <h1>Build the causal trace the loop is missing</h1>
-    <p class="lede">You will turn one agent trajectory into stable evidence without making the trace file depend on every internal runtime type.</p>
-  </header>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A · Trace Logger · A trace is replayable evidence</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header data-lesson-identity>
+        <p class="eyebrow">Project 1A · Primitive 7 · Trace Logger</p>
+        <h1>A trace is replayable evidence</h1>
+        <p class="lede">A terminal result tells you where an agent run ended. A causal trace preserves the authoritative transitions needed to explain how it got there.</p>
+      </header>
 
-  <section>
-    <h2>Encounter the failure</h2>
-    <p>Open <a href="../phase-1/07_trace_logger/fixtures/partial-run.json"><code>partial-run.json</code></a>. It says only <code>final_answer: null</code> and <code>exit_reason: max_steps</code>. Compare it with <a href="../phase-1/06_agent_loop/agent_loop.py"><code>agent_loop.py</code></a>: did the model repeat a valid request, did the request pipeline reject it, did dispatch fail, or did a tool raise? The final result cannot tell you.</p>
-    <p><strong>Invariant:</strong> each step preserves the assistant output, stable request outcome, classified action, tool outcome, and exit decision. The trace describes what happened without serializing <code>Ok</code>, <code>Err</code>, Pydantic models, or other runtime implementation details.</p>
-  </section>
+      <article data-lecture>
+        <section data-lecture-obligation="outcome-vs-cause">
+          <h2>A symptom is not a root cause</h2>
+          <p>Open the real <a href="../phase-1/07_trace_logger/fixtures/partial-run.json"><code>partial-run.json</code></a>:</p>
+          <pre><code>{
+  "final_answer": null,
+  "exit_reason": "max_steps"
+}</code></pre>
+          <p>Two facts are supportable: no answer was submitted, and the harness exhausted its budget. The artifact does not establish whether the model repeated valid work, emitted malformed JSON, selected an unavailable handler, encountered a tool exception, or followed a legitimate trajectory that needed more steps.</p>
+          <div class="callout">
+            <strong>Central thesis:</strong> when recorded evidence cannot distinguish plausible first bad transitions, “evidence insufficient” is the correct diagnosis—not an invitation to blame the model by default.
+          </div>
+        </section>
 
-  <section data-prediction>
-    <h2>Commit your trace contract</h2>
-    <p>A trace has <code>exit_reason="max_steps"</code> but no assistant outputs. What exact diagnosis is impossible?</p>
-    <label><input data-prediction-choice type="radio" name="prediction" value="request">what the model requested at each step</label>
-    <label><input data-prediction-choice type="radio" name="prediction" value="latency">which call was slowest</label>
-    <label><input data-prediction-choice type="radio" name="prediction" value="storage">where the file was stored</label>
-    <textarea data-prediction-rationale placeholder="Name the evidence field that is missing."></textarea>
-    <button data-prediction-submit>Commit prediction</button>
-    <p data-feedback></p>
-    <p data-prediction-answer hidden>Without assistant output you cannot distinguish repetition, malformed JSON, or a changed request. Timing and storage may matter later, but neither reveals the first bad transition.</p>
-  </section>
+        <section>
+          <h2>Separate observations from explanations</h2>
+          <table class="contract-table">
+            <thead><tr><th>Available observation</th><th>Question it answers</th><th>Question it cannot answer</th></tr></thead>
+            <tbody>
+              <tr><td><code>final_answer: null</code></td><td>Was a final answer returned?</td><td>What proposal or rejection prevented one?</td></tr>
+              <tr><td><code>exit_reason: max_steps</code></td><td>Which stop condition ended the run?</td><td>Whether those steps were repeated, rejected, failed, or useful.</td></tr>
+              <tr><td>No ordered steps</td><td>Nothing about intermediate causality.</td><td>Which component owns the first correction.</td></tr>
+            </tbody>
+          </table>
+          <p>The smallest safe intervention is therefore to add evidence at the boundaries that already know the missing facts. Do not change parser, validator, dispatch, tool behavior, or budget policy until a future trace implicates one of them.</p>
+        </section>
+      </article>
 
-  <section>
-    <h2>Keep the runtime and trace models separate</h2>
-    <p>The runtime pipeline returns <code>Result[ValidatedToolRequest, typed errors]</code>. That type exists to control safe execution. A persisted trace has a different job: remain readable after runtime types are refactored.</p>
-    <pre><code>runtime Result
+      <section data-engineering-lab>
+        <section class="practice" data-prediction>
+          <h2>Commit the first missing evidence</h2>
+          <p>A run has <code>exit_reason="max_steps"</code> but no assistant outputs. What exact diagnosis is impossible?</p>
+          <div class="choice-list">
+            <label><input data-prediction-choice type="radio" name="prediction" value="request"><span>What the model requested at each step.</span></label>
+            <label><input data-prediction-choice type="radio" name="prediction" value="latency"><span>Which call was slowest.</span></label>
+            <label><input data-prediction-choice type="radio" name="prediction" value="storage"><span>Where the file was stored.</span></label>
+          </div>
+          <label>Name the missing field and the boundary that first knows it.<textarea data-prediction-rationale placeholder="Distinguish the model proposal from the harness decision."></textarea></label>
+          <button type="button" data-prediction-submit>Commit prediction</button>
+          <p data-feedback class="feedback" aria-live="polite"></p>
+          <div data-prediction-answer hidden class="callout">Without assistant output you cannot distinguish repetition, malformed JSON, or a changed request. Timing and storage may matter later, but neither reveals the first bad transition.</div>
+        </section>
+
+        <section data-lecture-continuation data-lecture-reveal="after-prediction" hidden data-lecture-obligation="boundary-ownership">
+          <h2>Record each fact where it becomes authoritative</h2>
+          <p>The loop is a sequence of trust and control boundaries. Each one is the first place that can state a different fact without inference.</p>
+          <table class="contract-table">
+            <thead><tr><th>Boundary</th><th>Authoritative fact</th><th>Stable trace evidence</th></tr></thead>
+            <tbody>
+              <tr><td>Model completion</td><td>The exact text the model proposed.</td><td><code>assistant_output</code></td></tr>
+              <tr><td>Parser and validator</td><td>Acceptance or the first failed request stage.</td><td><code>RequestAccepted</code> or <code>RequestRejected</code></td></tr>
+              <tr><td>Loop classifier</td><td>Whether an accepted request means submit or execute.</td><td><code>SubmitSelected</code> or <code>ExecuteToolSelected</code></td></tr>
+              <tr><td>Runtime dispatch</td><td>Whether external execution succeeded or failed.</td><td><code>ToolSucceeded</code> or <code>ToolFailed</code></td></tr>
+              <tr><td>Loop control</td><td>Why the run stopped.</td><td><code>submitted</code> or <code>max_steps</code></td></tr>
+            </tbody>
+          </table>
+          <p>A final <code>AgentResult</code> cannot reconstruct discarded assistant text or intermediate request outcomes. Instrumenting only after the run would create a plausible story, not a causal record.</p>
+        </section>
+
+        <section data-lecture-continuation data-lecture-obligation="stable-trace-model">
+          <h2>Runtime types and persisted evidence have different jobs</h2>
+          <p>The live request pipeline uses <code>Result[ValidatedToolRequest, typed errors]</code> because those types make safe execution and exhaustive control flow easier. A persisted trace has a longer-lived responsibility: remain interpretable when runtime libraries and class names change.</p>
+          <pre><code>runtime Result
     → request_result_to_trace
 RequestAccepted | RequestRejected
     → TraceStep
 versioned JSON</code></pre>
-    <p>Inspect the supplied types and adapter in <a href="../phase-1/07_trace_logger/trace_logger.py"><code>trace_logger.py</code></a>. A rejection records the first failed <code>RequestStage</code>; acceptance implies every earlier request stage succeeded. This preserves causality without repeating separate <code>{"ok": true}</code> dictionaries.</p>
-    <p><strong>Tradeoff:</strong> the adapter adds a small mapping layer. In return, renaming a Pydantic class or changing the internal <code>Result</code> implementation does not silently rewrite the trace-file contract.</p>
-  </section>
+          <p>Inspect the supplied types and adapter in <a href="../phase-1/07_trace_logger/trace_logger.py"><code>trace_logger.py</code></a>. A rejection records the first failed <code>RequestStage</code>. Acceptance implies all earlier request gates succeeded. Explicit <code>kind</code> discriminators prevent a loose dictionary from representing contradictory states.</p>
+          <p><strong>Tradeoff:</strong> the adapter adds a mapping layer. In return, replacing <code>Result</code>, renaming a Pydantic model, or reorganizing runtime actions does not silently redefine old trace files.</p>
+        </section>
 
-  <section>
-    <h2>Inspect the starter, then implement it</h2>
-    <p>Add the narrow trace hook to <code>run_agent</code>, then implement <code>TraceLogger.start</code>, <code>record_step</code>, <code>finish</code>, and <code>write_json</code>. Construct the supplied trace variants at the loop boundary where each fact becomes authoritative. Do not persist raw runtime objects or reconstruct a story from the final result.</p>
-    <p>Keep the logger's working lists mutable while events arrive. In <code>finish</code>, freeze the completed <code>AgentTrace</code> with tuples. Serialize the discriminating <code>kind</code> fields and <code>schema_version</code> exactly as required by the proof.</p>
-    <p>Run <code>uv run pytest curriculum/phase-1/07_trace_logger/tests_trace_logger.py</code>. The adapter tests already pass. The trajectory test begins red because <code>run_agent</code> does not yet accept the trace hook.</p>
-  </section>
+        <section data-lecture-continuation data-worked-example>
+          <h2>Follow a complete read-and-submit trace</h2>
+          <ol class="compact-list">
+            <li>The initial message asks, “Read <code>notes.txt</code>.” The logger copies the exact state supplied to the first model call.</li>
+            <li>The model emits a <code>read_file</code> request. The request is accepted, execution is selected, and the handler returns <code>"lesson notes"</code>.</li>
+            <li>Step 1 records assistant output → <code>RequestAccepted</code> → <code>ExecuteToolSelected</code> → <code>ToolSucceeded</code>. It has no exit reason.</li>
+            <li>The next model call sees the tool observation and emits <code>submit(answer="done")</code>.</li>
+            <li>Step 2 records assistant output → <code>RequestAccepted</code> → <code>SubmitSelected</code> → no tool outcome → <code>submitted</code>.</li>
+          </ol>
+          <p>The absence of a tool outcome on submit is correct evidence. Submission is internal control flow; fabricating a successful external invocation would make the trace less truthful.</p>
+        </section>
 
-  <section data-case-set>
-    <h2>Name the first missing causal record</h2>
+        <section data-lecture-continuation data-lecture-obligation="immutable-evidence">
+          <h2>Collect mutably; finalize immutably</h2>
+          <p>Events arrive incrementally, so <code>TraceLogger</code> uses mutable working lists during the run. At <code>finish</code>, it freezes initial messages and steps into tuples inside an immutable <code>AgentTrace</code>, then writes a JSON object with <code>schema_version: 1</code>.</p>
+          <p>This separates two lifecycles: collection while facts arrive, and evidence after the run is complete. Immutability prevents casual mutation of the finalized in-memory snapshot. It does not by itself prove truthfulness, durable storage, atomic writes, redaction, or migration safety.</p>
+        </section>
 
-    <fieldset data-case-id="assistant" data-answer="assistant" data-correct="Correct: raw assistant output distinguishes a model proposal from a harness decision." data-incorrect="Start with what the model actually emitted.">
-      <legend>Only the final answer and exit reason are saved.</legend>
-      <label><input type="radio" name="c1" value="assistant">assistant output</label>
-      <label><input type="radio" name="c1" value="latency">latency</label>
-      <label><input type="radio" name="c1" value="path">storage path</label>
-      <textarea data-rationale placeholder="Why is that causal?"></textarea>
-      <button data-case-submit>Commit case</button><p data-feedback></p>
-    </fieldset>
+        <section data-lecture-continuation data-lecture-obligation="protocol-runtime-distinction">
+          <h2>Distinguish protocol rejection from runtime absence</h2>
+          <p>An unknown protocol tool fails during request validation:</p>
+          <pre><code>RequestRejected(
+  stage="tool_lookup",
+  code="UNKNOWN_TOOL"
+)</code></pre>
+          <p>A protocol-known tool with no runtime handler follows a longer path:</p>
+          <pre><code>RequestAccepted(tool="read_file")
+→ ExecuteToolSelected(tool="read_file")
+→ ToolFailed(tool="read_file", code="UNKNOWN_TOOL")</code></pre>
+          <p>The current implementation reuses <code>UNKNOWN_TOOL</code>, but ordered variants preserve the distinction. A future, more specific runtime-unavailable code may be clearer, yet changing persisted vocabulary requires an explicit compatibility decision rather than a quiet logger rewrite.</p>
+        </section>
 
-    <fieldset data-case-id="json" data-answer="outcome" data-correct="Correct: a rejected request outcome identifies JSON as the first failed stage." data-incorrect="Record the request pipeline's stable outcome, not a tool result that could never exist.">
-      <legend>The assistant output is malformed JSON, so no action can be classified.</legend>
-      <label><input type="radio" name="c2" value="tool">tool outcome</label>
-      <label><input type="radio" name="c2" value="outcome">request outcome</label>
-      <label><input type="radio" name="c2" value="answer">final answer</label>
-      <textarea data-rationale placeholder="Which stage should it name?"></textarea>
-      <button data-case-submit>Commit case</button><p data-feedback></p>
-    </fieldset>
+        <section>
+          <h2>Implement the smallest evidence slice</h2>
+          <p>Add the narrow trace hook to <code>run_agent</code>, then implement <code>TraceLogger.start</code>, <code>record_step</code>, <code>finish</code>, and <code>write_json</code>. Construct variants where the facts become authoritative. Do not reconstruct the story from the final result or persist raw runtime objects.</p>
+          <p>Run <code>uv run pytest curriculum/phase-1/07_trace_logger/tests_trace_logger.py</code>. Adapter cases already describe the first failed request stage. The trajectory proof begins red because the loop does not yet accept the trace hook.</p>
+        </section>
 
-    <fieldset data-case-id="arguments" data-answer="arguments" data-correct="Correct: TOOL_ARGUMENTS distinguishes invalid arguments from parse and lookup failures." data-incorrect="The request parsed and the tool was known; the argument boundary failed next.">
-      <legend><code>read_file</code> is known, but its required <code>path</code> is missing.</legend>
-      <label><input type="radio" name="c3" value="json">JSON stage</label>
-      <label><input type="radio" name="c3" value="lookup">tool lookup</label>
-      <label><input type="radio" name="c3" value="arguments">tool arguments</label>
-      <textarea data-rationale placeholder="What succeeded before this stage?"></textarea>
-      <button data-case-submit>Commit case</button><p data-feedback></p>
-    </fieldset>
+        <section data-case-set>
+          <h2>Name the first missing causal record</h2>
 
-    <fieldset data-case-id="action" data-answer="action" data-correct="Correct: the action records whether a validated request became submit control flow or external execution." data-incorrect="Validation proves the request is allowed; classification records what the loop decided to do.">
-      <legend>The request was accepted, but the trace does not say whether the loop submitted or selected a tool.</legend>
-      <label><input type="radio" name="c4" value="action">classified action</label>
-      <label><input type="radio" name="c4" value="output">assistant output</label>
-      <label><input type="radio" name="c4" value="exit">run exit</label>
-      <textarea data-rationale placeholder="Why is acceptance alone insufficient?"></textarea>
-      <button data-case-submit>Commit case</button><p data-feedback></p>
-    </fieldset>
+          <fieldset data-case-id="assistant" data-answer="assistant" data-correct="Correct: raw assistant output distinguishes a model proposal from a harness decision." data-incorrect="Start with what the model actually emitted.">
+            <legend>Only the final answer and exit reason are saved.</legend>
+            <label><input type="radio" name="c1" value="assistant">assistant output</label>
+            <label><input type="radio" name="c1" value="latency">latency</label>
+            <label><input type="radio" name="c1" value="path">storage path</label>
+            <textarea data-rationale placeholder="Why is that causal?"></textarea>
+            <button data-case-submit>Commit case</button><p data-feedback></p>
+          </fieldset>
 
-    <fieldset data-case-id="tool" data-answer="tool" data-correct="Correct: the tool outcome distinguishes success, a missing runtime handler, and a handler exception." data-incorrect="Execution needs its own outcome after an execute-tool action is selected.">
-      <legend>An execute-tool action was selected, but the next model call repeats it.</legend>
-      <label><input type="radio" name="c5" value="exit">exit reason</label>
-      <label><input type="radio" name="c5" value="tool">tool outcome</label>
-      <label><input type="radio" name="c5" value="schema">schema version</label>
-      <textarea data-rationale placeholder="Which runtime failures remain possible?"></textarea>
-      <button data-case-submit>Commit case</button><p data-feedback></p>
-    </fieldset>
+          <fieldset data-case-id="json" data-answer="outcome" data-correct="Correct: a rejected request outcome identifies JSON as the first failed stage." data-incorrect="Record the request pipeline's stable outcome, not a tool result that could never exist.">
+            <legend>The assistant output is malformed JSON, so no action can be classified.</legend>
+            <label><input type="radio" name="c2" value="tool">tool outcome</label>
+            <label><input type="radio" name="c2" value="outcome">request outcome</label>
+            <label><input type="radio" name="c2" value="answer">final answer</label>
+            <textarea data-rationale placeholder="Which stage should it name?"></textarea>
+            <button data-case-submit>Commit case</button><p data-feedback></p>
+          </fieldset>
 
-    <fieldset data-case-id="submit" data-answer="none" data-correct="Correct: submit controls flow, so no external tool outcome should be fabricated." data-incorrect="Submit ends the loop; it is protocol-valid but not an external handler invocation.">
-      <legend>The action is <code>SubmitSelected</code> and the run exits as submitted.</legend>
-      <label><input type="radio" name="c6" value="success">successful tool outcome</label>
-      <label><input type="radio" name="c6" value="failure">failed tool outcome</label>
-      <label><input type="radio" name="c6" value="none">no tool outcome</label>
-      <textarea data-rationale placeholder="Why is absence correct here?"></textarea>
-      <button data-case-submit>Commit case</button><p data-feedback></p>
-    </fieldset>
-  </section>
+          <fieldset data-case-id="arguments" data-answer="arguments" data-correct="Correct: TOOL_ARGUMENTS distinguishes invalid arguments from parse and lookup failures." data-incorrect="The request parsed and the tool was known; the argument boundary failed next.">
+            <legend><code>read_file</code> is known, but its required <code>path</code> is missing.</legend>
+            <label><input type="radio" name="c3" value="json">JSON stage</label>
+            <label><input type="radio" name="c3" value="lookup">tool lookup</label>
+            <label><input type="radio" name="c3" value="arguments">tool arguments</label>
+            <textarea data-rationale placeholder="What succeeded before this stage?"></textarea>
+            <button data-case-submit>Commit case</button><p data-feedback></p>
+          </fieldset>
 
-  <section>
-    <h2>Run proof and explain its limit</h2>
-    <p>When the test turns green, inspect the JSON you wrote. Explain one trajectory as assistant output → request outcome → action → tool outcome or exit. Identify the first bad transition and the boundary that owns it.</p>
-    <p>The proof establishes that one covered run crosses the runtime-to-trace boundary, preserves typed causal outcomes, freezes its completed snapshot, and writes versioned JSON. It does not prove redaction, retention, backward-compatible migrations, or that every future loop branch records an event.</p>
-    <p>For transfer, design the smallest regression for a request that passes protocol validation but has no runtime handler. Which trace variant and error code should make that failure distinguishable from an unknown protocol tool?</p>
-    <p class="small">Ask your teacher to review the trace you produced before treating the lesson as learned.</p>
-  </section>
-</main>
-</body>
+          <fieldset data-case-id="action" data-answer="action" data-correct="Correct: the action records whether a validated request became submit control flow or external execution." data-incorrect="Validation proves the request is allowed; classification records what the loop decided to do.">
+            <legend>The request was accepted, but the trace does not say whether the loop submitted or selected a tool.</legend>
+            <label><input type="radio" name="c4" value="action">classified action</label>
+            <label><input type="radio" name="c4" value="output">assistant output</label>
+            <label><input type="radio" name="c4" value="exit">run exit</label>
+            <textarea data-rationale placeholder="Why is acceptance alone insufficient?"></textarea>
+            <button data-case-submit>Commit case</button><p data-feedback></p>
+          </fieldset>
+
+          <fieldset data-case-id="tool" data-answer="tool" data-correct="Correct: the tool outcome distinguishes success, a missing runtime handler, and a handler exception." data-incorrect="Execution needs its own outcome after an execute-tool action is selected.">
+            <legend>An execute-tool action was selected, but the next model call repeats it.</legend>
+            <label><input type="radio" name="c5" value="exit">exit reason</label>
+            <label><input type="radio" name="c5" value="tool">tool outcome</label>
+            <label><input type="radio" name="c5" value="schema">schema version</label>
+            <textarea data-rationale placeholder="Which runtime failures remain possible?"></textarea>
+            <button data-case-submit>Commit case</button><p data-feedback></p>
+          </fieldset>
+
+          <fieldset data-case-id="submit" data-answer="none" data-correct="Correct: submit controls flow, so no external tool outcome should be fabricated." data-incorrect="Submit ends the loop; it is protocol-valid but not an external handler invocation.">
+            <legend>The action is <code>SubmitSelected</code> and the run exits as submitted.</legend>
+            <label><input type="radio" name="c6" value="success">successful tool outcome</label>
+            <label><input type="radio" name="c6" value="failure">failed tool outcome</label>
+            <label><input type="radio" name="c6" value="none">no tool outcome</label>
+            <textarea data-rationale placeholder="Why is absence correct here?"></textarea>
+            <button data-case-submit>Commit case</button><p data-feedback></p>
+          </fieldset>
+        </section>
+
+        <section data-lecture-continuation data-lecture-obligation="proof-limits">
+          <h2>Run proof, then state its limit</h2>
+          <p>When the test turns green, inspect the JSON you wrote. Explain one trajectory as assistant output → request outcome → action → tool outcome or exit. Identify the first bad transition and the boundary that owns it.</p>
+          <p>The proof establishes that one covered run crosses the runtime-to-trace boundary, preserves typed causal outcomes, freezes its completed snapshot, and writes versioned JSON. It does not prove redaction, retention, backward-compatible migrations, truthful external systems, model quality, or that every future branch records an event.</p>
+          <p><strong>Transfer:</strong> add the smallest regression for a request accepted by the protocol registry but rejected because its runtime handler is absent. Assert <code>RequestAccepted</code> → <code>ExecuteToolSelected</code> → <code>ToolFailed(code="UNKNOWN_TOOL")</code>, and assert that it is not a <code>RequestRejected(stage="tool_lookup")</code>.</p>
+        </section>
+      </section>
+
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="source-kind">Primary source</p>
+            <h3><a href="https://openai.github.io/openai-agents-python/tracing/">OpenAI Agents SDK: Tracing</a></h3>
+            <p>Compare the hand-built causal step schema with a production system that records model generations, tool calls, errors, spans, and sensitive-data choices.</p>
+          </article>
+          <article class="source-card">
+            <p class="source-kind">Go deeper</p>
+            <h3><a href="https://opentelemetry.io/docs/concepts/signals/traces/">OpenTelemetry docs: Traces</a></h3>
+            <p>Use trace and span vocabulary to place the local ordered steps in a broader observability model without treating it as this project's schema.</p>
+          </article>
+          <article class="source-card">
+            <p class="source-kind">Go deeper</p>
+            <h3><a href="https://opentelemetry.io/docs/specs/otel/versioning-and-stability/">OpenTelemetry specification: Versioning and stability</a></h3>
+            <p>Study compatibility promises and stability levels when thinking about future versions of persisted trace JSON.</p>
+          </article>
+        </div>
+        <p class="small">These sources provide comparisons and vocabulary; the repository's trace types and proof remain authoritative for Project 1A. Ask your teacher to review the trace you produced before treating the lesson as learned.</p>
+      </section>
+    </main>
+  </body>
 </html>

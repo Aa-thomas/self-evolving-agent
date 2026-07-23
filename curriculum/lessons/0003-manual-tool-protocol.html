@@ -3,19 +3,20 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Project 1A: Tool-request parser</title>
+    <title>Project 1A · Tool-Request Parser · A tool call starts as untrusted text</title>
     <link rel="stylesheet" href="../assets/course.css">
     <script defer src="../assets/lesson.js"></script>
   </head>
   <body>
     <main>
-      <header>
-        <p class="eyebrow">Project 1A · Primitive 3 · Foundation build</p>
-        <h1>Turn untrusted model text into one narrow request</h1>
+      <header data-lesson-identity>
+        <p class="eyebrow">Primitive 3 · Tool-Request Parser</p>
+        <h1>A tool call starts as untrusted text</h1>
         <p class="lede">The model proposes text. The harness decides whether that text earns the right to become structured data—and stops before claiming the request is safe to execute.</p>
       </header>
 
-      <section>
+      <article data-lecture>
+      <section data-lecture-obligation="untrusted-text">
         <h2>Why is JSON-looking text still only text?</h2>
         <p>Primitive 2 can preserve an assistant message such as <code>{"tool":"read_file","args":{"path":"notes.txt"}}</code>. To a person, it looks like a tool call. To the harness, it is still an untrusted string.</p>
         <p>If later code treats any tool-looking string as an executable request, the model has silently gained permission to invent syntax, attach ignored prose, or smuggle a malformed value past an unclear boundary.</p>
@@ -39,7 +40,7 @@
         <p><strong>Target artifact:</strong> your <code>03_parse_tool_request.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="ordered-parser-gates">
         <h2>Build the mental model one claim at a time</h2>
         <p>The parser is easier to reason about when you refuse to collapse its two gates into one vague idea of “valid.”</p>
         <table class="contract-table">
@@ -54,7 +55,7 @@
         <p><strong>Invariant:</strong> Primitive 3 returns either one <code>ToolRequest</code>, <code>INVALID_JSON</code>, or <code>INVALID_TOOL_REQUEST_SHAPE</code>. It never guesses a repair and never approves execution.</p>
       </section>
 
-      <section>
+      <section data-worked-example>
         <h2>Walk through a successful request</h2>
         <p>Follow <code>{"tool":"read_file","args":{"path":"notes.txt"}}</code> through the real contract:</p>
         <ol class="compact-list">
@@ -65,7 +66,7 @@
         <p>Notice the modest conclusion. The parser has proven the request's transport shape. It has not looked in a registry, checked that <code>path</code> is a string, opened a file, or granted permission.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="proof-limits">
         <h2>Contrast the two failure families</h2>
         <div class="grid">
           <article class="card">
@@ -80,7 +81,7 @@
         <p>The error code records the first claim that failed. It is not a general verdict that the whole agent run is bad.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="strict-protocol">
         <h2>Choose strictness deliberately</h2>
         <p>A permissive parser could accept Python-like calls, extract the first object from surrounding prose, or fill in a missing <code>args</code> field. That seems convenient because more model outputs continue through the loop.</p>
         <p>The cost is hidden ambiguity: different spellings may mean different things, ignored suffixes disappear from evidence, and later components can no longer tell what the parser actually guaranteed.</p>
@@ -91,6 +92,14 @@
         <p>This harness chooses the strict protocol. Recovery can happen visibly on a later turn; silent interpretation does not happen inside the parser.</p>
       </section>
 
+      <section>
+        <h2>Synthesis: parsing earns structure, not authority</h2>
+        <p>The parser’s job is intentionally modest: convert one untrusted string into either a stable structured envelope or a stage-specific rejection. Because it refuses to consult tool schemas or runtime registries, later evidence can still identify whether a failure belonged to syntax, outer shape, protocol membership, arguments, or execution.</p>
+        <p>That separation is what makes the primitive reusable. A different tool catalog can consume the same <code>ToolRequest</code> contract, and a future recovery loop can show the model an exact parser error without pretending malformed text was ever safe to execute.</p>
+      </section>
+      </article>
+
+      <section data-engineering-lab aria-label="Engineering lab">
       <section class="practice" data-prediction>
         <h2>Commit your boundary prediction</h2>
         <p>Primitive 3 receives <code>{"tool":"read_file","args":{"path":123}}</code>. What should this parser return?</p>
@@ -185,7 +194,7 @@
         <h2>Run proof, then inspect what you built</h2>
         <p>Run <code>uv run pytest curriculum/phase-1/03_parse_tool_request_tests.py</code>. Pay particular attention to <code>test_trailing_prose_is_not_json</code>, <code>test_unknown_tool_name_still_produces_tool_request</code>, and <code>test_tool_specific_argument_type_is_left_for_validation</code>.</p>
         <div class="grid">
-          <article class="card"><h3>The proof establishes</h3><p>For the ten covered raw outputs, the implementation distinguishes decoding failure, outer-shape failure, and a structured request without swallowing suffixes or consulting later boundaries.</p></article>
+          <article class="card"><h3>The proof establishes</h3><p>For the raw outputs covered by the focused suite, the implementation distinguishes decoding failure, outer-shape failure, and a structured request without swallowing suffixes or consulting later boundaries.</p></article>
           <article class="card"><h3>The proof does not establish</h3><p>That a tool name is registered, its arguments are valid for that tool, a runtime handler exists, or execution is safe.</p></article>
         </div>
         <p>Now inspect your completed <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>. Trace where <code>INVALID_JSON</code> can originate, where <code>INVALID_TOOL_REQUEST_SHAPE</code> can originate, and why neither code can originate in <code>read_file</code>.</p>
@@ -196,6 +205,23 @@
         <h2>Transfer the reasoning</h2>
         <p>A future protocol proposes a top-level <code>request_id</code>. Decide whether Primitive 3 should reject it as an extra field, add it to <code>ToolRequest</code>, or leave it inside <code>args</code>. Base the decision on what the field means across every tool, then name the parser test and later validation test needed to keep the boundary honest.</p>
         <p class="small">Ask your teacher to review one near-boundary classification and the exact limit you placed on the parser's proof.</p>
+      </section>
+      </section>
+
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="eyebrow">Primary source</p>
+            <h3><a href="https://docs.python.org/3/library/json.html">Python docs: json</a></h3>
+            <p>Read json.loads and JSONDecodeError to understand exactly what complete-document decoding establishes before schema validation begins.</p>
+          </article>
+          <article class="source-card">
+            <p class="eyebrow">Go deeper</p>
+            <h3><a href="https://docs.pydantic.dev/latest/concepts/models/">Pydantic docs: Models</a></h3>
+            <p>Connect model validation and forbidden extra fields to the separate outer-envelope gate; do not confuse it with tool-specific validation.</p>
+          </article>
+        </div>
       </section>
     </main>
   </body>

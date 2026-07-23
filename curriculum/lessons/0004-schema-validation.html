@@ -1,17 +1,237 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1A: Tool validation</title><link rel="stylesheet" href="../assets/course.css"><script defer src="../assets/lesson.js"></script></head>
-<body><main>
-<header><p class="eyebrow">Project 1A · Primitive 4</p><h1>Validate a parsed request before execution</h1><p class="lede">Primitive 3 already proved that text has the outer ToolRequest shape. This primitive decides whether its tool and arguments satisfy the protocol contract.</p></header>
-<section><h2>Inspect what already exists</h2><p>Read <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>. Its <code>ToolRequest</code> can contain <code>tool="read_file"</code> and <code>args={"path":123}</code>; JSON and outer shape are valid. Inspect the starter target <a href="../phase-1/04_validate_tool_args/04_validate_tool_args.py"><code>04_validate_tool_args.py</code></a>: the registry names protocol capabilities and each <code>ToolSpec</code> parses its own arguments.</p><p><strong>Invariant:</strong> runtime tools receive only a typed, registered request. Parsing must not guess schemas; an individual file tool must not be the first place to discover an invalid argument type.</p></section>
-<section data-prediction><h2>Commit a design decision</h2><p>For <code>ToolRequest(tool="read_file", args={"path":123})</code>, which boundary owns the rejection?</p><label><input data-prediction-choice type="radio" name="prediction" value="validation">tool argument validation</label><label><input data-prediction-choice type="radio" name="prediction" value="parser">JSON parser</label><label><input data-prediction-choice type="radio" name="prediction" value="read">read_file runtime tool</label><textarea data-prediction-rationale placeholder="Name what Primitive 3 already proved."></textarea><button data-prediction-submit>Commit prediction</button><p data-feedback></p><p data-prediction-answer hidden>Tool argument validation owns it and returns <code>INVALID_TOOL_ARGS</code>. The parser has already done its narrow job; deferring this to the runtime tool duplicates the protocol contract at the wrong boundary.</p></section>
-<section><h2>Build the target and run proof</h2><p>Implement or reconstruct <a href="../phase-1/04_validate_tool_args/04_validate_tool_args.py"><code>validate_tool_args()</code></a>, then run <code>uv run pytest curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py</code>. In particular, <code>test_wrong_tool_arg_type_is_rejected</code> proves the new gate. It does not prove that a separately configured runtime-handler dictionary contains that tool.</p></section>
-<section data-case-set><h2>Choose the responsible source of truth</h2>
-<fieldset data-case-id="valid-read" data-answer="accept" data-correct="Correct: registry lookup and ReadFileArgs both accept it." data-incorrect="Check both the registered name and typed arguments."><legend><code>read_file</code> with <code>{"path":"notes.txt"}</code></legend><label><input type="radio" name="c1" value="unknown">UNKNOWN_TOOL</label><label><input type="radio" name="c1" value="accept">validated request</label><label><input type="radio" name="c1" value="args">INVALID_TOOL_ARGS</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="unknown" data-answer="unknown" data-correct="Correct: the protocol registry has no delete_file entry." data-incorrect="Unknown names fail before any argument parser runs."><legend><code>delete_file</code> with <code>{"path":"notes.txt"}</code></legend><label><input type="radio" name="c2" value="unknown">UNKNOWN_TOOL</label><label><input type="radio" name="c2" value="json">INVALID_JSON</label><label><input type="radio" name="c2" value="runtime">runtime-handler absence</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="missing" data-answer="args" data-correct="Correct: read_file is known, but its typed args require path." data-incorrect="Registry membership is not sufficient for an executable request."><legend><code>read_file</code> with <code>{}</code></legend><label><input type="radio" name="c3" value="unknown">UNKNOWN_TOOL</label><label><input type="radio" name="c3" value="runtime">runtime handler</label><label><input type="radio" name="c3" value="args">INVALID_TOOL_ARGS</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="wrong-type" data-answer="args" data-correct="Correct: StrictStr rejects an integer path." data-incorrect="The value crossed JSON and outer-shape parsing; now tool-specific typing applies."><legend><code>read_file</code> with <code>{"path":123}</code></legend><label><input type="radio" name="c4" value="args">INVALID_TOOL_ARGS</label><label><input type="radio" name="c4" value="json">INVALID_JSON</label><label><input type="radio" name="c4" value="unknown">UNKNOWN_TOOL</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="extra" data-answer="args" data-correct="Correct: the strict model forbids unknown argument fields." data-incorrect="Do not silently grow the executable protocol through extra fields."><legend><code>read_file</code> with path plus <code>random</code></legend><label><input type="radio" name="c5" value="unknown">UNKNOWN_TOOL</label><label><input type="radio" name="c5" value="args">INVALID_TOOL_ARGS</label><label><input type="radio" name="c5" value="parser">parser shape</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-<fieldset data-case-id="optional-path" data-answer="accept" data-correct="Correct: ListFilesArgs makes path optional." data-incorrect="Apply the schema for this tool, not read_file's schema."><legend><code>list_files</code> with <code>{}</code></legend><label><input type="radio" name="c6" value="accept">validated request</label><label><input type="radio" name="c6" value="args">INVALID_TOOL_ARGS</label><label><input type="radio" name="c6" value="unknown">UNKNOWN_TOOL</label><textarea data-rationale placeholder="Which contract decides?"></textarea><button data-case-submit>Commit case</button><p data-feedback></p></fieldset>
-</section>
-<section><h2>Explain the remaining ambiguity</h2><p><code>submit</code> with an answer is protocol-valid, as <code>test_submit_is_protocol_valid_but_returns_a_control_request</code> shows. A later loop must still decide its control flow. Likewise, a protocol registry can validate a request while a separate runtime tools dictionary lacks its handler: that is configuration drift or an invalid state, not <code>UNKNOWN_TOOL</code>. Add a regression for the smallest new schema rule you introduce, then state what the validation proof does not establish.</p><p class="small">Ask your teacher to compare your source-of-truth decision with the runtime-handler ambiguity.</p></section>
-</main></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project 1A · Schema Validation · Validation is a four-gate checkpoint</title>
+    <link rel="stylesheet" href="../assets/course.css">
+    <script defer src="../assets/lesson.js"></script>
+  </head>
+  <body>
+    <main>
+      <header data-lesson-identity>
+        <p class="eyebrow">Primitive 4 · Schema Validation</p>
+        <h1>Validation is a four-gate checkpoint</h1>
+        <p class="lede">A request can be valid JSON and have the right outer shape while still naming an unknown capability or carrying arguments that violate that capability’s contract.</p>
+      </header>
+
+      <article data-lecture>
+        <section data-lecture-obligation="structured-not-executable">
+          <h2>Structured is not the same as executable</h2>
+          <p>Primitive 3 turns assistant text into a narrow <code>ToolRequest</code>. Its type proves that <code>tool</code> is a string and <code>args</code> is a JSON object. That is a transport guarantee: later code no longer has to guess whether it received prose, an array, or a half-finished JSON document.</p>
+          <p>It is not yet a capability guarantee. The parser does not know whether <code>read_file</code> belongs to this protocol, and it deliberately cannot know that <code>read_file.path</code> must be a string. Consequently, this request is correctly parsed but not executable:</p>
+          <pre><code>ToolRequest(
+    tool="read_file",
+    args={"path": 123},
+)</code></pre>
+          <div class="callout">
+            <strong>First principle:</strong> parsing establishes shared structure; validation establishes the contract of the specific operation before runtime execution.
+          </div>
+          <p>If <code>read_file</code> is allowed to discover the bad type while opening a path, the failure has crossed too many boundaries. The runtime tool now has to duplicate protocol rules, failures arrive later, and different handlers may interpret the same malformed request differently.</p>
+        </section>
+
+        <section>
+          <h2>Inspect the real contracts</h2>
+          <p>Read Primitive 3’s <a href="../phase-1/03_parse_tool_request.py"><code>03_parse_tool_request.py</code></a>, then inspect the Lesson 4 compatibility entry point <a href="../phase-1/04_validate_tool_args/04_validate_tool_args.py"><code>04_validate_tool_args.py</code></a> and the focused <a href="../phase-1/04_validate_tool_args/validate_tool_args_tests.py"><code>validate_tool_args_tests.py</code></a>. These artifacts expose three different kinds of evidence:</p>
+          <table class="contract-table">
+            <thead>
+              <tr><th>Artifact</th><th>What it establishes</th><th>What it leaves open</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>ToolRequest</code></td><td>The outer envelope contains a strict tool-name string and an argument object.</td><td>Whether the name is registered and whether those arguments match its schema.</td></tr>
+              <tr><td><code>TOOL_SPECS</code></td><td>Which names the protocol recognizes and which argument model belongs to each name.</td><td>Whether a separately configured runtime handler exists or can succeed.</td></tr>
+              <tr><td>The focused tests</td><td>Observable outcomes for known, unknown, missing, wrong-type, extra-field, and control requests.</td><td>Filesystem safety, runtime dispatch, and end-to-end agent behavior.</td></tr>
+            </tbody>
+          </table>
+          <p><strong>Target artifact:</strong> <code>validate_tool_args()</code> in the Primitive 4 implementation. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py</code>.</p>
+        </section>
+
+        <section data-lecture-obligation="four-gate-validation">
+          <h2>Keep the four gates ordered</h2>
+          <p>The phrase “valid tool call” hides four distinct claims. The request must cross them in order because each gate consumes a guarantee made by the one before it.</p>
+          <table class="contract-table">
+            <thead>
+              <tr><th>Gate</th><th>Question</th><th>Failure evidence</th><th>Owner</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1. JSON</td><td>Is the assistant output one complete JSON document?</td><td><code>INVALID_JSON</code></td><td><code>parse_json</code></td></tr>
+              <tr><td>2. Request shape</td><td>Is the decoded value one strict <code>ToolRequest</code> envelope?</td><td><code>INVALID_TOOL_REQUEST_SHAPE</code></td><td><code>validate_tool_request_shape</code></td></tr>
+              <tr><td>3. Tool lookup</td><td>Does the protocol registry declare this tool name?</td><td><code>UNKNOWN_TOOL</code></td><td><code>validate_tool_args</code></td></tr>
+              <tr><td>4. Tool arguments</td><td>Do the arguments satisfy that tool’s strict model?</td><td><code>INVALID_TOOL_ARGS</code></td><td>The selected argument schema</td></tr>
+            </tbody>
+          </table>
+          <p>A later failure tells you which earlier claims succeeded. If a request reaches <code>INVALID_TOOL_ARGS</code>, it was valid JSON, had the required envelope, and named a registered protocol tool. This ordering turns an error code into causal evidence instead of a generic “bad request” label.</p>
+          <p>The invariant is precise: only a request for a registered tool whose arguments match its declared schema may leave this boundary as a <code>ValidatedToolRequest</code>.</p>
+        </section>
+
+        <section data-worked-example>
+          <h2>Worked example: follow <code>path=123</code></h2>
+          <p>Consider the raw assistant output <code>{"tool":"read_file","args":{"path":123}}</code>. Walk it through the actual pipeline before deciding where it fails.</p>
+          <ol class="compact-list">
+            <li><strong>JSON gate:</strong> the number <code>123</code> is legal JSON, so decoding succeeds.</li>
+            <li><strong>Request-shape gate:</strong> <code>tool</code> is a string and <code>args</code> is an object, so Primitive 3 returns <code>ToolRequest</code>.</li>
+            <li><strong>Tool-lookup gate:</strong> <code>TOOL_SPECS["read_file"]</code> exists and selects <code>ReadFileArgs</code>.</li>
+            <li><strong>Argument gate:</strong> strict validation requires <code>path: str</code>. It does not coerce the integer, so the result is <code>InvalidToolArgsError(code="INVALID_TOOL_ARGS")</code>.</li>
+          </ol>
+          <p>Now change only the tool name to <code>delete_file</code>. The request still crosses the first two gates, but registry lookup fails before any argument model runs. The correct evidence becomes <code>UnknownToolError(code="UNKNOWN_TOOL")</code>.</p>
+          <div class="grid">
+            <article class="card">
+              <h3>Known name, bad arguments</h3>
+              <p><code>read_file</code> selects <code>ReadFileArgs</code>; schema validation rejects <code>path=123</code> as <code>INVALID_TOOL_ARGS</code>.</p>
+            </article>
+            <article class="card">
+              <h3>Unknown name</h3>
+              <p><code>delete_file</code> selects no schema; registry lookup rejects it as <code>UNKNOWN_TOOL</code>.</p>
+            </article>
+          </div>
+          <p>The distinguishing evidence is not that both requests are “unsafe.” It is the first gate each request cannot cross.</p>
+        </section>
+
+        <section data-lecture-obligation="registry-schema-separation">
+          <h2>One registry, one argument contract per capability</h2>
+          <p><code>TOOL_SPECS</code> maps each protocol name to a <code>ToolSpec</code>, and each spec names exactly one argument schema. This is more than a convenient lookup table. It makes two decisions inspectable at the same boundary: whether the protocol recognizes a name and what that name’s arguments mean.</p>
+          <table class="contract-table">
+            <thead>
+              <tr><th>Tool</th><th>Argument contract</th><th>Important edge</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>read_file</code></td><td><code>path: str</code></td><td>The path is required and strict.</td></tr>
+              <tr><td><code>write_file</code></td><td><code>path: str</code>, <code>content: str</code></td><td>Both fields are required; extras are forbidden.</td></tr>
+              <tr><td><code>list_files</code></td><td><code>path: str | None = None</code></td><td>An empty object is intentionally valid.</td></tr>
+              <tr><td><code>submit</code></td><td><code>answer: str</code></td><td>Protocol-valid control, not an external file operation.</td></tr>
+            </tbody>
+          </table>
+          <p>The design tension is where to reject malformed arguments. A runtime-first design lets every handler validate for itself. A protocol-first design rejects before dispatch using a shared declared contract. This primitive chooses protocol-first validation because it produces consistent typed input and stable failure evidence while leaving domain checks—such as whether a path is permitted—to the runtime tool that owns them.</p>
+          <p>Strict models also forbid unknown fields. Accepting <code>{"path":"notes.txt","random":true}</code> would silently enlarge the executable protocol: the sender could believe <code>random</code> mattered while the handler ignored it. Rejection keeps the declared contract and observed behavior aligned.</p>
+        </section>
+
+        <section data-lecture-obligation="runtime-availability-boundary">
+          <h2>Protocol validity still does not promise a handler</h2>
+          <p>A protocol registry and a runtime handler dictionary answer different questions. The registry asks, “Is this operation part of the language, and are its arguments meaningful?” Runtime dispatch later asks, “Is executable code available for this operation in this process?”</p>
+          <p>That distinction is visible in <code>submit</code>. Its arguments can validate successfully, yet the agent loop should classify it as a control transition and stop instead of invoking a file-tool handler. Conversely, configuration drift could leave a protocol-valid external tool without a runtime handler. Reclassifying either case as a parser or schema failure would erase the actual bad transition.</p>
+          <div class="callout">
+            <strong>Ownership rule:</strong> diagnose the first contract that fails. Do not move a later dispatch question backward merely because both outcomes prevent execution.
+          </div>
+        </section>
+
+        <section data-lecture-obligation="proof-limits">
+          <h2>What the focused proof can support</h2>
+          <p>The validator suite supports a bounded claim: for its covered cases, the pipeline distinguishes malformed JSON, invalid outer shape, unknown tool names, invalid arguments, and accepted typed requests. It specifically proves that <code>path=123</code> is rejected at the tool-argument gate and that <code>submit</code> can be protocol-valid.</p>
+          <p>It does not prove that a path remains inside a sandbox, that a runtime handler is installed, that a handler succeeds, or that the loop interprets <code>submit</code> correctly. Those are different boundaries with different proof artifacts. A green validator test is necessary evidence for safe dispatch, not evidence of successful execution.</p>
+        </section>
+      </article>
+
+      <section data-engineering-lab aria-label="Engineering lab">
+        <section class="practice" data-prediction>
+          <h2>Commit a design decision</h2>
+          <p>For <code>ToolRequest(tool="read_file", args={"path":123})</code>, which boundary owns the rejection?</p>
+          <div class="choice-list">
+            <label><input data-prediction-choice type="radio" name="prediction" value="validation"><span>Tool argument validation</span></label>
+            <label><input data-prediction-choice type="radio" name="prediction" value="parser"><span>JSON parser</span></label>
+            <label><input data-prediction-choice type="radio" name="prediction" value="read"><span><code>read_file</code> runtime tool</span></label>
+          </div>
+          <label>Why does that boundary own the decision?<textarea data-prediction-rationale placeholder="Name what Primitive 3 already proved."></textarea></label>
+          <button type="button" data-prediction-submit>Commit prediction</button>
+          <p data-feedback class="feedback" aria-live="polite"></p>
+          <div data-prediction-answer hidden class="callout"><strong>Evidence:</strong> tool argument validation owns it and returns <code>INVALID_TOOL_ARGS</code>. The parser has already done its narrow job; deferring this to the runtime tool duplicates the protocol contract at the wrong boundary.</div>
+        </section>
+
+        <section data-case-set>
+          <h2>Choose the responsible source of truth</h2>
+          <p>Classify all six requests by their first failed gate or accepted result. Commit a rationale before reading the feedback.</p>
+
+          <fieldset data-case-id="valid-read" data-answer="accept" data-correct="Correct: registry lookup and ReadFileArgs both accept it." data-incorrect="Check both the registered name and typed arguments.">
+            <legend><code>read_file</code> with <code>{"path":"notes.txt"}</code></legend>
+            <div class="choice-list" data-choice-list><label><input type="radio" name="c1" value="unknown"><span><code>UNKNOWN_TOOL</code></span></label><label><input type="radio" name="c1" value="accept"><span>Validated request</span></label><label><input type="radio" name="c1" value="args"><span><code>INVALID_TOOL_ARGS</code></span></label></div>
+            <label>Rationale<textarea data-rationale placeholder="Which contract decides?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+
+          <fieldset data-case-id="unknown" data-answer="unknown" data-correct="Correct: the protocol registry has no delete_file entry." data-incorrect="Unknown names fail before any argument parser runs.">
+            <legend><code>delete_file</code> with <code>{"path":"notes.txt"}</code></legend>
+            <div class="choice-list" data-choice-list><label><input type="radio" name="c2" value="unknown"><span><code>UNKNOWN_TOOL</code></span></label><label><input type="radio" name="c2" value="json"><span><code>INVALID_JSON</code></span></label><label><input type="radio" name="c2" value="runtime"><span>Runtime-handler absence</span></label></div>
+            <label>Rationale<textarea data-rationale placeholder="Which contract decides?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+
+          <fieldset data-case-id="missing" data-answer="args" data-correct="Correct: read_file is known, but its typed args require path." data-incorrect="Registry membership is not sufficient for an executable request.">
+            <legend><code>read_file</code> with <code>{}</code></legend>
+            <div class="choice-list" data-choice-list><label><input type="radio" name="c3" value="unknown"><span><code>UNKNOWN_TOOL</code></span></label><label><input type="radio" name="c3" value="runtime"><span>Runtime handler</span></label><label><input type="radio" name="c3" value="args"><span><code>INVALID_TOOL_ARGS</code></span></label></div>
+            <label>Rationale<textarea data-rationale placeholder="Which contract decides?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+
+          <fieldset data-case-id="wrong-type" data-answer="args" data-correct="Correct: strict validation rejects an integer path." data-incorrect="The value crossed JSON and outer-shape parsing; now tool-specific typing applies.">
+            <legend><code>read_file</code> with <code>{"path":123}</code></legend>
+            <div class="choice-list" data-choice-list><label><input type="radio" name="c4" value="args"><span><code>INVALID_TOOL_ARGS</code></span></label><label><input type="radio" name="c4" value="json"><span><code>INVALID_JSON</code></span></label><label><input type="radio" name="c4" value="unknown"><span><code>UNKNOWN_TOOL</code></span></label></div>
+            <label>Rationale<textarea data-rationale placeholder="Which contract decides?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+
+          <fieldset data-case-id="extra" data-answer="args" data-correct="Correct: the strict model forbids unknown argument fields." data-incorrect="Do not silently grow the executable protocol through extra fields.">
+            <legend><code>read_file</code> with path plus <code>random</code></legend>
+            <div class="choice-list" data-choice-list><label><input type="radio" name="c5" value="unknown"><span><code>UNKNOWN_TOOL</code></span></label><label><input type="radio" name="c5" value="args"><span><code>INVALID_TOOL_ARGS</code></span></label><label><input type="radio" name="c5" value="parser"><span>Parser shape</span></label></div>
+            <label>Rationale<textarea data-rationale placeholder="Which contract decides?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+
+          <fieldset data-case-id="optional-path" data-answer="accept" data-correct="Correct: ListFilesArgs makes path optional." data-incorrect="Apply the schema for this tool, not read_file's schema.">
+            <legend><code>list_files</code> with <code>{}</code></legend>
+            <div class="choice-list" data-choice-list><label><input type="radio" name="c6" value="accept"><span>Validated request</span></label><label><input type="radio" name="c6" value="args"><span><code>INVALID_TOOL_ARGS</code></span></label><label><input type="radio" name="c6" value="unknown"><span><code>UNKNOWN_TOOL</code></span></label></div>
+            <label>Rationale<textarea data-rationale placeholder="Which contract decides?"></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+        </section>
+
+        <section>
+          <h2>Build the narrow validation boundary</h2>
+          <p>Implement or reconstruct <a href="../phase-1/primitive_04_validate_tool_args.py"><code>validate_tool_args()</code></a> while preserving the registry and result contracts:</p>
+          <ol class="compact-list">
+            <li>Look up <code>request.tool</code> in <code>TOOL_SPECS</code> before selecting an argument model.</li>
+            <li>Return <code>UnknownToolError</code> when lookup fails; do not run a speculative schema.</li>
+            <li>Validate <code>request.args</code> with the selected strict schema and normalize <code>ValidationError</code> into <code>InvalidToolArgsError</code>.</li>
+            <li>Return a typed <code>ValidatedToolRequest</code> only after both checks succeed.</li>
+          </ol>
+          <p>Leave JSON parsing in Primitive 3. Do not open files, dispatch handlers, merge runtime availability into <code>TOOL_SPECS</code>, or special-case <code>submit</code> control flow here.</p>
+        </section>
+
+        <section>
+          <h2>Run proof and interpret the result</h2>
+          <p>Run <code>uv run pytest curriculum/phase-1/04_validate_tool_args/validate_tool_args_tests.py</code>. Trace <code>test_wrong_tool_arg_type_is_rejected</code> through the four gates and compare it with <code>test_rejects_unknown_tool</code> and <code>test_submit_is_protocol_valid_but_returns_a_control_request</code>.</p>
+          <div class="grid">
+            <article class="card">
+              <h3>The proof establishes</h3>
+              <p>For the covered protocol cases, known tools produce typed arguments, unknown names fail at lookup, and missing, wrong-type, or extra arguments fail at the selected schema.</p>
+            </article>
+            <article class="card">
+              <h3>The proof does not establish</h3>
+              <p>That a runtime handler exists, a file path is permitted, tool execution succeeds, or the later loop treats <code>submit</code> as control flow.</p>
+            </article>
+          </div>
+          <p><strong>Explain causally:</strong> for <code>path=123</code>, connect the parsed request → successful registry lookup → failed strict schema → regression test. Then state why that proof says nothing about filesystem access.</p>
+        </section>
+
+        <section>
+          <h2>Transfer the reasoning</h2>
+          <p>A new <code>search_files</code> tool proposes <code>{"query":"TODO","limit":"10"}</code>. Decide whether <code>limit</code> should be rejected, strictly typed as an integer, or coerced from text. Name the registry entry, argument-model rule, focused validator test, and one later runtime property that would remain unproven.</p>
+          <p class="small">Ask your teacher to review your four-gate trace and the exact point where protocol validity stops.</p>
+        </section>
+      </section>
+
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="eyebrow">Primary source</p>
+            <h3><a href="https://docs.pydantic.dev/latest/concepts/models/">Pydantic docs: Models</a></h3>
+            <p>Study model validation, field constraints, and validation errors as the mechanism that turns a generic ToolRequest into typed arguments.</p>
+          </article>
+          <article class="source-card">
+            <p class="eyebrow">Go deeper</p>
+            <h3><a href="https://docs.pydantic.dev/latest/concepts/strict_mode/">Pydantic docs: Strict mode</a></h3>
+            <p>See why strict validation rejects path=123 instead of silently coercing it into the string contract.</p>
+          </article>
+          <article class="source-card">
+            <p class="eyebrow">Connect the system</p>
+            <h3><a href="https://developers.openai.com/api/docs/guides/function-calling">OpenAI docs: Function calling</a></h3>
+            <p>Compare the local registry and schema gate with declared tool parameters while keeping runtime execution as a separate application responsibility.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

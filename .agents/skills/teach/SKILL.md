@@ -56,13 +56,22 @@ A lesson is the main thing you produce — the unit in which knowledge and skill
 
 A lesson should be **beautiful** — clean, readable typography and layout — since the user will return to these later to review. Think Tufte.
 
-The lesson should be short, and completable very quickly. Learners' working memory is very small, and we need to stay within it. But each lesson should give the user a single tangible win that they can build on. It should be directly tied to the mission, and should be in the user's zone of proximal development.
+The lesson should be bounded and cognitively structured, but complete enough to stand alone. Control working-memory load with progressive disclosure, a coherent running example, and one central decision rather than by omitting the explanatory layer. Each lesson should give the user a tangible win that they can build on, tie directly to the mission, and stay in the user's zone of proximal development.
+
+For a technical primitive, give the lesson both a precise technical name and a short declarative memory phrase. Use the phrase as the learner-facing title and preserve the technical name in navigation and metadata.
+
+Every learner-facing lesson combines two coordinated layers:
+
+- a university-level lecture that teaches the central thesis, causal or system model, complete worked example, contrasting failure, engineering tradeoff, and evidence limit; and
+- an evidence-first lab that requires prediction, artifact inspection, implementation or diagnosis, executable proof, explanation, and transfer.
+
+Material that directly answers a prediction must remain hidden until the learner commits a choice and rationale.
 
 If possible, open the lesson file for the user by running a CLI command.
 
 Each lesson should link via HTML anchors to other lessons and reference documents.
 
-Each lesson should recommend a primary source for the user to read or watch. This should be the most high-quality, high-trust resource you found on the topic.
+Each lesson should end with one annotated primary source and one to three annotated further-reading sources. Sources must come from `RESOURCES.md`; explain why each source matters for this lesson. Prefer the most high-quality, high-trust source available.
 
 Each lesson should contain a reminder to ask followup questions to the agent. The agent is their teacher, and can assist with anything that's unclear.
 

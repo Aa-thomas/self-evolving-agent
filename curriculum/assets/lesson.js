@@ -1,4 +1,5 @@
 const completedCases = new Map();
+let revealId = 0;
 
 function revealAnswer(button) {
   const targetId = button.getAttribute("data-target");
@@ -17,6 +18,50 @@ function showFeedback(container, message, passed = false) {
   if (!feedback) return;
   feedback.textContent = message;
   feedback.className = passed ? "feedback good" : "feedback";
+}
+
+function setupLectureReveals() {
+  const reveals = [...document.querySelectorAll("[data-lecture-reveal='after-prediction']")];
+  if (!reveals.length) return;
+  reveals.forEach((section) => {
+    if (!section.id) {
+      revealId += 1;
+      section.id = `lecture-after-prediction-${revealId}`;
+    }
+  });
+  const controlledIds = reveals.map((section) => section.id).join(" ");
+  document.querySelectorAll("[data-prediction-submit]").forEach((button) => {
+    button.setAttribute("aria-controls", controlledIds);
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+
+function revealLectureAfterPrediction(prediction, button) {
+  const reveals = [...document.querySelectorAll("[data-lecture-reveal='after-prediction']")];
+  if (!reveals.length) return;
+
+  reveals.forEach((section) => section.hidden = false);
+  button.setAttribute("aria-expanded", "true");
+
+  let status = prediction.querySelector("[data-lecture-reveal-status]");
+  if (!status) {
+    status = document.createElement("p");
+    status.className = "lecture-reveal-status";
+    status.dataset.lectureRevealStatus = "";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    prediction.append(status);
+  }
+  status.textContent = "Prediction committed. The next lecture explanation is now available.";
+
+  const firstReveal = reveals[0];
+  const heading = firstReveal.matches("h1, h2, h3, h4, h5, h6")
+    ? firstReveal
+    : firstReveal.querySelector("h1, h2, h3, h4, h5, h6");
+  if (heading) {
+    if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");
+    heading.focus();
+  }
 }
 
 function checkKeywords(button) {
@@ -44,6 +89,7 @@ function commitPrediction(button) {
     return;
   }
   prediction.querySelectorAll("[data-prediction-answer]").forEach((answer) => answer.hidden = false);
+  revealLectureAfterPrediction(prediction, button);
   button.disabled = true;
   showFeedback(prediction, "Prediction committed. Compare your reasoning with the evidence now.", true);
   document.dispatchEvent(new CustomEvent("learning:prediction-committed", {
@@ -120,7 +166,10 @@ function deterministicShuffleChoices() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", deterministicShuffleChoices);
+document.addEventListener("DOMContentLoaded", () => {
+  deterministicShuffleChoices();
+  setupLectureReveals();
+});
 document.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLButtonElement)) return;

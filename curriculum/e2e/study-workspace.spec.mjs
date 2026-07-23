@@ -128,6 +128,80 @@ test("diagnostic workspace renders evidence, persists a handoff, and restores re
   );
 });
 
+test("diagnostic lecture stays gated until prediction commitment and exposes an accessible explanation", async ({ page }) => {
+  await page.goto("/lessons/0007-trace-logger.html");
+
+  const prediction = page.locator("[data-prediction]");
+  const explanation = page.getByRole("heading", { name: "Record each fact where it becomes authoritative" });
+  await expect(explanation).toBeHidden();
+
+  await prediction.getByRole("button", { name: "Commit prediction" }).click();
+  await expect(prediction.getByText("Choose an action and write a short rationale")).toBeVisible();
+  await expect(explanation).toBeHidden();
+
+  await prediction.getByRole("radio", { name: "What the model requested at each step." }).check();
+  await prediction.getByRole("button", { name: "Commit prediction" }).click();
+  await expect(explanation).toBeHidden();
+
+  await prediction.getByRole("textbox").fill(
+    "The model-call boundary first knows the assistant output, which distinguishes repeated valid work from rejected output.",
+  );
+  await prediction.getByRole("button", { name: "Commit prediction" }).click();
+
+  await expect(explanation).toBeVisible();
+  await expect(explanation).toBeFocused();
+  await expect(prediction.getByRole("status")).toContainText("next lecture explanation is now available");
+  await expect(prediction.getByRole("button", { name: "Commit prediction" })).toHaveAttribute("aria-expanded", "true");
+});
+
+test("print exposes the complete diagnostic lecture without requiring interaction", async ({ page }) => {
+  await page.goto("/lessons/0007-trace-logger.html");
+  const explanation = page.getByRole("heading", { name: "Record each fact where it becomes authoritative" });
+  await expect(explanation).toBeHidden();
+
+  await page.emulateMedia({ media: "print" });
+  await expect(explanation).toBeVisible();
+});
+
+test("course identity and further reading remain readable on a narrow viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const firstLesson = page.getByRole("link", { name: /A model call is text in, text out, plus evidence/ });
+  await expect(firstLesson).toContainText("Primitive 1 · Model-Call Boundary");
+  await expect(page.getByRole("link", { name: /A trace is replayable evidence/ })).toContainText(
+    "Primitive 7 · Trace Logger",
+  );
+
+  await page.goto("/lessons/0007-trace-logger.html");
+  await expect(page).toHaveTitle("Project 1A · Trace Logger · A trace is replayable evidence");
+  await expect(page.getByText("Lesson 7 of 8 · Trace Logger").first()).toBeVisible();
+  await expect(page.locator("[data-further-reading] .source-card")).toHaveCount(3);
+
+  const hasPageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(hasPageOverflow).toBe(false);
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const overlapsStudyLauncher = await page.evaluate(() => {
+    const launcher = document.querySelector(".study-launcher");
+    const links = document.querySelectorAll(".site-nav.bottom-nav a");
+    if (!launcher || !links.length) return true;
+    const launcherBox = launcher.getBoundingClientRect();
+    return [...links].some((link) => {
+      const linkBox = link.getBoundingClientRect();
+      return !(
+        linkBox.right <= launcherBox.left
+        || linkBox.left >= launcherBox.right
+        || linkBox.bottom <= launcherBox.top
+        || linkBox.top >= launcherBox.bottom
+      );
+    });
+  });
+  expect(overlapsStudyLauncher).toBe(false);
+});
+
 test("experiment workspace renders the measurement-specific prompts", async ({ page }) => {
   await page.goto("/lessons/0008-eval-runner.html");
   await openWorkspace(page);

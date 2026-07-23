@@ -10,7 +10,7 @@ lesson practice → implementation handoff → configured proof
 ## Sources of truth
 
 - `curriculum/MISSION.md` defines the outcome that teaching serves.
-- `curriculum/learning-flow.json` defines publication status, prerequisites, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, micro-world decisions, and the selected episode pattern. `foundation_build` teaches isolated Project 1A primitives (Lessons 1–5); `integration_build` teaches composed behavior across real components (Agent Loop); `diagnostic_clinic` teaches evidence-first failure analysis and targeted repair (Trace Logger); and `experiment_lab` teaches repeatable behavioral measurement (Eval Runner). `operational_drill` is reserved for later evidence-backed procedures such as trace replay and incident response. These contracts record explanation, walkthrough, tradeoff, intervention scope, proof limits, and transfer without changing study-state milestones.
+- `curriculum/learning-flow.json` defines publication status, prerequisites, memorable identity, lecture obligations, curated reading, starting artifacts, target artifacts, proof artifacts, practice, reconstruction, micro-world decisions, and the selected episode pattern. `foundation_build` teaches isolated Project 1A primitives (Lessons 1–5); `integration_build` teaches composed behavior across real components (Agent Loop); `diagnostic_clinic` teaches evidence-first failure analysis and targeted repair (Trace Logger); and `experiment_lab` teaches repeatable behavioral measurement (Eval Runner). `operational_drill` is reserved for later evidence-backed procedures such as trace replay and incident response. These contracts record explanation, walkthrough, tradeoff, intervention scope, proof limits, and transfer without changing study-state milestones.
 - `study_contract` configures the learner's Think → Plan → Reflect prompts from the lesson manifest for every selected episode pattern. It preserves messy jot notes, the Feynman explanation and limit prompts, and the existing implementation handoff; it does not accept learner-entered text as proof or completion evidence. Operational Drill is defined for later evidence-backed procedures, but remains unassigned until a real lesson needs it.
 - `curriculum/learning-records/` defines understanding that future teaching may assume.
 - The local or remote learner store defines the current phase, milestones, evidence references, and review schedule.
@@ -49,14 +49,14 @@ The Agent Trace Lab is shared by the Agent Loop and its canonical scenarios live
 
 1. Identify a real learner decision or failure.
 2. Create the evidence packet, separating existing starting artifacts from target and proof artifacts.
-3. Implement or locate the runnable artifact.
-4. Make the configured proof pass. For a learner-build lab, commit the real starter source and intentionally red proof first; the learner makes that same proof pass during the lesson.
-5. Design learner actions around the real artifact.
-6. Write the lesson.
-7. Add its manifest contracts, including the applicable episode-pattern teaching contract.
+3. Define the technical name, memorable phrase, lecture obligations, worked example, study-prompt coverage, and annotated readings.
+4. Implement or locate the runnable artifact.
+5. Make the configured proof pass. For a learner-build lab, commit the real starter source and intentionally red proof first; the learner makes that same proof pass during the lesson.
+6. Write the standalone lecture around the real artifact, then preserve the prediction and engineering lab.
+7. Add all shared and episode-pattern manifest contracts.
 8. Run `python3 tools/lint_lessons.py`.
 9. Run the configured proof.
-10. Review instructional quality with the authoring rubric.
+10. Review the rendered page for standalone readability, prediction ordering, reading quality, mobile layout, and print completeness.
 11. Test the full study → implement → prove → explain path, including the milestone gates.
 12. Publish only after every gate passes. The exception is a learner-build lab whose explicit starting gate is a real failing implementation proof; it may be published as unfinished learner work, but never recorded as complete until that proof passes.
 

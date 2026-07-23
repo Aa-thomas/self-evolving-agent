@@ -60,6 +60,15 @@
   padding: 12px;
 }
 
+.course-map div span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
 .lesson-index {
   display: grid;
   gap: 10px;
@@ -82,6 +91,16 @@
   text-decoration: none;
 }
 
+.lesson-index .lesson-locked > div {
+  background: #f4f1e9;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  min-height: 72px;
+  padding: 14px;
+}
+
 .lesson-index span {
   color: var(--muted);
   font-size: 0.82rem;
@@ -92,7 +111,21 @@
 
 .lesson-index strong {
   color: var(--ink);
+  display: block;
   font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.lesson-index small {
+  color: var(--muted);
+  display: block;
+  margin-top: 4px;
+}
+
+@media (max-width: 680px) {
+  .site-nav.bottom-nav {
+    padding-bottom: 92px;
+  }
 }
 
 @media (min-width: 480px) {

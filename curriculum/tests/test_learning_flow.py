@@ -12,6 +12,7 @@ from learning_flow import (
     ManifestError,
     load_manifest,
     prerequisites_met,
+    validate_identity_contract,
     validate_manifest,
     validate_operational_drill_contract,
     validate_study_contract,
@@ -78,7 +79,7 @@ def operational_drill_contract():
 def test_project_manifest_uses_evidence_first_schema_and_publishes_buildable_work():
     manifest = load_manifest()
 
-    assert manifest["schema_version"] == 2
+    assert manifest["schema_version"] == 3
     assert manifest["lessons"]["0006-agent-loop-primitive"]["starting_artifacts"]["source_files"]
     assert manifest["lessons"]["0006-agent-loop-primitive"]["target_artifacts"]["source_files"]
     trace_logger = manifest["lessons"]["0007-trace-logger"]
@@ -88,6 +89,238 @@ def test_project_manifest_uses_evidence_first_schema_and_publishes_buildable_wor
     assert trace_logger["proof_artifacts"]["proof_command"]
     assert eval_runner["publication"]["status"] == "published"
     assert eval_runner["target_artifacts"]["tests"]
+
+
+def test_manifest_requires_schema_version_3():
+    manifest = deepcopy(load_manifest())
+    manifest["schema_version"] = 2
+
+    with pytest.raises(ManifestError, match="schema_version 3"):
+        validate_manifest(manifest)
+
+
+@pytest.mark.parametrize(
+    ("contract_name", "error"),
+    [
+        ("identity", "identity must be an object"),
+        ("lecture_contract", "lecture_contract must be an object"),
+        ("reading_contract", "reading_contract must be an object"),
+    ],
+)
+def test_manifest_requires_identity_lecture_and_reading_contracts(contract_name, error):
+    manifest = deepcopy(load_manifest())
+    manifest["lessons"]["0001-model-call-primitive"].pop(contract_name)
+
+    with pytest.raises(ManifestError, match=error):
+        validate_manifest(manifest)
+
+
+def test_lessons_have_ordered_unique_memorable_identities():
+    manifest = load_manifest()
+
+    for number, lesson in enumerate(manifest["lessons"].values(), start=1):
+        assert lesson["identity"]["number"] == number
+        assert lesson["identity"]["technical_name"].strip()
+        assert lesson["identity"]["memorable_phrase"].strip()
+
+    duplicate = deepcopy(manifest)
+    lessons = list(duplicate["lessons"].values())
+    lessons[1]["identity"]["number"] = lessons[0]["identity"]["number"]
+    with pytest.raises(ManifestError, match=r"identity\.number must be unique"):
+        validate_manifest(duplicate)
+
+    out_of_order = deepcopy(manifest)
+    first_lesson = next(iter(out_of_order["lessons"].values()))
+    first_lesson["identity"]["number"] = 99
+    with pytest.raises(ManifestError, match="must match curriculum order 1"):
+        validate_manifest(out_of_order)
+
+
+def test_lesson_identity_number_matches_lesson_id_prefix():
+    lesson = deepcopy(
+        load_manifest()["lessons"]["0001-model-call-primitive"]
+    )
+
+    with pytest.raises(ManifestError, match="must match the lesson id prefix"):
+        validate_identity_contract(
+            "0002-model-call-primitive",
+            lesson,
+            expected_number=1,
+            seen_numbers=set(),
+        )
+
+
+@pytest.mark.parametrize("key", ["technical_name", "memorable_phrase"])
+def test_lesson_identity_requires_technical_and_memorable_names(key):
+    manifest = deepcopy(load_manifest())
+    lesson = manifest["lessons"]["0001-model-call-primitive"]
+    lesson["identity"][key] = " "
+
+    with pytest.raises(ManifestError, match=rf"identity\.{key}"):
+        validate_manifest(manifest)
+
+
+def test_lecture_contract_requires_thesis_and_three_unique_obligations():
+    manifest = deepcopy(load_manifest())
+    lesson = manifest["lessons"]["0001-model-call-primitive"]
+    lesson["lecture_contract"]["central_thesis"] = ""
+
+    with pytest.raises(ManifestError, match=r"lecture_contract\.central_thesis"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    obligations = manifest["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "explanatory_obligations"
+    ]
+    del obligations[2:]
+
+    with pytest.raises(ManifestError, match="needs at least 3 entries"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    obligations = manifest["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "explanatory_obligations"
+    ]
+    obligations[1]["id"] = obligations[0]["id"]
+
+    with pytest.raises(ManifestError, match="obligation ids must be unique"):
+        validate_manifest(manifest)
+
+
+def test_lecture_worked_example_requires_real_artifact_and_three_step_arc():
+    manifest = deepcopy(load_manifest())
+    worked = manifest["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "worked_example"
+    ]
+    worked["artifact"] = "curriculum/not-a-real-artifact.py"
+
+    with pytest.raises(ManifestError, match=r"worked_example\.artifact does not exist"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    worked = manifest["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "worked_example"
+    ]
+    worked["arc"] = ["start", "finish"]
+
+    with pytest.raises(ManifestError, match=r"worked_example\.arc needs at least 3"):
+        validate_manifest(manifest)
+
+
+def test_lecture_coverage_exactly_maps_think_plan_and_conceptual_reflection():
+    manifest = load_manifest()
+    lesson = manifest["lessons"]["0001-model-call-primitive"]
+    expected = {
+        *(f"think.{prompt['id']}" for prompt in lesson["study_contract"]["think"]["prompts"]),
+        *(f"plan.{field}" for field in {
+            "target_function",
+            "smallest_slice",
+            "must_do",
+            "must_not_do",
+            "first_proof",
+            "open_question",
+        }),
+        "reflect.feynman",
+        "reflect.feynman_limit",
+        "reflect.prediction_vs_evidence",
+        "reflect.mental_model",
+    }
+
+    assert set(lesson["lecture_contract"]["study_prompt_coverage"]) == expected
+
+    missing = deepcopy(manifest)
+    missing_coverage = missing["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "study_prompt_coverage"
+    ]
+    missing_coverage.pop("plan.first_proof")
+    with pytest.raises(ManifestError, match="must exactly cover study prompts"):
+        validate_manifest(missing)
+
+    extra = deepcopy(manifest)
+    extra_coverage = extra["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "study_prompt_coverage"
+    ]
+    extra_coverage["reflect.next_step"] = [next(iter(extra_coverage.values()))[0]]
+    with pytest.raises(ManifestError, match="must exactly cover study prompts"):
+        validate_manifest(extra)
+
+
+def test_lecture_coverage_requires_known_non_repeated_obligations():
+    manifest = deepcopy(load_manifest())
+    coverage = manifest["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "study_prompt_coverage"
+    ]
+    coverage["plan.first_proof"] = []
+
+    with pytest.raises(ManifestError, match="must reference at least one"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    coverage = manifest["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "study_prompt_coverage"
+    ]
+    coverage["plan.first_proof"] = ["not-an-obligation"]
+
+    with pytest.raises(ManifestError, match="references unknown explanatory obligations"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    coverage = manifest["lessons"]["0001-model-call-primitive"]["lecture_contract"][
+        "study_prompt_coverage"
+    ]
+    coverage["plan.first_proof"] = [coverage["plan.first_proof"][0]] * 2
+
+    with pytest.raises(ManifestError, match="must not repeat"):
+        validate_manifest(manifest)
+
+
+def test_reading_contract_requires_primary_and_one_to_three_further_readings():
+    manifest = deepcopy(load_manifest())
+    lesson = manifest["lessons"]["0001-model-call-primitive"]
+    lesson["reading_contract"]["primary"] = None
+
+    with pytest.raises(ManifestError, match=r"reading_contract\.primary"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    further = manifest["lessons"]["0001-model-call-primitive"]["reading_contract"]["further"]
+    further.clear()
+
+    with pytest.raises(ManifestError, match="between 1 and 3 entries"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    further = manifest["lessons"]["0001-model-call-primitive"]["reading_contract"]["further"]
+    further.extend(deepcopy(further[:1]) * 3)
+
+    with pytest.raises(ManifestError, match="between 1 and 3 entries"):
+        validate_manifest(manifest)
+
+
+@pytest.mark.parametrize("key", ["title", "url", "why"])
+def test_reading_entries_require_title_url_and_lesson_specific_annotation(key):
+    manifest = deepcopy(load_manifest())
+    primary = manifest["lessons"]["0001-model-call-primitive"]["reading_contract"]["primary"]
+    primary[key] = ""
+
+    with pytest.raises(ManifestError, match=rf"reading_contract entry\.{key}"):
+        validate_manifest(manifest)
+
+
+def test_reading_urls_are_unique_and_exactly_curated_in_resources():
+    manifest = deepcopy(load_manifest())
+    reading = manifest["lessons"]["0001-model-call-primitive"]["reading_contract"]
+    reading["further"][0]["url"] = reading["primary"]["url"]
+
+    with pytest.raises(ManifestError, match="URLs must be unique"):
+        validate_manifest(manifest)
+
+    manifest = deepcopy(load_manifest())
+    reading = manifest["lessons"]["0001-model-call-primitive"]["reading_contract"]
+    reading["primary"]["url"] = f"{reading['primary']['url']}?uncurated=1"
+
+    with pytest.raises(ManifestError, match=r"exactly match links in curriculum/RESOURCES\.md"):
+        validate_manifest(manifest)
 
 
 def test_project_1a_primitives_use_the_foundation_build_episode_contract():

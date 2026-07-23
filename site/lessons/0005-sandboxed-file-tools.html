@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Project 1A: Sandboxed file tools</title>
+    <title>Project 1A · Sandboxed File Tools · Tools are permissioned code paths</title>
     <link rel="stylesheet" href="../assets/course.css">
     <link rel="stylesheet" href="../assets/site.css">
     <script defer src="../assets/lesson.js"></script>
@@ -14,20 +14,20 @@
     <main>
       <nav class="site-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 5 of 8</span>
-        <span>Project 1A · Primitive 5 · Foundation build</span>
+        <span>Lesson 5 of 8 · Sandboxed File Tools</span>
         <div class="nav-spacer"></div>
         <a href="0004-schema-validation.html" aria-label="Previous lesson">Previous</a>
         <a href="0006-agent-loop-primitive.html" aria-label="Next lesson">Next</a>
       </nav>
 
-      <header>
-        <p class="eyebrow">Project 1A · Primitive 5 · Foundation build</p>
-        <h1>Turn a valid path into an authorized capability</h1>
+      <header data-lesson-identity>
+        <p class="eyebrow">Project 1A · Primitive 5 · Sandboxed File Tools</p>
+        <h1>Tools are permissioned code paths</h1>
         <p class="lede">Primitive 4 can prove that <code>path</code> is a string. Primitive 5 must decide whether the resource named by that string belongs to this run—and preserve exactly why an operation succeeds or stops.</p>
       </header>
 
-      <section>
+      <article data-lecture>
+      <section data-lecture-obligation="capability-boundary">
         <h2>A valid argument can still request forbidden authority</h2>
         <p>Consider <code>ValidatedToolRequest(tool="read_file", args=ReadFileArgs(path="../secret.txt"))</code>. Its tool exists. Its required argument exists. The path is a string. Every claim made by protocol validation can be true while executing the request would still read outside the agent's working directory.</p>
         <div class="callout">
@@ -36,7 +36,7 @@
         <p>The sandbox is a capability boundary: it defines the portion of the filesystem this run is allowed to observe or change. A file tool must establish that boundary before existence checks, reads, writes, or listings can reveal anything.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="proof-limits">
         <h2>Start with what already exists</h2>
         <p>Inspect the completed Primitive 4 <code>primitive_04_validate_tool_args.py</code> and the current primitive's <code>05_sandboxed_file_tools_skeleton.py</code>. Primitive 4 is a prerequisite you built earlier; the file-tool scaffold is the blank current implementation. Do not open the completed Lesson 5 target before your first build attempt.</p>
         <table class="contract-table">
@@ -51,7 +51,7 @@
         <p><strong>Target artifact:</strong> your <code>05_sandboxed_file_tools.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/05_sandboxed_file_tools/tests_05_sandboxed_file_tools.py</code>.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="canonical-containment">
         <h2>Use a decision ladder, not one vague “safe path” check</h2>
         <p>A useful tool result names the first gate that could no longer make its claim.</p>
         <table class="contract-table">
@@ -66,7 +66,7 @@
         <p><strong>Invariant:</strong> no file operation runs against a path outside the resolved sandbox root, while contained operations retain precise success and failure observations.</p>
       </section>
 
-      <section>
+      <section data-worked-example data-lecture-obligation="safe-failure">
         <h2>Walk through an allowed read</h2>
         <p>The real nested-file case creates <code>sandbox/notes/today.txt</code> and calls <code>read_file("notes/today.txt", sandbox_root)</code>.</p>
         <ol class="compact-list">
@@ -78,7 +78,7 @@
         <p>Containment is necessary, but it is not the entire tool contract. A contained missing path is not forbidden; it is <code>FILE_NOT_FOUND</code>. A contained directory passed to <code>read_file</code> is <code>NOT_A_FILE</code>.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="canonical-containment">
         <h2>Contrast two escape attempts</h2>
         <div class="grid">
           <article class="card">
@@ -102,7 +102,9 @@
         </div>
         <p>Both still require canonical containment to catch symlinks. The repository makes one additional policy choice; commit to your prediction before checking its regression.</p>
       </section>
+      </article>
 
+      <section data-engineering-lab>
       <section class="practice" data-prediction>
         <h2>Commit your policy prediction</h2>
         <p><code>safe.txt</code> exists inside the sandbox. What should happen for <code>read_file("notes/../safe.txt", sandbox_root)</code>?</p>
@@ -208,13 +210,29 @@
         <h2>Transfer the capability reasoning</h2>
         <p>A future <code>fetch_url</code> tool receives a syntactically valid URL. Decide which part of this lesson transfers, what replaces <code>sandbox_root</code> as the authority boundary, and what new redirect or address-resolution regression is required.</p>
         <p>For the current file tool, also decide whether creating missing parent directories should ever be allowed. Name the additional authority, interface change, and test evidence that would make that behavior explicit rather than accidental.</p>
-        <p class="small">Primary sources: the real file-tool proof suite and Python's <a href="https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve">path resolution documentation</a>. Ask your teacher to review one causal explanation and the limit of your proof.</p>
+      </section>
+      </section>
+
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="source-kind">Primary source</p>
+            <h3><a href="https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve">Python docs: pathlib.Path.resolve</a></h3>
+            <p>Study canonical path resolution as the mechanism used before enforcing containment; resolution is necessary but policy still belongs to the harness.</p>
+          </article>
+          <article class="source-card">
+            <p class="source-kind">Go deeper</p>
+            <h3><a href="https://cwe.mitre.org/data/definitions/22.html">MITRE CWE-22: Path Traversal</a></h3>
+            <p>Connect the local symlink and parent-path cases to the broader restricted-directory failure class and its consequences.</p>
+          </article>
+        </div>
+        <p class="small">Local proof: the file-tool test suite. Ask your teacher to review one causal explanation and the limit of your proof.</p>
       </section>
 
       <nav class="site-nav bottom-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 5 of 8</span>
-        <span>Project 1A · Primitive 5 · Foundation build</span>
+        <span>Lesson 5 of 8 · Sandboxed File Tools</span>
         <div class="nav-spacer"></div>
         <a href="0004-schema-validation.html" aria-label="Previous lesson">Previous</a>
         <a href="0006-agent-loop-primitive.html" aria-label="Next lesson">Next</a>

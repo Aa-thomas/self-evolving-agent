@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = Path(__file__).with_name("learning-flow.json")
+RESOURCE_CATALOG = Path(__file__).with_name("RESOURCES.md")
 LESSON_PHASES = {
     "not_started",
     "studying",
@@ -48,6 +50,12 @@ STUDY_CONTRACT_VERSION = 1
 STUDY_CONTEXT_CARDS = {"starting_artifacts", "target_artifacts", "proof_artifacts", "failure_contract"}
 STUDY_PROMPT_KINDS = {"retrieval", "explanation", "judgment", "evidence", "uncertainty"}
 STUDY_PLAN_FIELDS = {"target_function", "smallest_slice", "must_do", "must_not_do", "first_proof", "open_question"}
+LECTURE_REFLECTION_FIELDS = {
+    "feynman",
+    "feynman_limit",
+    "prediction_vs_evidence",
+    "mental_model",
+}
 STUDY_PROMPT_IDS_BY_PATTERN = {
     "diagnostic_clinic": {"incident_facts", "next_evidence", "rejected_hypothesis"},
     "experiment_lab": {"behavioral_claim", "controlled_conditions", "failure_evidence"},
@@ -84,14 +92,16 @@ def string_list(lesson_id: str, value: object, label: str) -> list[str]:
 
 
 def validate_manifest(manifest: object) -> None:
-    if not isinstance(manifest, dict) or manifest.get("schema_version") != 2:
-        raise ManifestError("learning-flow manifest must use schema_version 2")
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 3:
+        raise ManifestError("learning-flow manifest must use schema_version 3")
     lessons = manifest.get("lessons")
     if not isinstance(lessons, dict) or not lessons:
         raise ManifestError("learning-flow manifest must contain lessons")
 
     known = set(lessons)
-    for lesson_id, lesson in lessons.items():
+    resource_urls = load_resource_catalog_urls()
+    identity_numbers: set[int] = set()
+    for position, (lesson_id, lesson) in enumerate(lessons.items(), start=1):
         if not isinstance(lesson, dict):
             raise ManifestError(f"{lesson_id}: lesson entry must be an object")
         validate_references(lesson_id, lesson, known)
@@ -105,8 +115,177 @@ def validate_manifest(manifest: object) -> None:
         validate_micro_world(lesson_id, lesson.get("micro_world"))
         validate_episode_contract(lesson_id, lesson)
         validate_study_contract(lesson_id, lesson)
+        validate_identity_contract(lesson_id, lesson, position, identity_numbers)
+        validate_lecture_contract(lesson_id, lesson)
+        validate_reading_contract(lesson_id, lesson, resource_urls)
 
     validate_graph(lessons)
+
+
+def load_resource_catalog_urls() -> set[str]:
+    """Return exact Markdown link targets from the curated resource catalog."""
+    try:
+        source = RESOURCE_CATALOG.read_text(encoding="utf-8")
+    except OSError as error:
+        raise ManifestError(f"Could not read curriculum resource catalog: {error}") from error
+    return {
+        target.strip()
+        for target in re.findall(r"\]\(([^)]+)\)", source)
+        if target.strip()
+    }
+
+
+def validate_identity_contract(
+    lesson_id: str,
+    lesson: dict[str, Any],
+    expected_number: int,
+    seen_numbers: set[int],
+) -> None:
+    identity = lesson.get("identity")
+    if not isinstance(identity, dict):
+        raise ManifestError(f"{lesson_id}: identity must be an object")
+    number = identity.get("number")
+    if type(number) is not int:
+        raise ManifestError(f"{lesson_id}: identity.number must be an integer")
+    if number in seen_numbers:
+        raise ManifestError(f"{lesson_id}: identity.number must be unique")
+    if number != expected_number:
+        raise ManifestError(
+            f"{lesson_id}: identity.number must match curriculum order {expected_number}"
+        )
+    lesson_prefix = re.match(r"^(\d{4})-", lesson_id)
+    if lesson_prefix is None or int(lesson_prefix.group(1)) != number:
+        raise ManifestError(
+            f"{lesson_id}: identity.number must match the lesson id prefix"
+        )
+    seen_numbers.add(number)
+    for key in ("technical_name", "memorable_phrase"):
+        require_text(lesson_id, identity, key, "identity")
+
+
+def validate_lecture_contract(lesson_id: str, lesson: dict[str, Any]) -> None:
+    contract = lesson.get("lecture_contract")
+    if not isinstance(contract, dict):
+        raise ManifestError(f"{lesson_id}: lecture_contract must be an object")
+    require_text(lesson_id, contract, "central_thesis", "lecture_contract")
+
+    obligations = contract.get("explanatory_obligations")
+    if (
+        not isinstance(obligations, list)
+        or len(obligations) < 3
+        or not all(isinstance(obligation, dict) for obligation in obligations)
+    ):
+        raise ManifestError(
+            f"{lesson_id}: lecture_contract.explanatory_obligations needs at least 3 entries"
+        )
+    obligation_ids: set[str] = set()
+    for obligation in obligations:
+        for key in ("id", "claim"):
+            require_text(
+                lesson_id,
+                obligation,
+                key,
+                "lecture_contract.explanatory_obligations",
+            )
+        obligation_ids.add(obligation["id"])
+    if len(obligation_ids) != len(obligations):
+        raise ManifestError(
+            f"{lesson_id}: lecture_contract explanatory obligation ids must be unique"
+        )
+
+    worked_example = contract.get("worked_example")
+    if not isinstance(worked_example, dict):
+        raise ManifestError(f"{lesson_id}: lecture_contract.worked_example must be an object")
+    resolve_repository_file(
+        lesson_id,
+        worked_example.get("artifact"),
+        "lecture_contract.worked_example.artifact",
+    )
+    require_text_list(
+        lesson_id,
+        worked_example,
+        "arc",
+        "lecture_contract.worked_example",
+        3,
+    )
+
+    coverage = contract.get("study_prompt_coverage")
+    if not isinstance(coverage, dict):
+        raise ManifestError(
+            f"{lesson_id}: lecture_contract.study_prompt_coverage must be an object"
+        )
+    study = lesson["study_contract"]
+    expected_coverage = {
+        *(f"think.{prompt['id']}" for prompt in study["think"]["prompts"]),
+        *(f"plan.{field}" for field in STUDY_PLAN_FIELDS),
+        *(f"reflect.{field}" for field in LECTURE_REFLECTION_FIELDS),
+    }
+    if set(coverage) != expected_coverage:
+        missing = sorted(expected_coverage - set(coverage))
+        extra = sorted(set(coverage) - expected_coverage)
+        raise ManifestError(
+            f"{lesson_id}: lecture_contract.study_prompt_coverage must exactly cover "
+            f"study prompts (missing={missing}, extra={extra})"
+        )
+    for prompt_id, references in coverage.items():
+        reference_ids = string_list(
+            lesson_id,
+            references,
+            f"lecture_contract.study_prompt_coverage.{prompt_id}",
+        )
+        if not reference_ids:
+            raise ManifestError(
+                f"{lesson_id}: lecture_contract.study_prompt_coverage.{prompt_id} "
+                "must reference at least one explanatory obligation"
+            )
+        if len(set(reference_ids)) != len(reference_ids):
+            raise ManifestError(
+                f"{lesson_id}: lecture_contract.study_prompt_coverage.{prompt_id} "
+                "must not repeat explanatory obligation ids"
+            )
+        unknown = set(reference_ids) - obligation_ids
+        if unknown:
+            raise ManifestError(
+                f"{lesson_id}: lecture_contract.study_prompt_coverage.{prompt_id} "
+                f"references unknown explanatory obligations: {sorted(unknown)}"
+            )
+
+
+def validate_reading_contract(
+    lesson_id: str,
+    lesson: dict[str, Any],
+    resource_urls: set[str],
+) -> None:
+    contract = lesson.get("reading_contract")
+    if not isinstance(contract, dict):
+        raise ManifestError(f"{lesson_id}: reading_contract must be an object")
+    primary = contract.get("primary")
+    if not isinstance(primary, dict):
+        raise ManifestError(f"{lesson_id}: reading_contract.primary must be an object")
+    further = contract.get("further")
+    if (
+        not isinstance(further, list)
+        or not 1 <= len(further) <= 3
+        or not all(isinstance(entry, dict) for entry in further)
+    ):
+        raise ManifestError(
+            f"{lesson_id}: reading_contract.further needs between 1 and 3 entries"
+        )
+
+    readings = [primary, *further]
+    urls: list[str] = []
+    for reading in readings:
+        for key in ("title", "url", "why"):
+            require_text(lesson_id, reading, key, "reading_contract entry")
+        urls.append(reading["url"])
+    if len(set(urls)) != len(urls):
+        raise ManifestError(f"{lesson_id}: reading_contract URLs must be unique")
+    unknown = set(urls) - resource_urls
+    if unknown:
+        raise ManifestError(
+            f"{lesson_id}: reading_contract URLs must exactly match links in "
+            f"curriculum/RESOURCES.md: {sorted(unknown)}"
+        )
 
 
 def validate_references(lesson_id: str, lesson: dict[str, Any], known: set[str]) -> None:

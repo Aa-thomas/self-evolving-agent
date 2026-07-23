@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Project 1A: Agent Loop Reconstruction Lab</title>
+    <title>Project 1A · Agent Loop · The agent loop is the harness&#x27;s control flow</title>
     <link rel="stylesheet" href="../assets/course.css">
     <link rel="stylesheet" href="../assets/site.css">
     <link rel="stylesheet" href="../assets/agent-trace-lab.css">
@@ -16,95 +16,165 @@
     <main>
       <nav class="site-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 6 of 8</span>
-        <span>Project 1A · Reconstruction lab</span>
+        <span>Lesson 6 of 8 · Agent Loop</span>
         <div class="nav-spacer"></div>
         <a href="0005-sandboxed-file-tools.html" aria-label="Previous lesson">Previous</a>
         <a href="0007-trace-logger.html" aria-label="Next lesson">Next</a>
       </nav>
 
-      <header>
-        <p class="eyebrow">Project 1A · Reconstruction lab</p>
-        <h1>Make the harness own every transition</h1>
-        <p class="lede">Build and diagnose a bounded agent loop from the real parser, validator, tool registry, handlers, and tests in this repository.</p>
+      <header data-lesson-identity>
+        <p class="eyebrow">Project 1A · Primitive 6 · Agent Loop</p>
+        <h1>The agent loop is the harness's control flow</h1>
+        <p class="lede">The model proposes text. The harness owns every transition that validates, classifies, executes, observes, recovers, and stops.</p>
       </header>
 
-      <section>
-        <h2>Evidence packet</h2>
-        <p><strong>Starting artifacts:</strong> <code>03_parse_tool_request.py</code>, <code>04_validate_tool_args.py</code>, and <code>05_sandboxed_file_tools.py</code>.</p>
-        <p><strong>Target:</strong> reconstruct the narrow control-flow slice in <code>agent_loop.py</code>. <strong>Proof:</strong> <code>tests_agent_loop.py</code>.</p>
-        <p><strong>Failure:</strong> a request can be valid against the protocol registry while its runtime handler is missing. The loop—not the model or tool—must normalize that as an observation.</p>
+      <article data-lecture>
+        <section data-lecture-obligation="harness-control">
+          <h2>The model never operates the system directly</h2>
+          <p>An assistant completion can contain a convincing request, but it is still untrusted text. The model cannot call <code>read_file</code>, append an observation, or end the run. Those are deterministic application decisions.</p>
+          <div class="callout">
+            <strong>Central thesis:</strong> the model proposes the next move; the harness decides whether that proposal becomes a rejection, internal control flow, or an external tool invocation.
+          </div>
+          <p>This division is the safety and reliability boundary. If execution were inferred from the model's wording, protocol validation, permissions, handler availability, and stopping policy would become suggestions rather than enforceable contracts.</p>
+        </section>
+
+        <section data-lecture-obligation="transition-model">
+          <h2>One turn is a chain of owned transitions</h2>
+          <table class="contract-table">
+            <thead><tr><th>Transition</th><th>Owner</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>Messages → assistant output</td><td>Model-call boundary</td><td>Untrusted text</td></tr>
+              <tr><td>Text → request result</td><td>Parser and validator</td><td>Typed acceptance or rejection</td></tr>
+              <tr><td>Accepted request → action</td><td>Loop classifier</td><td><code>SubmitAction</code> or <code>ExecuteToolAction</code></td></tr>
+              <tr><td>Execute action → outcome</td><td>Runtime dispatch</td><td>Success or normalized runtime failure</td></tr>
+              <tr><td>Outcome → next messages</td><td>Message-state boundary</td><td>Tool-role observation</td></tr>
+              <tr><td>Action or budget → stop</td><td>Loop control</td><td><code>submitted</code> or <code>max_steps</code></td></tr>
+            </tbody>
+          </table>
+          <p>The order matters. A rejected request cannot have a tool outcome because execution was never authorized. A submitted answer has no external tool result because <code>submit</code> is protocol-shaped internal control flow.</p>
+        </section>
+
+        <section data-worked-example data-lecture-obligation="bounded-recovery">
+          <h2>Walk one complete trajectory</h2>
+          <p>Use the real scenarios in <a href="../traces/agent-loop-scenarios.json"><code>agent-loop-scenarios.json</code></a> and the focused proof in <code>tests_agent_loop.py</code>.</p>
+          <ol class="compact-list">
+            <li>The initial message asks the agent to read <code>notes.txt</code>.</li>
+            <li>The model emits a JSON <code>read_file</code> request. Parsing, registry lookup, and argument validation succeed.</li>
+            <li>The loop classifies execution, calls the registered handler, and appends its structured result as a tool observation.</li>
+            <li>The next model call receives that observation and emits a valid <code>submit</code> request.</li>
+            <li>The loop classifies submission, returns the answer, and stops without invoking a runtime handler named <code>submit</code>.</li>
+          </ol>
+          <p>Failures follow the same discipline. Malformed JSON and invalid arguments become observations that permit bounded recovery. A handler exception becomes <code>TOOL_EXCEPTION</code> context rather than escaping the loop. If no turn submits, <code>max_steps</code> ends the run even when every individual request was valid.</p>
+        </section>
+
+        <section>
+          <h2>Inspect the real evidence packet</h2>
+          <p><strong>Starting artifacts:</strong> <code>03_parse_tool_request.py</code>, <code>primitive_04_validate_tool_args.py</code>, and <code>05_sandboxed_file_tools.py</code>.</p>
+          <p><strong>Target:</strong> reconstruct the narrow control-flow slice in <code>agent_loop.py</code>. <strong>Proof:</strong> <code>tests_agent_loop.py</code>.</p>
+          <p>The prior primitives prove local contracts. None of them owns their composition, recovery policy, runtime registry, or stopping decision. Primitive 6 exists because integration creates new responsibilities.</p>
+        </section>
+      </article>
+
+      <section data-engineering-lab>
+        <section class="practice" data-prediction>
+          <h2>Commit the dispatch prediction</h2>
+          <p>The protocol registry contains <code>read_file</code>; the runtime <code>tools</code> dictionary is empty. What should happen after validation succeeds?</p>
+          <div class="choice-list">
+            <label><input data-prediction-choice type="radio" name="prediction" value="execute"><span>Execute through an implicit fallback.</span></label>
+            <label><input data-prediction-choice type="radio" name="prediction" value="observe"><span>Append a <code>RUNTIME_TOOL_UNAVAILABLE</code> observation and continue within the budget.</span></label>
+            <label><input data-prediction-choice type="radio" name="prediction" value="submit"><span>Treat the request as a final answer.</span></label>
+          </div>
+          <label>Why does that boundary own the decision?<textarea data-prediction-rationale placeholder="Separate protocol support from runtime availability."></textarea></label>
+          <button type="button" data-prediction-submit>Commit prediction</button>
+          <p data-feedback class="feedback" aria-live="polite"></p>
+          <div data-prediction-answer hidden class="callout"><p>The registry proves protocol support; it does not prove the runtime has a handler. Dispatch owns that second check.</p></div>
+        </section>
+
+        <section data-lecture-continuation data-lecture-reveal="after-prediction" hidden data-lecture-obligation="dispatch-ambiguity">
+          <h2>One name, two registries, two failures</h2>
+          <p>Compare <code>test_unknown_protocol_tool_is_rejected_without_execution</code> with <code>test_unregistered_runtime_tool_is_rejected_without_execution</code>. An unknown protocol tool fails before an action exists. A missing runtime handler fails after the request was accepted and execution selected.</p>
+          <pre><code>unknown protocol tool
+→ request rejected at tool lookup
+
+known protocol tool, absent handler
+→ request accepted → execute selected → runtime failure</code></pre>
+          <p>The error codes preserve the boundary distinction: an unknown protocol name produces <code>UNKNOWN_TOOL</code>, while an accepted tool without an installed handler produces <code>RUNTIME_TOOL_UNAVAILABLE</code>. Their ordered variants also show that the failures occur at different transitions.</p>
+        </section>
+
+        <section data-case-set>
+          <h2>Diagnose the first responsible transition</h2>
+          <p>Complete every case and justify each choice from the visible artifact—not from wording you remember.</p>
+
+          <fieldset data-case-id="malformed-json" data-answer="observe" data-correct="Correct. Parsing fails before a request exists; append the INVALID_JSON observation." data-incorrect="The parser is the first boundary. Do not infer a tool from malformed text.">
+            <legend>Malformed JSON reaches the loop. What is the smallest safe intervention?</legend>
+            <label><input type="radio" value="execute"> Execute read_file anyway</label><label><input type="radio" value="observe"> Append a rejection observation</label><label><input type="radio" value="crash"> Crash before recording evidence</label>
+            <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+          <fieldset data-case-id="runtime-drift" data-answer="dispatch" data-correct="Correct. The protocol accepted the request; runtime dispatch discovers the missing handler." data-incorrect="Distinguish a missing protocol tool from a missing runtime handler.">
+            <legend><code>read_file</code> is validated but absent from runtime handlers. Which boundary owns it?</legend>
+            <label><input type="radio" value="parser"> Parser</label><label><input type="radio" value="validator"> Argument validator</label><label><input type="radio" value="dispatch"> Runtime dispatch</label>
+            <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+          <fieldset data-case-id="unknown-protocol" data-answer="validator" data-correct="Correct. delete_file is absent from Primitive 4's TOOL_SPECS, so it never reaches dispatch." data-incorrect="The registry check happens before runtime dispatch.">
+            <legend><code>delete_file</code> has valid JSON and arguments. Where is the first bad transition?</legend>
+            <label><input type="radio" value="dispatch"> Runtime dispatch</label><label><input type="radio" value="validator"> Protocol registry validation</label><label><input type="radio" value="tool"> File-tool execution</label>
+            <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+          <fieldset data-case-id="submit" data-answer="return" data-correct="Correct. submit is protocol-shaped control flow, not an external callable." data-incorrect="A registered callable named submit must not gain authority over loop termination.">
+            <legend>Validated submit arrives while a tools dictionary also has submit. What happens?</legend>
+            <label><input type="radio" value="execute"> Execute the runtime submit handler</label><label><input type="radio" value="return"> Return the validated answer</label><label><input type="radio" value="retry"> Ask the model again</label>
+            <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+          <fieldset data-case-id="tool-exception" data-answer="normalize" data-correct="Correct. TOOL_EXCEPTION becomes inspectable tool context instead of escaping the loop." data-incorrect="The loop owns normalization around the runtime handler.">
+            <legend>A registered handler raises an exception. What does the loop add next?</legend>
+            <label><input type="radio" value="normalize"> A TOOL_EXCEPTION observation</label><label><input type="radio" value="ignore"> Nothing</label><label><input type="radio" value="provider"> A provider error</label>
+            <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+          <fieldset data-case-id="budget" data-answer="max" data-correct="Correct. max_steps is a harness-owned safety boundary even when each tool request is valid." data-incorrect="Valid work does not permit unbounded work.">
+            <legend>The final allowed step does not submit. What is the next transition?</legend>
+            <label><input type="radio" value="retry"> Continue until the model submits</label><label><input type="radio" value="max"> Return max_steps</label><label><input type="radio" value="fallback"> Run a default tool</label>
+            <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
+          </fieldset>
+        </section>
+
+        <section>
+          <h2>Reconstruct the narrow loop</h2>
+          <p>From the real skeleton, write only this slice: append assistant output; validate it; return on submit; normalize a missing runtime handler or tool exception; append one observation; respect <code>max_steps</code>. Do not copy the finished function or move parser, validator, or file-policy responsibilities into the loop.</p>
+        </section>
+
+        <section data-lecture-continuation data-lecture-obligation="proof-limits">
+          <h2>Run proof and bound the claim</h2>
+          <p>Run <code>uv run pytest curriculum/phase-1/06_agent_loop/tests_agent_loop.py</code>. The focused tests establish covered transitions: submission stops, malformed output becomes an observation, tool results reach later calls, runtime drift is normalized, handler exceptions do not escape, and the budget stops repeated work.</p>
+          <p>They do not prove every tool is correct, every branch is instrumented, the model chooses useful actions, or arbitrary user tasks succeed. A green loop suite establishes control-flow mechanics, not product quality.</p>
+          <p><strong>Transfer:</strong> in a high-safety customer environment, which currently recoverable failure should become terminal? Name the transition, the changed policy, and the regression that would distinguish deliberate termination from an accidental crash.</p>
+        </section>
       </section>
 
-      <section data-prediction>
-        <h2>Commit a prediction</h2>
-        <p>The protocol registry contains <code>read_file</code>; the runtime <code>tools</code> dictionary is empty. What should happen after validation succeeds?</p>
-        <label><input data-prediction-choice type="radio" name="prediction" value="execute"> Execute through an implicit fallback</label>
-        <label><input data-prediction-choice type="radio" name="prediction" value="observe"> Append an UNKNOWN_TOOL observation and continue within the budget</label>
-        <label><input data-prediction-choice type="radio" name="prediction" value="submit"> Treat the request as a final answer</label>
-        <label>Why does that boundary own the decision?<textarea data-prediction-rationale></textarea></label>
-        <button type="button" data-prediction-submit>Commit prediction</button>
-        <p data-feedback class="feedback"></p>
-        <div data-prediction-answer hidden><p>The registry proves protocol support; it does not prove the runtime has a handler. Dispatch owns that second check.</p></div>
-      </section>
-
-      <section>
-        <h2>Inspect the real boundary</h2>
-        <p>Read <code>run_agent</code> and locate the sequence: model output → validation → <code>submit</code> control → runtime handler lookup → normalized observation → next message. Compare <code>test_unregistered_runtime_tool_is_rejected_without_execution</code> with <code>test_unknown_protocol_tool_is_rejected_without_execution</code>.</p>
-        <p>They both surface <code>UNKNOWN_TOOL</code>, but their first responsible transition differs. One fails at protocol validation; the other fails at runtime dispatch.</p>
-      </section>
-
-      <section data-case-set>
-        <h2>Diagnose the transition, then see the feedback</h2>
-        <p>Complete every case and justify each choice from the visible artifact—not from wording you remember.</p>
-
-        <fieldset data-case-id="malformed-json" data-answer="observe" data-correct="Correct. Parsing fails before a request exists; append the INVALID_JSON observation." data-incorrect="The parser is the first boundary. Do not infer a tool from malformed text.">
-          <legend>Malformed JSON reaches the loop. What is the smallest safe intervention?</legend>
-          <label><input type="radio" value="execute"> Execute read_file anyway</label><label><input type="radio" value="observe"> Append a rejection observation</label><label><input type="radio" value="crash"> Crash before recording evidence</label>
-          <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
-        </fieldset>
-        <fieldset data-case-id="runtime-drift" data-answer="dispatch" data-correct="Correct. The protocol accepted the request; runtime dispatch discovers the missing handler." data-incorrect="Distinguish a missing protocol tool from a missing runtime handler.">
-          <legend>read_file is validated but absent from runtime handlers. Which boundary owns it?</legend>
-          <label><input type="radio" value="parser"> Parser</label><label><input type="radio" value="validator"> Argument validator</label><label><input type="radio" value="dispatch"> Runtime dispatch</label>
-          <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
-        </fieldset>
-        <fieldset data-case-id="unknown-protocol" data-answer="validator" data-correct="Correct. delete_file is absent from Primitive 04's TOOL_SPECS, so it never reaches dispatch." data-incorrect="The registry check happens before runtime dispatch.">
-          <legend>delete_file has valid JSON and arguments. Where is the first bad transition?</legend>
-          <label><input type="radio" value="dispatch"> Runtime dispatch</label><label><input type="radio" value="validator"> Protocol registry validation</label><label><input type="radio" value="tool"> File-tool execution</label>
-          <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
-        </fieldset>
-        <fieldset data-case-id="submit" data-answer="return" data-correct="Correct. submit is protocol-shaped control flow, not an external callable." data-incorrect="A registered callable named submit must not gain authority over loop termination.">
-          <legend>Validated submit arrives while a tools dictionary also has submit. What happens?</legend>
-          <label><input type="radio" value="execute"> Execute the runtime submit handler</label><label><input type="radio" value="return"> Return the validated answer</label><label><input type="radio" value="retry"> Ask the model again</label>
-          <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
-        </fieldset>
-        <fieldset data-case-id="tool-exception" data-answer="normalize" data-correct="Correct. TOOL_EXCEPTION becomes inspectable tool context instead of escaping the loop." data-incorrect="The loop owns normalization around the runtime handler.">
-          <legend>A registered handler raises an exception. What does the loop add next?</legend>
-          <label><input type="radio" value="normalize"> A TOOL_EXCEPTION observation</label><label><input type="radio" value="ignore"> Nothing</label><label><input type="radio" value="provider"> A provider error</label>
-          <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
-        </fieldset>
-        <fieldset data-case-id="budget" data-answer="max" data-correct="Correct. max_steps is a harness-owned safety boundary even when each tool request is valid." data-incorrect="Valid work does not permit unbounded work.">
-          <legend>The final allowed step does not submit. What is the next transition?</legend>
-          <label><input type="radio" value="retry"> Continue until the model submits</label><label><input type="radio" value="max"> Return max_steps</label><label><input type="radio" value="fallback"> Run a default tool</label>
-          <label>Rationale<textarea data-rationale></textarea></label><button type="button" data-case-submit>Commit case</button><p data-feedback class="feedback"></p>
-        </fieldset>
-      </section>
-
-      <section>
-        <h2>Reconstruct the narrow loop</h2>
-        <p>From a skeleton, write only this slice: append assistant output; validate it; return on submit; normalize a missing runtime handler or tool exception; append one observation; respect <code>max_steps</code>. Do not copy the finished function.</p>
-        <p>Run <code>uv run pytest curriculum/phase-1/06_agent_loop/tests_agent_loop.py</code>. The proof establishes tested control-flow behavior; it does not prove every tool is correct, that the model is reliable, or that a production system has enough observability.</p>
-      </section>
-
-      <section>
-        <h2>Transfer</h2>
-        <p>In a high-safety customer environment, which failures would you make terminal instead of bounded recovery? Name the transition and the regression proof you would add.</p>
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="source-kind">Primary source</p>
+            <h3><a href="https://developers.openai.com/api/docs/guides/function-calling">OpenAI docs: Function calling</a></h3>
+            <p>Follow the application-owned request, execution, and tool-output round trip that the local loop implements explicitly.</p>
+          </article>
+          <article class="source-card">
+            <p class="source-kind">Go deeper</p>
+            <h3><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic engineering: Building Effective Agents</a></h3>
+            <p>Compare the local bounded loop with the recommendation to start from simple, inspectable workflows before adding autonomy.</p>
+          </article>
+          <article class="source-card">
+            <p class="source-kind">Go deeper</p>
+            <h3><a href="https://developers.openai.com/api/docs/guides/conversation-state">OpenAI docs: Conversation state</a></h3>
+            <p>Relate the loop's explicit message accumulation to application-managed state across otherwise stateless calls.</p>
+          </article>
+        </div>
+        <p class="small">Local references: Agent Loop Contract and <a href="../traces/agent-loop-scenarios.json">canonical loop scenarios</a>. Ask your teacher to review one reconstructed trajectory and the limit of its proof.</p>
       </section>
 
       <nav class="site-nav bottom-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 6 of 8</span>
-        <span>Project 1A · Reconstruction lab</span>
+        <span>Lesson 6 of 8 · Agent Loop</span>
         <div class="nav-spacer"></div>
         <a href="0005-sandboxed-file-tools.html" aria-label="Previous lesson">Previous</a>
         <a href="0007-trace-logger.html" aria-label="Next lesson">Next</a>

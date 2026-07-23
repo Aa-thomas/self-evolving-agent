@@ -44,6 +44,60 @@ reconstruction: annotated | skeleton | blank | none
 
 `starting_artifacts` are what may be inspected before the learner builds. `target_artifacts` are the destination and need not exist at the start. `proof_artifacts` demonstrate the finished result. Do not reveal a current primitive’s completed solution at the beginning unless the lesson is deliberately a debugging, code-reading, or reconstruction lab.
 
+## Shared learner-facing anatomy
+
+Every published lesson is a standalone **university-level lecture plus evidence-first engineering lab**. “Standalone” means a learner can use the page to explain the mechanism, follow one complete trajectory, answer the configured study questions, identify the owning boundary, and state the proof's limit without depending on an unrecorded instructor explanation.
+
+Bounded scope must not become a thin handout. Control cognitive load through progressive disclosure and one coherent running example. Each lesson contains:
+
+1. **Memorable identity.** A precise technical name remains available for search and navigation; a short declarative memory phrase is the learner-facing title.
+2. **Lecture.** State a central thesis, teach a causal or system model, follow a complete real-artifact example, contrast a plausible failure, explain a real tradeoff, and bound the evidence.
+3. **Engineering lab.** Preserve prediction, artifact inspection, intervention, implementation or diagnosis, proof, explanation, and transfer.
+4. **Further reading.** End with one annotated high-trust primary source and one to three annotated deeper sources curated in `RESOURCES.md`.
+
+The manifest's shared contracts are:
+
+```yaml
+identity:
+  number: 1
+  technical_name: Model-Call Boundary
+  memorable_phrase: A model call is text in, text out, plus evidence
+lecture_contract:
+  central_thesis: The durable idea the learner should retain.
+  explanatory_obligations:
+    - id: provider-boundary
+      claim: The specific relationship the page must teach.
+  worked_example:
+    artifact: curriculum/path/to/real-artifact.py
+    arc: [starting fact, authoritative transition, observable result]
+  study_prompt_coverage:
+    think.model: [provider-boundary]
+    plan.smallest_slice: [provider-boundary]
+    reflect.feynman: [provider-boundary]
+reading_contract:
+  primary: {title: ..., url: ..., why: ...}
+  further:
+    - {title: ..., url: ..., why: ...}
+```
+
+`explanatory_obligations` are semantic coverage requirements, not mandatory headings. The page marks where each obligation is taught so publication checks can detect omissions. The coverage map must prepare every Think prompt, every implementation-plan field, and the conceptual reflection prompts; it does not prescribe the learner's answers.
+
+If prose would directly answer the prediction, keep that portion hidden until the learner commits both a choice and rationale. Printing or exporting the lesson may reveal the complete lecture. Do not hide basic prerequisite teaching merely to manufacture difficulty.
+
+Place every explanatory-obligation marker and the worked example inside `article[data-lecture]`. When a prediction deliberately interrupts the lecture, mark each later teaching section with `data-lecture-continuation`; an unscoped marker elsewhere in the lab does not satisfy the lecture contract.
+
+### Standalone-readability review
+
+Structural lint cannot prove instructional quality. Before publication, review the rendered page and answer:
+
+- Can a learner state the thesis and reconstruct the system model?
+- Does the worked example contain at least three real transitions rather than an invented snippet?
+- Does the failure contrast identify the first bad transition and responsible boundary?
+- Does the page prepare every study question without filling it in for the learner?
+- Is the tradeoff a real choice in this repository?
+- Does the evidence section say both what the proof establishes and what it leaves unresolved?
+- Does each reading annotation explain why that source belongs in this lesson?
+
 ## Required learner operations
 
 Authors may arrange a lesson in the structure that best fits its decision, but it must cause the learner to:
@@ -194,7 +248,7 @@ teaching_contract:
 
 `reconstruct` mode requires a `reconstruction_lab`, a real scaffold, and the existing reconstruction proof contract. `assemble`, `extend`, and `repair` do not require a scaffold. This keeps reconstruction as a deliberate mode, rather than forcing every system lesson to pretend the learner is rebuilding existing code.
 
-Agent Loop is the first use of this pattern. Eval Runner remains unassigned until the experiment-lab pattern is reviewed.
+Agent Loop is the first use of this pattern. Eval Runner uses the `experiment_lab` pattern described below.
 
 ## Evidence-first failure episode schema: `diagnostic_clinic`
 
@@ -393,4 +447,4 @@ Not every primitive needs the maximum score in every dimension, but no lesson pa
 
 ## Publication checklist
 
-Before publishing, verify that the evidence packet is complete, every referenced artifact resolves, practice meets its contract, the learner can make and explain a real intervention, and the manifest and lesson linter both pass. A completed or reconstruction lab's configured proof must pass before publication. A learner-build lab may begin with a deliberately failing implementation proof only when the starter source, failure fixture, and exact green-after-build assertion are present; record that distinction in the lesson and never advance completion from the starting failure. Review against `MISSION.md`, not merely HTML structure.
+Before publishing, verify that the evidence packet is complete, every referenced artifact resolves, the lecture passes the standalone-readability review, practice meets its contract, every study prompt has explanatory coverage, the readings are curated and annotated, the learner can make and explain a real intervention, and the manifest and lesson linter both pass. A completed or reconstruction lab's configured proof must pass before publication. A learner-build lab may begin with a deliberately failing implementation proof only when the starter source, failure fixture, and exact green-after-build assertion are present; record that distinction in the lesson and never advance completion from the starting failure. Review against `MISSION.md`, not merely HTML structure.

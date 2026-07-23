@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Project 1A: Message state</title>
+    <title>Project 1A · Message State · Memory is the context you pass back in</title>
     <link rel="stylesheet" href="../assets/course.css">
     <link rel="stylesheet" href="../assets/site.css">
     <script defer src="../assets/lesson.js"></script>
@@ -14,20 +14,20 @@
     <main>
       <nav class="site-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 2 of 8</span>
-        <span>Project 1A · Primitive 2 · Foundation build</span>
+        <span>Lesson 2 of 8 · Message State</span>
         <div class="nav-spacer"></div>
         <a href="0001-model-call-primitive.html" aria-label="Previous lesson">Previous</a>
         <a href="0003-manual-tool-protocol.html" aria-label="Next lesson">Next</a>
       </nav>
 
-      <header>
-        <p class="eyebrow">Project 1A · Primitive 2 · Foundation build</p>
-        <h1>Give the next model call the evidence it needs</h1>
+      <header data-lesson-identity>
+        <p class="eyebrow">Primitive 2 · Message State</p>
+        <h1>Memory is the context you pass back in</h1>
         <p class="lede">A model call has no secret memory of the call before it. The harness creates continuity by passing an ordered record of what happened.</p>
       </header>
 
-      <section>
+      <article data-lecture>
+      <section data-lecture-obligation="explicit-context">
         <h2>Why does an agent repeat work?</h2>
         <p>Imagine the model requests <code>read_file</code>. The tool succeeds and returns the file contents. On the next turn, the model asks for <code>read_file</code> again.</p>
         <p>It is tempting to blame the model: perhaps its temperature is too high or it ignored the result. But there is a simpler cause to check first. Did the next model call actually receive the tool result?</p>
@@ -51,7 +51,7 @@
         <p><strong>Target artifact:</strong> your <code>message_state.py</code>. <strong>Proof artifact:</strong> <code>uv run pytest curriculum/phase-1/02_message_state/tests_02_message_state.py</code>. Use the scaffold before consulting the completed target.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="causal-ordering">
         <h2>A message list is a causal ledger</h2>
         <p>Each message says who produced an event and what the next model call is allowed to know about it. Order matters because later events only make sense in relation to earlier ones.</p>
         <table class="contract-table">
@@ -65,7 +65,7 @@
         <p>The tool message is not the tool itself. It is evidence about the tool outcome, encoded as text so it can cross the model-call boundary.</p>
       </section>
 
-      <section>
+      <section data-worked-example>
         <h2>Walk through the successful trajectory</h2>
         <p>The focused proof begins with one user message. The first fake-model call sees only that task and returns a <code>read_file</code> request. <code>run_model_turn</code> then appends that exact assistant output.</p>
         <table class="contract-table">
@@ -80,7 +80,7 @@
         <p>Now the second model call can distinguish “I should read the file” from “I already requested it and the harness returned these contents.”</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="observation-encoding">
         <h2>What does “decode the tool observation” mean?</h2>
         <p>Inside the harness, a tool result may be a structured Python value such as <code>{"ok": True, "value": "file contents"}</code>. Message content must be a string, so <code>append_tool_observation</code> serializes that value to JSON and appends it with <code>role="tool"</code>.</p>
         <pre><code>structured harness result
@@ -91,7 +91,7 @@ structured observation for a test or diagnostic</code></pre>
         <p><code>decode_tool_observation</code> performs the final arrow. It does not execute the tool and the model does not call it. It lets tests verify that the message string still contains the structured result the harness intended to preserve.</p>
       </section>
 
-      <section>
+      <section data-lecture-obligation="diagnostic-evidence">
         <h2>Contrast the missing transition</h2>
         <p>Suppose the tool result exists only in a local Python variable. If the harness calls the model again while the message list still ends with the assistant request, the second input is <code>[user, assistant]</code>. From the model's point of view, no tool result ever happened.</p>
         <div class="grid">
@@ -101,6 +101,14 @@ structured observation for a test or diagnostic</code></pre>
         <p>The harness chooses explicit evidence. This does not guarantee the model will act well, but it makes missing context distinguishable from poor model behavior.</p>
       </section>
 
+      <section>
+        <h2>Synthesis: state is a deliberate handoff</h2>
+        <p>Nothing inside the model call automatically joins one turn to the next. Continuity exists only because the harness preserves an ordered event record and supplies it again. That makes message state both an input to behavior and an evidence artifact: the same list that gives the model context lets an engineer inspect what context was actually available.</p>
+        <p>The practical diagnostic rule is therefore simple. Before attributing repeated work to model judgment, inspect the next call’s exact message list. A missing or misordered observation is a harness failure; a complete and accurate list moves the investigation to a later boundary.</p>
+      </section>
+      </article>
+
+      <section data-engineering-lab aria-label="Engineering lab">
       <section class="practice" data-prediction>
         <h2>Commit your prediction</h2>
         <p>The tool returned <code>{"ok": true, "value": "file contents"}</code>, but the model requests <code>read_file</code> again. What should you inspect first?</p>
@@ -189,11 +197,27 @@ structured observation for a test or diagnostic</code></pre>
         <p>A tool fails with <code>{"ok": false, "error": "File does not exist"}</code>. Decide whether that failure belongs in message state, which role it uses, and what must be preserved so the model can choose a different next action. Then name one assertion you would add.</p>
         <p class="small">Ask your teacher to review your message timeline and where your explanation stops being proven by the test.</p>
       </section>
+      </section>
+
+      <section data-further-reading>
+        <h2>Further reading</h2>
+        <div class="reading-grid">
+          <article class="source-card">
+            <p class="eyebrow">Primary source</p>
+            <h3><a href="https://developers.openai.com/api/docs/guides/function-calling">OpenAI docs: Function calling</a></h3>
+            <p>Focus on returning a function result to the model: it is the production analogue of appending a tool-role observation before the next call.</p>
+          </article>
+          <article class="source-card">
+            <p class="eyebrow">Go deeper</p>
+            <h3><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic engineering: Building Effective Agents</a></h3>
+            <p>Use its workflow-versus-agent framing to see why explicit, inspectable state should precede more autonomous control flow.</p>
+          </article>
+        </div>
+      </section>
 
       <nav class="site-nav bottom-nav" aria-label="Course navigation">
         <a href="../index.html">Course Home</a>
-        <span>Lesson 2 of 8</span>
-        <span>Project 1A · Primitive 2 · Foundation build</span>
+        <span>Lesson 2 of 8 · Message State</span>
         <div class="nav-spacer"></div>
         <a href="0001-model-call-primitive.html" aria-label="Previous lesson">Previous</a>
         <a href="0003-manual-tool-protocol.html" aria-label="Next lesson">Next</a>
