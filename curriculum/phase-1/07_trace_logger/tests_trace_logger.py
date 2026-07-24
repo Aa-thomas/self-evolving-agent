@@ -142,3 +142,51 @@ def test_trace_logger_records_typed_causal_outcomes_and_writes_versioned_json(
     assert saved["steps"][1]["tool_outcome"] is None
     assert saved["steps"][1]["exit_reason"] == "submitted"
     assert saved["exit_reason"] == "submitted"
+
+
+def test_trace_distinguishes_missing_runtime_handler_from_unknown_tool():
+    logger = module.TraceLogger()
+
+    agent_loop.run_agent(
+        user_task="Read notes.txt.",
+        model=FakeModel([
+            '{"tool":"read_file","args":{"path":"notes.txt"}}',
+            '{"tool":"submit","args":{"answer":"done"}}',
+        ]),
+        tools={},
+        max_steps=3,
+        trace_logger=logger,
+    )
+
+    assert logger.trace is not None
+    first_step = logger.trace.steps[0]
+
+    assert first_step.request_outcome == module.RequestAccepted(
+        tool="read_file"
+    )
+    assert first_step.action == module.ExecuteToolSelected(tool="read_file")
+    assert first_step.tool_outcome == module.ToolFailed(
+        tool="read_file",
+        code="RUNTIME_TOOL_UNAVAILABLE",
+        message="Unknown tool: read_file",
+    )
+
+
+def test_trace_marks_the_final_step_and_run_when_max_steps_is_exhausted():
+    logger = module.TraceLogger()
+
+    result = agent_loop.run_agent(
+        user_task="Read notes.txt.",
+        model=FakeModel([
+            '{"tool":"read_file","args":{"path":"notes.txt"}}',
+        ]),
+        tools={"read_file": read_file},
+        max_steps=1,
+        trace_logger=logger,
+    )
+
+    assert result.exit_reason == "max_steps"
+    assert logger.trace is not None
+    assert logger.trace.steps[-1].exit_reason is module.TraceExitReason.MAX_STEPS
+    assert logger.trace.final_answer is None
+    assert logger.trace.exit_reason is module.TraceExitReason.MAX_STEPS

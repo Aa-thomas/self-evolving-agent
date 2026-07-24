@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields, is_dataclass
 from enum import StrEnum
 import json
-from typing import Any, Literal, Protocol, TypeAlias, assert_never
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeAlias, assert_never
 
 from pydantic import BaseModel
 
@@ -15,6 +15,9 @@ from validate_tool_args import (
     parse_and_validate_tool_request,
 )
 from result import Err, Ok, Result
+
+if TYPE_CHECKING:
+    from trace_logger import TraceLogger
 
 
 ## =============================================================================
@@ -62,7 +65,7 @@ def classify_action(
 class UnavailableRuntimeToolError:
     tool: KnownToolName
     message: str
-    code: Literal["UNKNOWN_TOOL"] = "UNKNOWN_TOOL"
+    code: Literal["RUNTIME_TOOL_UNAVAILABLE"] = "RUNTIME_TOOL_UNAVAILABLE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,16 +197,43 @@ def run_agent(
     model: Model,
     tools: ToolHandlers,
     max_steps: int,
+    trace_logger: TraceLogger | None = None,
 ) -> AgentResult:
     messages = [{"role": "user", "content": user_task}]
 
-    for _ in range(max_steps):
+    if trace_logger is not None:
+        from trace_logger import (
+            ExecuteToolSelected,
+            SubmitSelected,
+            ToolFailed,
+            ToolSucceeded,
+            exit_reason_to_trace,
+            request_result_to_trace,
+        )
+
+        trace_logger.start(messages)
+
+    for step_index in range(max_steps):
         assistant_output = model.complete(messages)
         messages.append({"role": "assistant", "content": assistant_output})
 
         request_result = parse_and_validate_tool_request(assistant_output)
 
         if isinstance(request_result, Err):
+            if trace_logger is not None:
+                trace_exit_reason = (
+                    exit_reason_to_trace(ExitReason.MAX_STEPS)
+                    if step_index == max_steps - 1
+                    else None
+                )
+                trace_logger.record_step(
+                    assistant_output=assistant_output,
+                    request_outcome=request_result_to_trace(request_result),
+                    action=None,
+                    tool_outcome=None,
+                    exit_reason=trace_exit_reason,
+                )
+
             messages.append(
                 {"role": "tool", "content": observation_content(request_result)}
             )
@@ -218,6 +248,22 @@ def run_agent(
 
         match action:
             case SubmitAction(answer=answer):
+                if trace_logger is not None:
+                    trace_exit_reason = exit_reason_to_trace(
+                        ExitReason.SUBMITTED
+                    )
+                    trace_logger.record_step(
+                        assistant_output=assistant_output,
+                        request_outcome=request_result_to_trace(request_result),
+                        action=SubmitSelected(answer=answer),
+                        tool_outcome=None,
+                        exit_reason=trace_exit_reason,
+                    )
+                    trace_logger.finish(
+                        final_answer=answer,
+                        exit_reason=trace_exit_reason,
+                    )
+
                 return AgentResult(
                     exit_reason=ExitReason.SUBMITTED,
                     final_answer=answer,
@@ -225,6 +271,40 @@ def run_agent(
 
             case ExecuteToolAction():
                 tool_result = execute_tool_action(action, tools)
+
+                if trace_logger is not None:
+                    if isinstance(tool_result, Err):
+                        error = tool_result.unwrap_err()
+                        tool_outcome = ToolFailed(
+                            tool=action.request.tool,
+                            code=getattr(error, "code", "UNKNOWN_ERROR"),
+                            message=getattr(error, "message", str(error)),
+                        )
+                    else:
+                        tool_value = (
+                            tool_result.unwrap()
+                            if isinstance(tool_result, Ok)
+                            else tool_result
+                        )
+                        tool_outcome = ToolSucceeded(
+                            tool=action.request.tool,
+                            value=to_jsonable(tool_value),
+                        )
+
+                    trace_exit_reason = (
+                        exit_reason_to_trace(ExitReason.MAX_STEPS)
+                        if step_index == max_steps - 1
+                        else None
+                    )
+                    trace_logger.record_step(
+                        assistant_output=assistant_output,
+                        request_outcome=request_result_to_trace(request_result),
+                        action=ExecuteToolSelected(
+                            tool=action.request.tool
+                        ),
+                        tool_outcome=tool_outcome,
+                        exit_reason=trace_exit_reason,
+                    )
 
                 messages.append(
                     {
@@ -235,6 +315,12 @@ def run_agent(
 
             case _:
                 assert_never(action)
+
+    if trace_logger is not None:
+        trace_logger.finish(
+            final_answer=None,
+            exit_reason=exit_reason_to_trace(ExitReason.MAX_STEPS),
+        )
 
     return AgentResult(
         exit_reason=ExitReason.MAX_STEPS,
